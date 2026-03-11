@@ -51,10 +51,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   final Queue<_TapEntry> _queue = Queue();
   final Set<String> _inQueue = {}; // cardNos currently queued or showing
 
-  void _ensureHikvisionStarted() {
-    if (_hikStarted) return;
+  void _ensureServicesStarted({bool force = false}) {
     final config = ref.read(configProvider).valueOrNull;
-    if (config != null && config.isHikvisionConfigured) {
+    if (config == null) return;
+
+    if ((force || !_hikStarted) && config.isHikvisionConfigured) {
       ref.read(hikvisionServiceProvider).start(config);
       final attendance = ref.read(attendanceServiceProvider);
       attendance.onTapDetected = _onTapDetected;
@@ -84,7 +85,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       barrierDismissible: false,
       builder: (_) => TapPopupDialog(
         student: entry.student,
-        suggestedType: entry.suggestedType,
+        attendanceService: ref.read(attendanceServiceProvider),
       ),
     );
 
@@ -101,17 +102,23 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _saveRecord(_TapEntry entry, TapPopupResult result) async {
     final db = ref.read(databaseProvider);
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final recordId = '${entry.event.cardNo}_${entry.event.serialNo}';
+    
+    // Use existing record ID if overwriting, otherwise generate new one based on event
+    final recordId = result.existingRecordId ?? '${entry.event.cardNo}_${entry.event.serialNo}';
 
-    await db.insertTapRecord(TapRecordsCompanion(
-      id: Value(recordId),
-      cardNo: Value(entry.event.cardNo),
-      eventType: Value(result.eventType),
-      deviceTime: Value(entry.event.dateTime.millisecondsSinceEpoch ~/ 1000),
-      hikSerialNo: Value(entry.event.serialNo),
-      createdAt: Value(now),
-      reason: Value(result.reason),
-    ));
+    await db.into(db.tapRecords).insert(
+      TapRecordsCompanion(
+        id: Value(recordId),
+        cardNo: Value(entry.event.cardNo),
+        eventType: Value(result.eventType),
+        deviceTime: Value(entry.event.dateTime.millisecondsSinceEpoch ~/ 1000),
+        hikSerialNo: Value(entry.event.serialNo),
+        createdAt: Value(now),
+        reason: Value(result.reason),
+        publishedAt: const Value(null),
+      ),
+      mode: InsertMode.insertOrReplace,
+    );
 
     ref.invalidate(recentRecordsProvider);
     ref.invalidate(pendingSyncCountProvider);
@@ -120,13 +127,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen(configProvider, (_, next) {
-      if (_hikStarted) return;
       final config = next.valueOrNull;
-      if (config != null && config.isHikvisionConfigured) {
-        _ensureHikvisionStarted();
+      if (config != null) {
+        _ensureServicesStarted(force: true);
       }
     });
-    _ensureHikvisionStarted();
+    _ensureServicesStarted();
 
     final colors = Theme.of(context).colorScheme;
 

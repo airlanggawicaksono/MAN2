@@ -24,20 +24,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _initialSyncDone = true;
     final config = ref.read(configProvider).valueOrNull;
     if (config != null && config.isServerConfigured) {
-      await ref.read(studentSyncProvider.notifier).syncStudents();
-      ref.invalidate(allStudentsProvider);
-      ref.invalidate(recentRecordsProvider);
+      await ref.read(globalSyncProvider.notifier).syncAll();
     }
   }
 
   Future<void> _refreshAll() async {
     final config = ref.read(configProvider).valueOrNull;
     if (config != null && config.isServerConfigured) {
-      await ref.read(studentSyncProvider.notifier).syncStudents();
+      await ref.read(globalSyncProvider.notifier).syncAll();
+    } else {
+      ref.invalidate(allStudentsProvider);
+      ref.invalidate(recentRecordsProvider);
+      ref.invalidate(pendingSyncCountProvider);
     }
-    ref.invalidate(allStudentsProvider);
-    ref.invalidate(recentRecordsProvider);
-    ref.invalidate(pendingSyncCountProvider);
   }
 
   String _studentName(String cardNo) {
@@ -49,7 +48,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final configAsync = ref.watch(configProvider);
-    final syncState = ref.watch(studentSyncProvider);
+    final syncState = ref.watch(globalSyncProvider);
+    final studentState = ref.watch(studentSyncProvider);
     final pendingAsync = ref.watch(pendingSyncCountProvider);
     final recordsAsync = ref.watch(recentRecordsProvider);
     final theme = Theme.of(context);
@@ -69,11 +69,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.door_sliding, color: colors.primary, size: 28),
+                Icon(
+                  Icons.door_back_door_outlined,
+                  color: colors.primary,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
-                Text('Simandaya Gate',
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Sijinak',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
                 const Spacer(),
                 syncState.when(
                   data: (s) => s.syncing
@@ -85,7 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       : IconButton(
                           icon: const Icon(Icons.sync),
                           onPressed: _refreshAll,
-                          tooltip: 'Sync students & refresh',
+                          tooltip: 'Simplex Sync (Full)',
                         ),
                   loading: () => const SizedBox(
                     width: 20,
@@ -119,15 +127,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   context,
                   icon: Icons.router,
                   label: 'Reader',
-                  value: configAsync.whenOrNull(
+                  value:
+                      configAsync.whenOrNull(
                         data: (c) =>
                             c.isHikvisionConfigured ? 'Ready' : 'Not set',
                       ) ??
                       '...',
-                  color: configAsync.whenOrNull(
-                        data: (c) => c.isHikvisionConfigured
-                            ? Colors.green
-                            : Colors.red,
+                  color:
+                      configAsync.whenOrNull(
+                        data: (c) =>
+                            c.isHikvisionConfigured ? Colors.green : Colors.red,
                       ) ??
                       Colors.grey,
                 ),
@@ -136,12 +145,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   context,
                   icon: Icons.cloud,
                   label: 'Server',
-                  value: configAsync.whenOrNull(
+                  value:
+                      configAsync.whenOrNull(
                         data: (c) =>
                             c.isServerConfigured ? 'Connected' : 'Not set',
                       ) ??
                       '...',
-                  color: configAsync.whenOrNull(
+                  color:
+                      configAsync.whenOrNull(
                         data: (c) =>
                             c.isServerConfigured ? Colors.green : Colors.red,
                       ) ??
@@ -152,15 +163,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   context,
                   icon: Icons.people,
                   label: 'Students',
-                  value: syncState.when(
+                  value: studentState.when(
                     data: (s) => '${s.count}',
                     loading: () => '...',
                     error: (_, __) => '?',
                   ),
                   color: Colors.blue,
-                  subtitle: syncState.whenOrNull(
+                  subtitle: studentState.whenOrNull(
                     data: (s) {
-                      if (s.error != null) return 'Sync error';
                       if (s.lastSyncedAt != null) {
                         final t = s.lastSyncedAt!;
                         return 'Synced ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -179,7 +189,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     loading: () => '...',
                     error: (_, __) => '?',
                   ),
-                  color: pendingAsync.whenOrNull(
+                  onTap: _refreshAll,
+                  color:
+                      pendingAsync.whenOrNull(
                         data: (n) => n > 0 ? Colors.orange : Colors.green,
                       ) ??
                       Colors.grey,
@@ -188,58 +200,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
 
-          // ── Sync error banner ───────────────────────────────────
+          // ── Sync error/success banner ──────────────────────────
           syncState.whenOrNull(
                 data: (s) {
-                  if (s.error == null) return null;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber,
-                              color: Colors.orange.shade700, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Student sync failed: ${s.error}',
-                              style: TextStyle(
-                                  color: Colors.orange.shade800, fontSize: 12),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _refreshAll,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  if (s.error != null) {
+                    return _SyncBanner(
+                      message: 'Sync failed: ${s.error}',
+                      color: Colors.red,
+                      onRetry: _refreshAll,
+                    );
+                  }
+                  if (s.lastAttendanceSynced != null && s.lastAttendanceSynced! > 0) {
+                    return _SyncBanner(
+                      message: 'Successfully synced ${s.lastAttendanceSynced} records to server.',
+                      color: Colors.green,
+                      icon: Icons.check_circle_outline,
+                    );
+                  }
+                  return null;
                 },
               ) ??
               const SizedBox.shrink(),
+
 
           // ── Recent Events ───────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
             child: Row(
               children: [
-                Text('Recent Events',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: colors.onSurfaceVariant)),
+                Text(
+                  'Recent Events',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
                 const Spacer(),
                 recordsAsync.whenOrNull(
-                      data: (records) => Text('${records.length} records',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: colors.outline)),
+                      data: (records) => Text(
+                        '${records.length} records',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.outline,
+                        ),
+                      ),
                     ) ??
                     const SizedBox.shrink(),
               ],
@@ -255,17 +257,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.contactless,
-                              size: 64, color: colors.outlineVariant),
+                          Icon(
+                            Icons.contactless,
+                            size: 64,
+                            color: colors.outlineVariant,
+                          ),
                           const SizedBox(height: 12),
-                          Text('No events yet',
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(color: colors.outline)),
+                          Text(
+                            'No events yet',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: colors.outline,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             'Configure Hikvision reader and tap a card to start',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: colors.outlineVariant),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.outlineVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -277,7 +286,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       itemBuilder: (context, index) {
                         final record = records[index];
                         final time = DateTime.fromMillisecondsSinceEpoch(
-                            record.deviceTime * 1000);
+                          record.deviceTime * 1000,
+                        );
                         final timeStr =
                             '${time.hour.toString().padLeft(2, '0')}:'
                             '${time.minute.toString().padLeft(2, '0')}:'
@@ -285,8 +295,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor:
-                                _eventColor(record.eventType).withOpacity(0.1),
+                            backgroundColor: _eventColor(
+                              record.eventType,
+                            ).withOpacity(0.1),
                             child: Icon(
                               _eventIcon(record.eventType),
                               color: _eventColor(record.eventType),
@@ -295,8 +306,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           title: Text(
                             _studentName(record.cardNo),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
                             '${_eventLabel(record.eventType)} · $timeStr'
@@ -328,41 +338,55 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required String value,
     required Color color,
     String? subtitle,
+    VoidCallback? onTap,
   }) {
     final theme = Theme.of(context);
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 18),
-                const SizedBox(width: 6),
-                Text(label,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: color.withOpacity(0.8))),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600, color: color),
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 2),
-              Text(subtitle,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: color.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
-                      color: color.withOpacity(0.6), fontSize: 10)),
+                    color: color.withOpacity(0.6),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -405,5 +429,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       default:
         return eventType;
     }
+  }
+}
+
+class _SyncBanner extends StatelessWidget {
+  final String message;
+  final Color color;
+  final IconData icon;
+  final VoidCallback? onRetry;
+
+  const _SyncBanner({
+    required this.message,
+    required this.color,
+    this.icon = Icons.warning_amber,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (onRetry != null)
+              TextButton(
+                onPressed: onRetry,
+                child: const Text('Retry'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

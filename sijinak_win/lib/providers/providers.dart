@@ -6,6 +6,7 @@ import '../data/remote/api_client.dart';
 import '../services/attendance_service.dart';
 import '../services/hikvision_service.dart';
 import '../services/student_service.dart';
+import '../services/sync_service.dart';
 
 // Database - singleton
 final databaseProvider = Provider<AppDatabase>((_) => AppDatabase.instance);
@@ -40,6 +41,11 @@ final attendanceServiceProvider = Provider<AttendanceService>((ref) {
     db: ref.read(databaseProvider),
     hikService: ref.read(hikvisionServiceProvider),
   );
+});
+
+// Sync service - singleton
+final syncServiceProvider = Provider<SyncService>((ref) {
+  return SyncService(ref.read(databaseProvider));
 });
 
 // Dashboard data
@@ -145,3 +151,75 @@ final pendingSyncCountProvider = FutureProvider<int>((ref) async {
   final db = ref.read(databaseProvider);
   return db.getUnpublishedCount();
 });
+
+class GlobalSyncState {
+  final bool syncing;
+  final String? error;
+  final int? lastAttendanceSynced;
+  final DateTime? lastSyncedAt;
+
+  const GlobalSyncState({
+    this.syncing = false,
+    this.error,
+    this.lastAttendanceSynced,
+    this.lastSyncedAt,
+  });
+
+  GlobalSyncState copyWith({
+    bool? syncing,
+    String? error,
+    int? lastAttendanceSynced,
+    DateTime? lastSyncedAt,
+  }) =>
+      GlobalSyncState(
+        syncing: syncing ?? this.syncing,
+        error: error,
+        lastAttendanceSynced: lastAttendanceSynced ?? this.lastAttendanceSynced,
+        lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      );
+}
+
+class GlobalSyncNotifier extends AsyncNotifier<GlobalSyncState> {
+  @override
+  Future<GlobalSyncState> build() async => const GlobalSyncState();
+
+  Future<void> syncAll() async {
+    final config = ref.read(configProvider).valueOrNull;
+    if (config == null || !config.isServerConfigured) return;
+
+    state = AsyncData((state.valueOrNull ?? const GlobalSyncState()).copyWith(
+      syncing: true,
+      error: null,
+    ));
+
+    try {
+      // 1. Downstream Simplex: Pull Students
+      await ref.read(studentSyncProvider.notifier).syncStudents();
+      
+      // 2. Upstream Simplex: Push Attendance
+      final syncService = ref.read(syncServiceProvider);
+      final count = await syncService.manualBulkSync(config);
+
+      // Invalidate to refresh UI
+      ref.invalidate(allStudentsProvider);
+      ref.invalidate(recentRecordsProvider);
+      ref.invalidate(pendingSyncCountProvider);
+
+      state = AsyncData(GlobalSyncState(
+        syncing: false,
+        lastAttendanceSynced: count,
+        lastSyncedAt: DateTime.now(),
+      ));
+    } catch (e) {
+      state = AsyncData((state.valueOrNull ?? const GlobalSyncState()).copyWith(
+        syncing: false,
+        error: e.toString(),
+      ));
+    }
+  }
+}
+
+final globalSyncProvider =
+    AsyncNotifierProvider<GlobalSyncNotifier, GlobalSyncState>(
+        GlobalSyncNotifier.new);
+

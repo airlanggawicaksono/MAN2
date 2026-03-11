@@ -68,6 +68,9 @@ class IsapiClient {
     }
 
     final responseBody = result.stdout as String;
+    if (responseBody.trim().isEmpty) {
+      return '';
+    }
 
     try {
       final json = jsonDecode(responseBody) as Map<String, dynamic>;
@@ -139,6 +142,9 @@ class IsapiClient {
     }
 
     final responseBody = result.stdout as String;
+    if (responseBody.trim().isEmpty) {
+      return '';
+    }
 
     // Check for error in JSON response
     try {

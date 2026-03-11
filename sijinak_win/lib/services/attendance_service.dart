@@ -38,6 +38,16 @@ class AttendanceService {
         '-${h.substring(16, 20)}-${h.substring(20)}';
   }
 
+  /// Get the existing local record for today to check for duplicates.
+  Future<TapRecord?> getExistingTodayRecord(String cardNo, String eventType) async {
+    final today = await db.getTodayRecordsForCard(cardNo);
+    try {
+      return today.firstWhere((r) => r.eventType == eventType);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _handleEvent(HikEvent event) async {
     if (event.cardNo.isEmpty) return;
 
@@ -51,10 +61,7 @@ class AttendanceService {
     student ??= await db.getStudentByCard(event.cardNo);
     if (student == null) return; // unknown card, ignore
 
-    // Determine suggestion based on today's tap count
-    final todayTaps = await db.getTodayRecordsForCard(event.cardNo);
-    final suggestedType = todayTaps.isEmpty ? 'absen_masuk' : 'absen_keluar';
-
-    onTapDetected?.call(event, student, suggestedType);
+    // Let the UI decide based on user input, we just notify a tap happened.
+    onTapDetected?.call(event, student, 'unknown');
   }
 }

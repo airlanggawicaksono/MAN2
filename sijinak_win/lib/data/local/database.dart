@@ -98,6 +98,9 @@ class AppDatabase extends _$AppDatabase {
   Future<List<TapRecord>> getUnpublishedRecords() =>
       (select(tapRecords)..where((r) => r.publishedAt.isNull())).get();
 
+  Stream<List<TapRecord>> watchUnpublishedRecords() =>
+      (select(tapRecords)..where((r) => r.publishedAt.isNull())).watch();
+
   Future<int> getUnpublishedCount() async {
     final count = countAll();
     final query = selectOnly(tapRecords)

@@ -146,25 +146,23 @@ AttendanceService listens to HikvisionService.events stream:
 
 No manual popup — tap type is auto-determined by today's record count.
 
-### 3c. Background Sync — NOT YET IMPLEMENTED
+### 3c. Background Sync — DONE
 
 ```
-Planned:
 1. On startup: connect WebSocket to /api/desktop/ws?api_key=<key>
-2. Worker loop: query tap_records WHERE publishedAt IS NULL
+2. Worker loop: watch tap_records WHERE publishedAt IS NULL
 3. Send each record: {record_id, user_id, event_type, device_time, reason}
-   (requires student lookup by cardNo to get userId for server)
 4. On server ack -> update publishedAt locally
-5. On disconnect -> queue keeps growing, retry connection
+5. On disconnect -> queue keeps growing, retry connection every 5s
 6. On reconnect -> flush entire queue
 ```
 
-### 3d. Student Sync — PARTIALLY DONE
+### 3d. Student Sync — DONE
 
 ```
-ApiClient.fetchStudents() -> GET /api/desktop/students (DONE)
-Full sync service (upsert into local DB on startup/periodic) -> NOT YET IMPLEMENTED
-Currently: students are managed manually via Hikvision push + CSV card import
+ApiClient.fetchStudents() -> GET /api/desktop/students
+Triggered on Dashboard initialization or manually via sync button.
+Upserts into local DB with StudentsCompanion.
 ```
 
 ---
@@ -280,12 +278,12 @@ Response `responseStatusStrg == "MORE"` means page through with next serialNo.
 - [x] Absensi screen: webview (webview_windows), no URL bar, loads frontendUrl/beranda
 - [x] Dashboard: live tap events, Hikvision connection status
 - [x] Settings: Hikvision + server config + connection test
+- [x] **WebSocket sync**: `ws_sync.dart` + `sync_service.dart` — send unpublished tap_records to `/api/desktop/ws`
+- [x] **Student sync from server**: on startup call `ApiClient.fetchStudents()` and upsert into local DB
+- [x] **Izin flow**: UI for recording `izin` event type with keterangan
 
 ### Pending
-- [ ] **WebSocket sync**: `ws_sync.dart` + `sync_service.dart` — send unpublished tap_records to `/api/desktop/ws`
-- [ ] **Student sync from server**: on startup call `ApiClient.fetchStudents()` and upsert into local DB
 - [ ] **Windows auto-start**: Task Scheduler or startup shortcut
-- [ ] **Izin flow**: UI for recording `izin` event type with keterangan (currently only masuk/keluar auto-detected)
 
 ---
 
