@@ -9,10 +9,11 @@ from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.models.desktop_settings import DesktopSettings
 from app.enums import UserType, StatusAbsensi
-from app.dto.desktop.desktop_request import AttendanceEventDTO
+from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO
 from app.dto.desktop.desktop_response import (
     StudentSyncDTO,
     AttendanceAckDTO,
+    BulkAttendanceResponseDTO,
     DesktopSettingsDTO,
 )
 
@@ -108,13 +109,8 @@ class DesktopService:
     async def process_attendance_event(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         """
         Process an attendance event from the desktop app.
-
-        Dispatches to the appropriate handler based on event_type.
-
-        Raises:
-            HTTPException: 400, 404 on validation errors
-            HTTPException: 500 on database error
         """
+        print(f"[DesktopService] Processing {event.event_type} for user {event.user_id} at {event.device_time}")
         try:
             if event.event_type == "absen_masuk":
                 return await self._handle_absen_masuk(event)
@@ -122,9 +118,19 @@ class DesktopService:
                 return await self._handle_absen_keluar(event)
             elif event.event_type == "izin":
                 return await self._handle_izin(event)
-        except HTTPException:
+            else:
+                print(f"[DesktopService] Unknown event type: {event.event_type}")
+                return AttendanceAckDTO(
+                    record_id=event.record_id,
+                    status="error",
+                    published_at=datetime.now(timezone.utc),
+                    detail=f"Unknown event type: {event.event_type}"
+                )
+        except HTTPException as e:
+            print(f"[DesktopService] HTTPException in {event.event_type}: {e.status_code} - {e.detail}")
             raise
         except Exception as e:
+            print(f"[DesktopService] Unexpected Error in {event.event_type}: {e}")
             await self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -134,11 +140,6 @@ class DesktopService:
     async def _handle_absen_masuk(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         """
         Handle check-in event.
-
-        1. Validate user is active siswa
-        2. Get late cutoff time
-        3. Check if already checked in today — skip if so
-        4. Create/update Absensi with time_in, status = Hadir or Terlambat
         """
         await self._validate_active_siswa(event.user_id)
         cutoff = await self._get_late_cutoff_time()
@@ -156,6 +157,7 @@ class DesktopService:
         existing = result.scalar_one_or_none()
 
         if existing and existing.time_in is not None:
+            print(f"[DesktopService] User {event.user_id} already checked in at {existing.time_in}, skipping.")
             return AttendanceAckDTO(
                 record_id=event.record_id,
                 status="ok",
@@ -171,9 +173,11 @@ class DesktopService:
         )
 
         if existing:
+            print(f"[DesktopService] Updating existing record for user {event.user_id} for {today}")
             existing.time_in = event.device_time
             existing.status = attendance_status
         else:
+            print(f"[DesktopService] Creating NEW record for user {event.user_id} for {today}")
             record = Absensi(
                 user_id=event.user_id,
                 tanggal=today,
@@ -183,7 +187,6 @@ class DesktopService:
             self.db.add(record)
 
         await self.db.flush()
-
         return AttendanceAckDTO(
             record_id=event.record_id,
             status="ok",
@@ -193,10 +196,9 @@ class DesktopService:
     async def _handle_absen_keluar(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         """
         Handle check-out event.
-
         1. Find today's Absensi for user
         2. Update time_out
-        3. If no record exists, return error ack
+        3. If no record exists, create one with only time_out (status = Hadir by default)
         """
         today = event.device_time.date()
 
@@ -211,14 +213,18 @@ class DesktopService:
         existing = result.scalar_one_or_none()
 
         if not existing:
-            return AttendanceAckDTO(
-                record_id=event.record_id,
-                status="error",
-                published_at=datetime.now(timezone.utc),
-                detail="No check-in record found for today"
+            print(f"[DesktopService] No check-in found for user {event.user_id} on {today}. Creating new record with check-out only.")
+            record = Absensi(
+                user_id=event.user_id,
+                tanggal=today,
+                time_out=event.device_time,
+                status=StatusAbsensi.hadir, # Default status if they at least showed up to check out
             )
-
-        existing.time_out = event.device_time
+            self.db.add(record)
+        else:
+            print(f"[DesktopService] Updating check-out for user {event.user_id} on {today} at {event.device_time}")
+            existing.time_out = event.device_time
+        
         await self.db.flush()
 
         return AttendanceAckDTO(
@@ -258,6 +264,31 @@ class DesktopService:
             published_at=datetime.now(timezone.utc),
         )
 
+    async def sync_attendance(self, request: BulkAttendanceSyncDTO) -> BulkAttendanceResponseDTO:
+        """
+        Process multiple attendance events in a single HTTP request.
+        Each event is processed independently; failures in one don't abort others.
+        """
+        results = []
+        for event in request.events:
+            try:
+                # Use sub-savepoints if needed, or just individual flushes
+                ack = await self.process_attendance_event(event)
+                results.append(ack)
+            except Exception as e:
+                # If one event fails, we record the error but continue with others
+                record_id = event.record_id
+                results.append(AttendanceAckDTO(
+                    record_id=record_id,
+                    status="error",
+                    published_at=datetime.now(timezone.utc),
+                    detail=str(e.detail) if hasattr(e, "detail") else str(e),
+                ))
+
+        # Commit all successful ones
+        await self.db.commit()
+        return BulkAttendanceResponseDTO(results=results)
+
     # ── Settings ─────────────────────────────────────────────────────────────
 
     async def get_settings(self) -> DesktopSettingsDTO:
@@ -276,6 +307,9 @@ class DesktopService:
             settings_row = DesktopSettings(id=1, late_cutoff_time=time(7, 15))
             self.db.add(settings_row)
             await self.db.flush()
+
+        # Since get_db no longer auto-commits, we commit here
+        await self.db.commit()
 
         return DesktopSettingsDTO(
             late_cutoff_time=settings_row.late_cutoff_time,
@@ -308,6 +342,7 @@ class DesktopService:
             self.db.add(settings_row)
 
         await self.db.flush()
+        await self.db.commit()
 
         return DesktopSettingsDTO(
             late_cutoff_time=settings_row.late_cutoff_time,

@@ -41,10 +41,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4923",  # Next.js dev server
-        "http://frontend:3000",   # Docker frontend service (internal)
-    ],
+    allow_origins=["*"],  # Allow all for local/desktop apps
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -22,6 +22,11 @@ class AttendanceAckDTO(BaseModel):
     detail: Optional[str] = Field(None, description="Error message if status is 'error'")
 
 
+class BulkAttendanceResponseDTO(BaseModel):
+    """Response for a batch attendance sync request."""
+    results: list[AttendanceAckDTO] = Field(..., description="Results for each synced event")
+
+
 class DesktopSettingsDTO(BaseModel):
     """Desktop settings response."""
     late_cutoff_time: time = Field(..., description="Late cutoff time")

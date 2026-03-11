@@ -41,25 +41,22 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     FastAPI dependency for database sessions
 
     Creates a new session per request, handles commits/rollbacks automatically.
-
-    Usage:
-        @router.get("/users")
-        async def get_users(db: AsyncSession = Depends(get_db)):
-            result = await db.execute(select(User))
-            return result.scalars().all()
-
-    Yields:
-        AsyncSession: Database session for the request
     """
+    print("[DB] Creating new session...")
     async with async_session_maker() as session:
         try:
             yield session
-            await session.commit()
-        except Exception:
+            # Note: We don't auto-commit here anymore as it can cause 
+            # "hangs" if the yield never returns or if the route 
+            # already committed. The routers should handle their own commit.
+        except Exception as e:
+            print(f"[DB] Session error: {e}")
             await session.rollback()
             raise
         finally:
+            print("[DB] Closing session...")
             await session.close()
+
 
 
 async def init_db(drop_existing: bool = False):

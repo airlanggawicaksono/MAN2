@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
@@ -30,6 +31,7 @@ import {
   setIzinKeluarDate,
   shiftIzinKeluarDate,
   setIzinKeluarSearch,
+  todayStr,
 } from "@/store/slices/beranda";
 import {
   useListPublicAttendanceQuery,
@@ -61,6 +63,8 @@ function DateNav({
   onDateChange: (d: string) => void;
   onShift: (delta: number) => void;
 }) {
+  if (!date) return <div className="h-10 w-[240px]" />; // Skeleton/spacer
+
   const selected = new Date(date + "T00:00:00");
 
   return (
@@ -97,20 +101,31 @@ export default function BerandaPage() {
   const { absensiDate, absensiSearch, izinKeluarDate, izinKeluarSearch } =
     useAppSelector((s) => s.beranda);
 
+  useEffect(() => {
+    if (!absensiDate) dispatch(setAbsensiDate(todayStr()));
+    if (!izinKeluarDate) dispatch(setIzinKeluarDate(todayStr()));
+  }, [dispatch, absensiDate, izinKeluarDate]);
+
   const debouncedAbsensiSearch = useDebounce(absensiSearch, 400);
   const debouncedIzinSearch = useDebounce(izinKeluarSearch, 400);
 
   const { data: attendance = [], isFetching: fetchingAtt } =
-    useListPublicAttendanceQuery({
-      tanggal: absensiDate,
-      search: debouncedAbsensiSearch || undefined,
-    });
+    useListPublicAttendanceQuery(
+      {
+        tanggal: absensiDate,
+        search: debouncedAbsensiSearch || undefined,
+      },
+      { skip: !absensiDate }
+    );
 
   const { data: izinKeluar = [], isFetching: fetchingIzin } =
-    useListPublicIzinKeluarQuery({
-      tanggal: izinKeluarDate,
-      search: debouncedIzinSearch || undefined,
-    });
+    useListPublicIzinKeluarQuery(
+      {
+        tanggal: izinKeluarDate,
+        search: debouncedIzinSearch || undefined,
+      },
+      { skip: !izinKeluarDate }
+    );
 
   return (
     <div className="p-2">
