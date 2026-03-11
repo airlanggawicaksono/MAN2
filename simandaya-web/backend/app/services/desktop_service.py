@@ -156,15 +156,6 @@ class DesktopService:
         )
         existing = result.scalar_one_or_none()
 
-        if existing and existing.time_in is not None:
-            print(f"[DesktopService] User {event.user_id} already checked in at {existing.time_in}, skipping.")
-            return AttendanceAckDTO(
-                record_id=event.record_id,
-                status="ok",
-                published_at=datetime.now(timezone.utc),
-                detail="Already checked in today, skipped"
-            )
-
         # Determine status based on device_time vs cutoff
         device_local_time = event.device_time.time()
         attendance_status = (
@@ -173,7 +164,7 @@ class DesktopService:
         )
 
         if existing:
-            print(f"[DesktopService] Updating existing record for user {event.user_id} for {today}")
+            print(f"[DesktopService] Overwriting record for user {event.user_id} for {today}")
             existing.time_in = event.device_time
             existing.status = attendance_status
         else:
@@ -196,9 +187,6 @@ class DesktopService:
     async def _handle_absen_keluar(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         """
         Handle check-out event.
-        1. Find today's Absensi for user
-        2. Update time_out
-        3. If no record exists, create one with only time_out (status = Hadir by default)
         """
         today = event.device_time.date()
 
@@ -218,11 +206,11 @@ class DesktopService:
                 user_id=event.user_id,
                 tanggal=today,
                 time_out=event.device_time,
-                status=StatusAbsensi.hadir, # Default status if they at least showed up to check out
+                status=StatusAbsensi.hadir,
             )
             self.db.add(record)
         else:
-            print(f"[DesktopService] Updating check-out for user {event.user_id} on {today} at {event.device_time}")
+            print(f"[DesktopService] Overwriting check-out for user {event.user_id} on {today} at {event.device_time}")
             existing.time_out = event.device_time
         
         await self.db.flush()
@@ -235,12 +223,10 @@ class DesktopService:
 
     async def _handle_izin(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         """
-        Handle izin (permission to leave) event.
-
-        1. Validate user is active siswa
-        2. Create IzinKeluar record
+        Handle izin event. Overwrites if already exists for today.
         """
         await self._validate_active_siswa(event.user_id)
+        today = event.device_time.date()
 
         if not event.reason:
             return AttendanceAckDTO(
@@ -250,12 +236,47 @@ class DesktopService:
                 detail="Reason is required for izin event"
             )
 
-        izin = IzinKeluar(
-            user_id=event.user_id,
-            keterangan=event.reason,
-            created_at=event.device_time,
+        # Check for existing izin today
+        result = await self.db.execute(
+            select(IzinKeluar).where(
+                and_(
+                    IzinKeluar.user_id == event.user_id,
+                    # Casting created_at to date for comparison
+                    self.db.bind.dialect.name != 'postgresql' 
+                    and True # Fallback for local testing
+                    or False 
+                )
+            )
         )
-        self.db.add(izin)
+        # Actually easier to just filter by time range for today
+        from datetime import datetime as dt_class
+        start_of_today = dt_class.combine(today, dt_class.min.time())
+        end_of_today = dt_class.combine(today, dt_class.max.time())
+        
+        result = await self.db.execute(
+            select(IzinKeluar).where(
+                and_(
+                    IzinKeluar.user_id == event.user_id,
+                    IzinKeluar.created_at >= start_of_today,
+                    IzinKeluar.created_at <= end_of_today,
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            print(f"[DesktopService] Overwriting Izin for user {event.user_id} for {today}")
+            existing.keterangan = event.reason
+            existing.created_at = event.device_time
+        else:
+            print(f"[DesktopService] Creating NEW Izin for user {event.user_id} for {today}")
+            izin = IzinKeluar(
+                user_id=event.user_id,
+                keterangan=event.reason,
+                created_at=event.device_time,
+            )
+            self.db.add(izin)
+            
         await self.db.flush()
 
         return AttendanceAckDTO(
@@ -269,10 +290,16 @@ class DesktopService:
         Process multiple attendance events in a single HTTP request.
         Each event is processed independently; failures in one don't abort others.
         """
+        from datetime import timezone, timedelta
+        WIB = timezone(timedelta(hours=7))
+        
         results = []
         for event in request.events:
             try:
-                # Use sub-savepoints if needed, or just individual flushes
+                # If the time is naive (no offset), assume it's already WIB
+                if event.device_time.tzinfo is None:
+                    event.device_time = event.device_time.replace(tzinfo=WIB)
+                
                 ack = await self.process_attendance_event(event)
                 results.append(ack)
             except Exception as e:
