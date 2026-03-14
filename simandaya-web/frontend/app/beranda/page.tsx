@@ -3,7 +3,12 @@
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +43,10 @@ import {
   useListPublicIzinKeluarQuery,
 } from "@/api/absensi";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   hadir: "default",
   terlambat: "outline",
   alfa: "destructive",
@@ -74,7 +82,10 @@ function DateNav({
       </Button>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="min-w-[150px] justify-start text-left text-sm font-normal">
+          <Button
+            variant="outline"
+            className="min-w-[150px] justify-start text-left text-sm font-normal"
+          >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {format(selected, "d MMM yyyy", { locale: localeId })}
           </Button>
@@ -98,8 +109,12 @@ function DateNav({
 
 export default function BerandaPage() {
   const dispatch = useAppDispatch();
-  const { absensiDate, absensiSearch, izinKeluarDate, izinKeluarSearch } =
-    useAppSelector((s) => s.beranda);
+  const {
+    absensiDate,
+    absensiSearch,
+    izinKeluarDate,
+    izinKeluarSearch,
+  } = useAppSelector((s) => s.beranda);
 
   useEffect(() => {
     if (!absensiDate) dispatch(setAbsensiDate(todayStr()));
@@ -109,23 +124,27 @@ export default function BerandaPage() {
   const debouncedAbsensiSearch = useDebounce(absensiSearch, 400);
   const debouncedIzinSearch = useDebounce(izinKeluarSearch, 400);
 
-  const { data: attendance = [], isFetching: fetchingAtt } =
-    useListPublicAttendanceQuery(
-      {
-        tanggal: absensiDate,
-        search: debouncedAbsensiSearch || undefined,
-      },
-      { skip: !absensiDate }
-    );
+  const {
+    data: attendance = [],
+    isFetching: fetchingAtt,
+  } = useListPublicAttendanceQuery(
+    {
+      tanggal: absensiDate,
+      search: debouncedAbsensiSearch || undefined,
+    },
+    { skip: !absensiDate },
+  );
 
-  const { data: izinKeluar = [], isFetching: fetchingIzin } =
-    useListPublicIzinKeluarQuery(
-      {
-        tanggal: izinKeluarDate,
-        search: debouncedIzinSearch || undefined,
-      },
-      { skip: !izinKeluarDate }
-    );
+  const {
+    data: izinKeluar = [],
+    isFetching: fetchingIzin,
+  } = useListPublicIzinKeluarQuery(
+    {
+      tanggal: izinKeluarDate,
+      search: debouncedIzinSearch || undefined,
+    },
+    { skip: !izinKeluarDate },
+  );
 
   return (
     <div className="p-2">
@@ -160,7 +179,9 @@ export default function BerandaPage() {
           <CardContent className="flex-1">
             <div className="h-[400px] overflow-y-auto">
               {fetchingAtt ? (
-                <p className="text-center text-muted-foreground py-8">Memuat...</p>
+                <p className="text-center text-muted-foreground py-8">
+                  Memuat...
+                </p>
               ) : attendance.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   {debouncedAbsensiSearch
@@ -181,12 +202,16 @@ export default function BerandaPage() {
                   <TableBody>
                     {attendance.map((row) => (
                       <TableRow key={row.absensi_id}>
-                        <TableCell className="font-medium">{row.nama_siswa}</TableCell>
+                        <TableCell className="font-medium">
+                          {row.nama_siswa}
+                        </TableCell>
                         <TableCell>{row.kelas ?? "-"}</TableCell>
                         <TableCell>{formatTime(row.time_in)}</TableCell>
                         <TableCell>{formatTime(row.time_out)}</TableCell>
                         <TableCell>
-                          <Badge variant={STATUS_VARIANT[row.status] ?? "secondary"}>
+                          <Badge
+                            variant={STATUS_VARIANT[row.status] ?? "secondary"}
+                          >
                             {row.status}
                           </Badge>
                         </TableCell>
@@ -223,7 +248,9 @@ export default function BerandaPage() {
           <CardContent className="flex-1">
             <div className="h-[400px] overflow-y-auto">
               {fetchingIzin ? (
-                <p className="text-center text-muted-foreground py-8">Memuat...</p>
+                <p className="text-center text-muted-foreground py-8">
+                  Memuat...
+                </p>
               ) : izinKeluar.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   {debouncedIzinSearch
@@ -244,14 +271,18 @@ export default function BerandaPage() {
                   <TableBody>
                     {izinKeluar.map((row) => (
                       <TableRow key={row.izin_id}>
-                        <TableCell className="font-medium">{row.nama_siswa}</TableCell>
+                        <TableCell className="font-medium">
+                          {row.nama_siswa}
+                        </TableCell>
                         <TableCell>{row.kelas ?? "-"}</TableCell>
                         <TableCell>{formatTime(row.created_at)}</TableCell>
                         <TableCell>{row.keterangan}</TableCell>
                         <TableCell>
-                          {row.waktu_kembali
-                            ? formatTime(row.waktu_kembali)
-                            : <Badge variant="outline">Belum</Badge>}
+                          {row.waktu_kembali ? (
+                            formatTime(row.waktu_kembali)
+                          ) : (
+                            <Badge variant="outline">Belum</Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
