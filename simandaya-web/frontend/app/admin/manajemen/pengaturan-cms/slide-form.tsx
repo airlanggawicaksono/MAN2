@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CarouselSlide, CreateSlideRequest } from "@/types/cms";
+import type { CarouselSlide, CreateSlideRequest, ContentType } from "@/types/cms";
 import { useUploadImageMutation } from "@/api/setContentManagement";
 
 const BG_OPTIONS = [
@@ -32,12 +32,13 @@ const FG_OPTIONS = [
 ];
 
 interface Props {
+  contentType: ContentType;
   defaultValues?: Partial<CarouselSlide>;
   onSubmit: (data: CreateSlideRequest) => void;
   isLoading?: boolean;
 }
 
-export function SlideForm({ defaultValues, onSubmit, isLoading }: Props) {
+export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: Props) {
   const [title, setTitle] = useState(defaultValues?.title ?? "");
   const [description, setDescription] = useState(defaultValues?.description ?? "");
   const [bg, setBg] = useState(defaultValues?.bg ?? "bg-primary");
@@ -60,8 +61,9 @@ export function SlideForm({ defaultValues, onSubmit, isLoading }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit({
-      title,
-      description,
+      type: contentType,
+      title: title || null,
+      description: description || null,
       bg,
       fg,
       image_url: imageUrl || null,
@@ -70,27 +72,174 @@ export function SlideForm({ defaultValues, onSubmit, isLoading }: Props) {
     });
   }
 
+  // Lokasi form: Google Maps embed URL + optional title
+  if (contentType === "lokasi") {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="title">Judul (Opsional)</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="MAN 2 Yogyakarta"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="link_url">Google Maps Embed URL</Label>
+          <Input
+            id="link_url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://www.google.com/maps/embed?pb=..."
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Buka Google Maps → Bagikan → Sematkan peta → Salin URL dari src iframe
+          </p>
+        </div>
+
+        {linkUrl && (
+          <div className="rounded-md overflow-hidden border">
+            <iframe
+              src={linkUrl}
+              className="w-full h-[200px]"
+              style={{ border: 0 }}
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        <Button type="submit" disabled={isLoading} className="mt-2">
+          {isLoading ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </form>
+    );
+  }
+
+  // Video form: just YouTube URL
+  if (contentType === "video") {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="link_url">YouTube URL</Label>
+          <Input
+            id="link_url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+          />
+        </div>
+
+        <Button type="submit" disabled={isLoading} className="mt-2">
+          {isLoading ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </form>
+    );
+  }
+
+  // Media form: image + optional title
+  if (contentType === "media") {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="image">Gambar</Label>
+          <Input
+            id="image"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
+          {imageUrl && (
+            <p className="text-xs text-muted-foreground truncate">Tersimpan: {imageUrl}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="title">Judul (Opsional)</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Judul media"
+          />
+        </div>
+
+        <Button type="submit" disabled={isLoading || uploading} className="mt-2">
+          {isLoading ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </form>
+    );
+  }
+
+  // Flyer form: image + optional title + optional CTA link
+  if (contentType === "flyer") {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="image">Gambar</Label>
+          <Input
+            id="image"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
+          {imageUrl && (
+            <p className="text-xs text-muted-foreground truncate">Tersimpan: {imageUrl}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="title">Judul (Opsional)</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Judul flyer"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="link_url">Link CTA (Opsional)</Label>
+          <Input
+            id="link_url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://example.com atau /path"
+          />
+        </div>
+
+        <Button type="submit" disabled={isLoading || uploading} className="mt-2">
+          {isLoading ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </form>
+    );
+  }
+
+  // Carousel form: full form (existing)
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Judul *</Label>
+        <Label htmlFor="title">Judul</Label>
         <Input
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Selamat Datang di SIMANDAYA"
-          required
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="description">Deskripsi *</Label>
+        <Label htmlFor="description">Deskripsi</Label>
         <Input
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Deskripsi singkat slide..."
-          required
         />
       </div>
 

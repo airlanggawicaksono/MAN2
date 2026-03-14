@@ -1,7 +1,10 @@
+export type ContentType = "carousel" | "flyer" | "media" | "video" | "lokasi";
+
 export interface CarouselSlide {
   id: string;
-  title: string;
-  description: string;
+  type: ContentType;
+  title: string | null;
+  description: string | null;
   bg: string;
   fg: string;
   image_url: string | null;
@@ -12,8 +15,9 @@ export interface CarouselSlide {
 }
 
 export interface CreateSlideRequest {
-  title: string;
-  description: string;
+  type?: ContentType;
+  title?: string | null;
+  description?: string | null;
   bg: string;
   fg: string;
   image_url?: string | null;

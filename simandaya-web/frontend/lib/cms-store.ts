@@ -8,6 +8,7 @@ const DATA_PATH = path.join(process.cwd(), "public", "data.json");
 const DEFAULT_SLIDES: CarouselSlide[] = [
   {
     id: randomUUID(),
+    type: "carousel",
     title: "Selamat Datang di SIMANDAYA",
     description: "Sistem Informasi Manajemen Data Madrasah Aliyah - MAN 2 Yogyakarta",
     bg: "bg-primary",
@@ -20,6 +21,7 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
   },
   {
     id: randomUUID(),
+    type: "carousel",
     title: "Layanan Digital Terpadu",
     description: "Akses informasi akademik, absensi, dan layanan sekolah dalam satu platform",
     bg: "bg-secondary",
@@ -32,6 +34,7 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
   },
   {
     id: randomUUID(),
+    type: "carousel",
     title: "Transparan dan Akuntabel",
     description: "Mendukung pengelolaan madrasah yang modern, transparan, dan akuntabel",
     bg: "bg-accent",
@@ -52,7 +55,12 @@ export function readSlides(): CarouselSlide[] {
   }
   try {
     const raw = fs.readFileSync(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as CarouselSlide[];
+    const slides = JSON.parse(raw) as CarouselSlide[];
+    // Migration: add type: "carousel" to any item missing the field
+    return slides.map((s) => ({
+      ...s,
+      type: s.type ?? "carousel",
+    })) as CarouselSlide[];
   } catch {
     return [];
   }

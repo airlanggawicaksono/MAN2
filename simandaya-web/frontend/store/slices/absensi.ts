@@ -11,14 +11,14 @@ export function todayStr() {
   return toDateStr(new Date());
 }
 
-interface BerandaState {
+interface AbsensiState {
   absensiDate: string;
   absensiSearch: string;
   izinKeluarDate: string;
   izinKeluarSearch: string;
 }
 
-const initialState: BerandaState = {
+const initialState: AbsensiState = {
   absensiDate: "",
   absensiSearch: "",
   izinKeluarDate: "",
@@ -26,7 +26,7 @@ const initialState: BerandaState = {
 };
 
 const berandaSlice = createSlice({
-  name: "beranda",
+  name: "absensi",
   initialState,
   reducers: {
     setAbsensiDate(state, action: PayloadAction<string>) {

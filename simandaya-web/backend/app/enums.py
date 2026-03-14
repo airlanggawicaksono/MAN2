@@ -24,23 +24,58 @@ class JenisKelamin(Enum):
 
 
 class StructuralRole(Enum):
-    kepala_sekolah = "Kepala Sekolah"
-    wakasek = "Wakasek"
-    guru = "Guru"
-    wali_kelas = "Wali Kelas"
-    guru_bk = "Guru BK / Konselor"
+    # ── Pimpinan ──────────────────────────────────────────────────────────
+    komite_madrasah = "Komite Madrasah"
+    kepala_madrasah = "Kepala Madrasah"
     kepala_tata_usaha = "Kepala Tata Usaha"
+
+    # ── Wakamad ───────────────────────────────────────────────────────────
+    wakamad_kurikulum = "Wakamad Bid. Kurikulum"
+    wakamad_kesiswaan = "Wakamad Bid. Kesiswaan"
+    wakamad_sarpras = "Wakamad Bid. Sarpras"
+    wakamad_humas = "Wakamad Bid. Humas"
+
+    # ── Di bawah Kurikulum ────────────────────────────────────────────────
+    tim_it = "Tim IT"
+    pengembang_madrasah = "Pengembang Madrasah"
+    kepala_laboratorium_terpadu = "Kepala Laboratorium Terpadu"
+    wali_kelas = "Wali Kelas"
+
+    # ── Di bawah Kesiswaan ────────────────────────────────────────────────
+    bimbingan_konseling = "Bimbingan Konseling"
+    satuan_pendidikan_ramah_anak = "Satuan Pendidikan Ramah Anak"
+    tim_pendidikan_karakter = "Tim Pendidikan Karakter"
+    pembina_ekstrakurikuler = "Pembina Ekstrakurikuler"
+
+    # ── Organisasi / Kegiatan Siswa (Pembina) ─────────────────────────────
+    satgas_anti_narkoba = "Satgas Anti Narkoba"
+    pembina_osis = "OSIS"
+    pembina_mpk = "MPK"
+    pembina_pikr = "PIKR"
+    pembina_kir = "KIR"
+    pembina_robotik = "Robotik"
+    koordinator_osn_ksn = "Koord. OSN/KSN"
+    pembina_pmr_uks = "PMR dan UKS"
+    pembina_olahraga = "Olahraga"
+    pembina_seni = "Seni"
+    pembina_pecinta_alam = "Pecinta Alam"
+    pembina_corps_mubaligh = "Corps Mubaligh"
+    pembina_pramuka = "Pramuka"
+
+    # ── Di bawah Sarpras ──────────────────────────────────────────────────
+    laboratorium_komputer = "Laboratorium Komputer"
+    tim_adiwiyata = "Tim Adiwiyata"
+
+    # ── Di bawah Humas ────────────────────────────────────────────────────
+    publikasi_informasi = "Publikasi dan Informasi"
+    multimedia_studio = "Multimedia dan Studio"
+
+    # ── Umum ──────────────────────────────────────────────────────────────
+    guru = "Guru"
     staf_tata_usaha = "Staf Tata Usaha"
     pustakawan = "Pustakawan"
     laboran = "Laboran"
     petugas_uks = "Petugas UKS"
-
-
-class BidangWakasek(Enum):
-    kurikulum = "Kurikulum"
-    kesiswaan = "Kesiswaan"
-    sarana_prasarana = "Sarana dan Prasarana"
-    humas = "Humas"
 
 
 class StatusAbsensi(Enum):

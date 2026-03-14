@@ -37,7 +37,7 @@ import {
   shiftIzinKeluarDate,
   setIzinKeluarSearch,
   todayStr,
-} from "@/store/slices/beranda";
+} from "@/store/slices/absensi";
 import {
   useListPublicAttendanceQuery,
   useListPublicIzinKeluarQuery,
@@ -107,14 +107,14 @@ function DateNav({
   );
 }
 
-export default function BerandaPage() {
+export default function AbsensiPage() {
   const dispatch = useAppDispatch();
   const {
     absensiDate,
     absensiSearch,
     izinKeluarDate,
     izinKeluarSearch,
-  } = useAppSelector((s) => s.beranda);
+  } = useAppSelector((s) => s.absensi);
 
   useEffect(() => {
     if (!absensiDate) dispatch(setAbsensiDate(todayStr()));
