@@ -17,9 +17,7 @@ export const teacherColumns: ColumnDef<GuruProfile>[] = [
     accessorKey: "structural_role",
     header: "Jabatan",
     cell: ({ row }) => {
-      const role = row.getValue("structural_role") as string;
-      const bidang = row.original.bidang_wakasek;
-      return bidang ? `${role} - ${bidang}` : role;
+      return row.getValue("structural_role") as string;
     },
   },
   {

@@ -1,7 +1,12 @@
 from typing import Optional
 from pydantic import BaseModel
 from uuid import UUID
-from app.enums import StatusSiswa, StatusGuru, JenisKelamin, StructuralRole, BidangWakasek
+from app.enums import (
+    StatusSiswa,
+    StatusGuru,
+    JenisKelamin,
+    StructuralRole,
+)
 
 
 class StudentProfileResponseDTO(BaseModel):
@@ -36,7 +41,6 @@ class GuruProfileResponseDTO(BaseModel):
     kontak: Optional[str] = None
     kewarganegaraan: str
     structural_role: StructuralRole
-    bidang_wakasek: Optional[BidangWakasek]
     mata_pelajaran: Optional[str]
     pendidikan_terakhir: Optional[str]
     is_active: bool = False

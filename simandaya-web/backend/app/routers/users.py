@@ -17,6 +17,9 @@ from app.services.registration_service import RegistrationService
 from app.dto.registration.registration_dto import (
     PreRegisterStudentDTO, PreRegisterTeacherDTO, PreRegisterResponseDTO,
 )
+from app.dto.struktural.struktural_dto import (
+    GetStructuralRoleResponseListDTO,
+)
 
 router = APIRouter(
     prefix="/api/v1/users",
@@ -189,3 +192,20 @@ async def pre_register_teacher(
 ) -> PreRegisterResponseDTO:
     service = RegistrationService(db)
     return await service.pre_register_teacher(request)
+
+
+# ── Structural Role Endpoints ───────────────────────────────────────────────
+
+
+@router.get(
+    "/structural-roles",
+    response_model=GetStructuralRoleResponseListDTO,
+    summary="Get Structural Roles",
+    description="Get all gurus with their structural roles (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def get_structural_roles(
+    db: AsyncSession = Depends(get_db),
+) -> GetStructuralRoleResponseListDTO:
+    service = UserManagementService(db)
+    return await service.get_struktur_guru()

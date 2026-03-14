@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
-from app.enums import JenisKelamin, StructuralRole, BidangWakasek
+from app.enums import JenisKelamin, StructuralRole
 
 
 # ── Lookup responses (Step 2: NIS/NIP lookup confirms identity) ──────────────
@@ -30,13 +30,17 @@ class TeacherLookupResponseDTO(BaseModel):
 
 
 class ClaimStudentRequestDTO(BaseModel):
-    nis: str = Field(..., min_length=1, max_length=50, description="NIS yang sudah didaftarkan admin")
+    nis: str = Field(
+        ..., min_length=1, max_length=50, description="NIS yang sudah didaftarkan admin"
+    )
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=6, max_length=128)
 
 
 class ClaimTeacherRequestDTO(BaseModel):
-    nip: str = Field(..., min_length=1, max_length=50, description="NIP yang sudah didaftarkan admin")
+    nip: str = Field(
+        ..., min_length=1, max_length=50, description="NIP yang sudah didaftarkan admin"
+    )
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=6, max_length=128)
 
@@ -77,7 +81,6 @@ class PreRegisterTeacherDTO(BaseModel):
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
     structural_role: Optional[StructuralRole] = None
-    bidang_wakasek: Optional[BidangWakasek] = None
     mata_pelajaran: Optional[str] = Field(default=None, max_length=100)
     pendidikan_terakhir: Optional[str] = Field(default=None, max_length=100)
 

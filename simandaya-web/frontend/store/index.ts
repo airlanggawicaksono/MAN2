@@ -9,6 +9,7 @@ import { teachersApi } from "@/api/teachers";
 import { registrationApi } from "@/api/registration";
 import { cmsApi } from "@/api/setContentManagement";
 import { absensiApi } from "@/api/absensi";
+import { usermanApi } from "@/api/userman";
 
 const rootReducer = combineSlices(
   authApi,
@@ -17,6 +18,7 @@ const rootReducer = combineSlices(
   registrationApi,
   cmsApi,
   absensiApi,
+  usermanApi,
   { auth: authReducer, cms: cmsReducer, absensi: absensiReducer }
 );
 
@@ -33,6 +35,7 @@ export const makeStore = () => {
         registrationApi.middleware,
         cmsApi.middleware,
         absensiApi.middleware,
+        usermanApi.middleware,
       ),
   });
 };

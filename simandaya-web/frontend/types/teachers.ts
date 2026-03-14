@@ -2,7 +2,6 @@ import type {
   JenisKelamin,
   StatusGuru,
   StructuralRole,
-  BidangWakasek,
 } from "./enums";
 
 export interface GuruProfile {
@@ -19,7 +18,6 @@ export interface GuruProfile {
   kontak: string | null;
   kewarganegaraan: string;
   structural_role: StructuralRole;
-  bidang_wakasek: BidangWakasek | null;
   mata_pelajaran: string | null;
   pendidikan_terakhir: string | null;
   is_active: boolean;
@@ -37,7 +35,6 @@ export interface PreRegisterTeacherRequest {
   kontak?: string;
   kewarganegaraan?: string;
   structural_role?: StructuralRole;
-  bidang_wakasek?: BidangWakasek | null;
   mata_pelajaran?: string | null;
   pendidikan_terakhir?: string | null;
 }
@@ -59,7 +56,6 @@ export interface UpdateGuruRequest {
   kontak?: string;
   kewarganegaraan?: string;
   structural_role?: StructuralRole;
-  bidang_wakasek?: BidangWakasek | null;
   mata_pelajaran?: string | null;
   pendidikan_terakhir?: string | null;
 }

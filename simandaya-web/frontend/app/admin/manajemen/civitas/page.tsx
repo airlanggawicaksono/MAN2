@@ -92,7 +92,11 @@ export default function CivitasAkademikPage() {
         </div>
 
         {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
-        {error && <p className="text-destructive">Gagal memuat data civitas.</p>}
+        {error && (
+          <p className="text-destructive">
+            Gagal memuat data civitas: {JSON.stringify(error)}
+          </p>
+        )}
         {data && <DataTable columns={columnsWithActions} data={data.items} />}
 
         {data && total > LIMIT && (

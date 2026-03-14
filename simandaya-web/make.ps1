@@ -56,6 +56,7 @@ Database:
   .\make.ps1 db-down        Stop only the database
   .\make.ps1 db-shell       Open PostgreSQL shell
   .\make.ps1 db-reset       Reset database (deletes all data)
+  .\make.ps1 db-reset-hard  Reset database without prompt (FORCE)
 
 Scripts:
   .\make.ps1 seed-admins              Seed admin accounts (admin1-3)
@@ -124,6 +125,12 @@ Ports:
             Invoke-Dev "up -d postgres-db"
             Write-Host "Database reset complete"
         }
+    }
+    "db-reset-hard" {
+        Write-Host "Hard resetting database (no prompt)..."
+        Invoke-Dev "down -v"
+        Invoke-Dev "up -d postgres-db"
+        Write-Host "Database reset complete"
     }
 
     # ── Scripts ───────────────────────────────────────────────────────────

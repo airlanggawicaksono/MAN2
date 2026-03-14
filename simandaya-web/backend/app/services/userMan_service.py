@@ -4,15 +4,27 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
 from app.models.siswa_profile import SiswaProfile
 from app.models.guru_profile import GuruProfile
+from app.enums import UserType
+
 from app.dto.userMan.userman_request import (
-    UpdateStudentRequestDTO, UpdateGuruRequestDTO,
+    UpdateStudentRequestDTO,
+    UpdateGuruRequestDTO,
 )
 from app.dto.userMan.userman_response import (
-    StudentProfileResponseDTO, GuruProfileResponseDTO,
-    PaginatedStudentsResponse, PaginatedTeachersResponse, MessageResponseDTO,
+    StudentProfileResponseDTO,
+    GuruProfileResponseDTO,
+    PaginatedStudentsResponse,
+    PaginatedTeachersResponse,
+    MessageResponseDTO,
+)
+
+from app.dto.struktural.struktural_dto import (
+    GetStructuralRoleResponseDTO,
+    GetStructuralRoleResponseListDTO,
 )
 
 
@@ -21,7 +33,6 @@ class UserManagementService:
     User management service for CRUD on students and teachers.
 
     Only accessible by Admin.
-
     Raises:
         HTTPException: 400, 404, 500
     """
@@ -65,7 +76,6 @@ class UserManagementService:
             kontak=profile.kontak,
             kewarganegaraan=profile.kewarganegaraan,
             structural_role=profile.structural_role,
-            bidang_wakasek=profile.bidang_wakasek,
             mata_pelajaran=profile.mata_pelajaran,
             pendidikan_terakhir=profile.pendidikan_terakhir,
             is_active=profile.user.is_active if profile.user else False,
@@ -129,8 +139,7 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
             )
         return self._to_student_dto(profile)
 
@@ -150,15 +159,13 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
             )
 
         update_data = request.model_dump(exclude_unset=True)
         if not update_data:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
             )
 
         # Check NIS uniqueness if being changed
@@ -169,7 +176,7 @@ class UserManagementService:
             if nis_check.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"NIS '{update_data['nis']}' already exists"
+                    detail=f"NIS '{update_data['nis']}' already exists",
                 )
 
         for field, value in update_data.items():
@@ -192,8 +199,7 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
             )
 
         # Delete the user row — CASCADE will remove the profile
@@ -265,8 +271,7 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
             )
         return self._to_guru_dto(profile)
 
@@ -286,15 +291,13 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
             )
 
         update_data = request.model_dump(exclude_unset=True)
         if not update_data:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
             )
 
         # Check NIP uniqueness if being changed
@@ -305,7 +308,7 @@ class UserManagementService:
             if nip_check.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"NIP '{update_data['nip']}' already exists"
+                    detail=f"NIP '{update_data['nip']}' already exists",
                 )
 
         for field, value in update_data.items():
@@ -328,8 +331,7 @@ class UserManagementService:
         profile = result.scalar_one_or_none()
         if not profile:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
             )
 
         user_result = await self.db.execute(
@@ -341,3 +343,26 @@ class UserManagementService:
 
         await self.db.commit()
         return MessageResponseDTO(message="Teacher deleted successfully")
+
+    def _to_structural_role_dto(
+        self, profile: GuruProfile
+    ) -> GetStructuralRoleResponseDTO:
+        return GetStructuralRoleResponseDTO(
+            guru_id=profile.guru_id,
+            nip=profile.nip,
+            nama_lengkap=profile.nama_lengkap,
+            structural_role=profile.structural_role,
+            user_type=profile.user.user_type if profile.user else UserType.guru,
+        )
+
+    async def get_struktur_guru(self) -> GetStructuralRoleResponseListDTO:
+        """
+        Get all gurus with their structural roles.
+        """
+        result = await self.db.execute(
+            select(GuruProfile).options(selectinload(GuruProfile.user))
+        )
+        profiles = result.scalars().all()
+        return GetStructuralRoleResponseListDTO(
+            list_of_struct=[self._to_structural_role_dto(p) for p in profiles]
+        )

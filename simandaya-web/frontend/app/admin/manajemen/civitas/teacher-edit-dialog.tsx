@@ -24,27 +24,46 @@ import type {
   JenisKelamin,
   StatusGuru,
   StructuralRole,
-  BidangWakasek,
 } from "@/types/enums";
 
 const STRUCTURAL_ROLES: StructuralRole[] = [
-  "Kepala Sekolah",
-  "Wakasek",
-  "Guru",
-  "Wali Kelas",
-  "Guru BK / Konselor",
+  "Komite Madrasah",
+  "Kepala Madrasah",
   "Kepala Tata Usaha",
+  "Wakamad Bid. Kurikulum",
+  "Wakamad Bid. Kesiswaan",
+  "Wakamad Bid. Sarpras",
+  "Wakamad Bid. Humas",
+  "Tim IT",
+  "Pengembang Madrasah",
+  "Kepala Laboratorium Terpadu",
+  "Wali Kelas",
+  "Bimbingan Konseling",
+  "Satuan Pendidikan Ramah Anak",
+  "Tim Pendidikan Karakter",
+  "Pembina Ekstrakurikuler",
+  "Satgas Anti Narkoba",
+  "OSIS",
+  "MPK",
+  "PIKR",
+  "KIR",
+  "Robotik",
+  "Koord. OSN/KSN",
+  "PMR dan UKS",
+  "Olahraga",
+  "Seni",
+  "Pecinta Alam",
+  "Corps Mubaligh",
+  "Pramuka",
+  "Laboratorium Komputer",
+  "Tim Adiwiyata",
+  "Publikasi dan Informasi",
+  "Multimedia dan Studio",
+  "Guru",
   "Staf Tata Usaha",
   "Pustakawan",
   "Laboran",
   "Petugas UKS",
-];
-
-const BIDANG_WAKASEK: BidangWakasek[] = [
-  "Kurikulum",
-  "Kesiswaan",
-  "Sarana dan Prasarana",
-  "Humas",
 ];
 
 interface TeacherEditDialogProps {
@@ -53,9 +72,16 @@ interface TeacherEditDialogProps {
   onClose: () => void;
 }
 
-export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogProps) {
+export function TeacherEditDialog({
+  teacher,
+  open,
+  onClose,
+}: TeacherEditDialogProps) {
   const [form, setForm] = useState<UpdateGuruRequest>({});
-  const [updateTeacher, { isLoading, error, reset }] = useUpdateTeacherMutation();
+  const [
+    updateTeacher,
+    { isLoading, error, reset },
+  ] = useUpdateTeacherMutation();
 
   useEffect(() => {
     if (teacher) {
@@ -77,14 +103,16 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
         kontak: teacher.kontak ?? undefined,
         kewarganegaraan: teacher.kewarganegaraan,
         structural_role: teacher.structural_role,
-        bidang_wakasek: teacher.bidang_wakasek,
         mata_pelajaran: teacher.mata_pelajaran,
         pendidikan_terakhir: teacher.pendidikan_terakhir,
       });
     }
   }, [teacher]);
 
-  const handleChange = (field: keyof UpdateGuruRequest, value: string | number | null) => {
+  const handleChange = (
+    field: keyof UpdateGuruRequest,
+    value: string | number | null,
+  ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -100,7 +128,10 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
     reset();
     const payload = { ...form };
     if (payload.dob) payload.dob = formatDateForApi(payload.dob);
-    const result = await updateTeacher({ guruId: teacher.guru_id, body: payload });
+    const result = await updateTeacher({
+      guruId: teacher.guru_id,
+      body: payload,
+    });
     if ("data" in result) onClose();
   };
 
@@ -114,15 +145,15 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
       ? (error.data as { detail?: string })?.detail
       : undefined;
 
-  const isWakasek = form.structural_role === "Wakasek";
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Data Civitas Akademik</DialogTitle>
         </DialogHeader>
-        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+        {errorMessage && (
+          <p className="text-sm text-destructive">{errorMessage}</p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
@@ -165,7 +196,9 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
               <Label>Jenis Kelamin</Label>
               <Select
                 value={form.jenis_kelamin}
-                onValueChange={(val) => handleChange("jenis_kelamin", val as JenisKelamin)}
+                onValueChange={(val) =>
+                  handleChange("jenis_kelamin", val as JenisKelamin)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -189,7 +222,6 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
                 value={form.structural_role}
                 onValueChange={(val) => {
                   handleChange("structural_role", val as StructuralRole);
-                  if (val !== "Wakasek") handleChange("bidang_wakasek", null);
                 }}
               >
                 <SelectTrigger>
@@ -204,26 +236,6 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
                 </SelectContent>
               </Select>
             </div>
-            {isWakasek && (
-              <div className="grid gap-2">
-                <Label>Bidang Wakasek</Label>
-                <Select
-                  value={form.bidang_wakasek || ""}
-                  onValueChange={(val) => handleChange("bidang_wakasek", val as BidangWakasek)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih bidang" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BIDANG_WAKASEK.map((bidang) => (
-                      <SelectItem key={bidang} value={bidang}>
-                        {bidang}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="grid gap-2">
               <Label>Mata Pelajaran</Label>
               <Input
@@ -235,7 +247,9 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
               <Label>Pendidikan Terakhir</Label>
               <Input
                 value={form.pendidikan_terakhir || ""}
-                onChange={(e) => handleChange("pendidikan_terakhir", e.target.value)}
+                onChange={(e) =>
+                  handleChange("pendidikan_terakhir", e.target.value)
+                }
               />
             </div>
             <div className="grid gap-2">
@@ -243,14 +257,18 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
               <Input
                 type="number"
                 value={form.tahun_masuk || ""}
-                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                onChange={(e) =>
+                  handleChange("tahun_masuk", parseInt(e.target.value))
+                }
               />
             </div>
             <div className="grid gap-2">
               <Label>Status</Label>
               <Select
                 value={form.status_guru}
-                onValueChange={(val) => handleChange("status_guru", val as StatusGuru)}
+                onValueChange={(val) =>
+                  handleChange("status_guru", val as StatusGuru)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -272,7 +290,9 @@ export function TeacherEditDialog({ teacher, open, onClose }: TeacherEditDialogP
               <Label>Kewarganegaraan</Label>
               <Input
                 value={form.kewarganegaraan || ""}
-                onChange={(e) => handleChange("kewarganegaraan", e.target.value)}
+                onChange={(e) =>
+                  handleChange("kewarganegaraan", e.target.value)
+                }
               />
             </div>
           </div>

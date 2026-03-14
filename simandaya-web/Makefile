@@ -33,6 +33,7 @@ help:
 	@echo "  make db-down        Stop only the database"
 	@echo "  make db-shell       Open PostgreSQL shell"
 	@echo "  make db-reset       Reset database (deletes all data)"
+	@echo "  make db-reset-hard  Reset database without prompt (FORCE)"
 	@echo ""
 	@echo "Scripts:"
 	@echo "  make seed-admins              Seed admin accounts (admin1-3)"
@@ -104,6 +105,12 @@ db-reset:
 		$(DEV) up -d postgres-db; \
 		echo "Database reset complete"; \
 	fi
+
+db-reset-hard:
+	@echo "Hard resetting database (no prompt)..."
+	$(DEV) down -v
+	$(DEV) up -d postgres-db
+	@echo "Database reset complete"
 
 # ── Scripts ──────────────────────────────────────────────────────────────────
 

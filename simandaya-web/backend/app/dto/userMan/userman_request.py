@@ -1,6 +1,11 @@
 from typing import Optional
-from pydantic import BaseModel, Field, model_validator
-from app.enums import JenisKelamin, StatusSiswa, StatusGuru, StructuralRole, BidangWakasek
+from pydantic import BaseModel, Field
+from app.enums import (
+    JenisKelamin,
+    StatusSiswa,
+    StatusGuru,
+    StructuralRole,
+)
 
 
 # ── Student ──────────────────────────────────────────────────────────────────
@@ -42,14 +47,5 @@ class UpdateGuruRequestDTO(BaseModel):
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
     structural_role: Optional[StructuralRole] = None
-    bidang_wakasek: Optional[BidangWakasek] = None
     mata_pelajaran: Optional[str] = Field(default=None, max_length=100)
     pendidikan_terakhir: Optional[str] = Field(default=None, max_length=100)
-
-    @model_validator(mode="after")
-    def validate_bidang_wakasek(self):
-        if self.structural_role is not None and self.structural_role == StructuralRole.wakasek and self.bidang_wakasek is None:
-            raise ValueError("bidang_wakasek is required when structural_role is Wakasek")
-        if self.structural_role is not None and self.structural_role != StructuralRole.wakasek and self.bidang_wakasek is not None:
-            raise ValueError("bidang_wakasek must be null when structural_role is not Wakasek")
-        return self

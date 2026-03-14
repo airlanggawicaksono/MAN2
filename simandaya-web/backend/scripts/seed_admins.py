@@ -7,7 +7,7 @@ Usage (from host, with Docker running):
 Creates:
   - 1 admin (completed)
   - 10 students (PENDING, pre-registered with NIS + nama)
-  - 10 teachers (PENDING, pre-registered with NIP + nama + structural roles)
+  - Full organizational chart for teachers (PENDING, pre-registered with NIP + nama + structural roles)
 Skips any that already exist.
 """
 
@@ -23,10 +23,14 @@ from app.models.user import User
 from app.models.siswa_profile import SiswaProfile
 from app.models.guru_profile import GuruProfile
 from app.enums import (
-    UserType, RegistrationStatus,
-    StatusSiswa, StatusGuru,
-    JenisKelamin, StructuralRole, BidangWakasek,
+    UserType,
+    RegistrationStatus,
+    StatusSiswa,
+    StatusGuru,
+    JenisKelamin,
+    StructuralRole,
 )
+
 
 
 ADMINS = [
@@ -39,96 +43,139 @@ STUDENTS = [
     {"nis": "24003", "nama_lengkap": "Muhammad Rizky", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "X IPS 1"},
     {"nis": "24004", "nama_lengkap": "Nur Halimah", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XI IPA 1"},
     {"nis": "24005", "nama_lengkap": "Dimas Prasetyo", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "XI IPA 2"},
-    {"nis": "24006", "nama_lengkap": "Fatimah Zahra", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XI IPS 1"},
-    {"nis": "24007", "nama_lengkap": "Ilham Maulana", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "XII IPA 1"},
-    {"nis": "24008", "nama_lengkap": "Rina Safitri", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XII IPA 2"},
-    {"nis": "24009", "nama_lengkap": "Bayu Aditya", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "XII IPS 1"},
-    {"nis": "24010", "nama_lengkap": "Dewi Lestari", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XII Keagamaan"},
 ]
 
 TEACHERS = [
+    # ── Pimpinan ──────────────────────────────────────────────────────────
+    {
+        "nip": "1001",
+        "nama_lengkap": "Drs. H. Ahmad Tabrani",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.komite_madrasah,
+    },
     {
         "nip": "196705151993031002",
         "nama_lengkap": "Singgih Sampurno, S.Pd., M.A.",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.kepala_sekolah,
-        "mata_pelajaran": "Bahasa Inggris",
-        "pendidikan_terakhir": "S2",
+        "structural_role": StructuralRole.kepala_madrasah,
     },
     {
         "nip": "197201081998032001",
         "nama_lengkap": "Isti Wahyuni, S.E., M.M",
         "jenis_kelamin": JenisKelamin.perempuan,
         "structural_role": StructuralRole.kepala_tata_usaha,
-        "pendidikan_terakhir": "S2",
     },
+
+    # ── Wakamad Bid. Kurikulum ───────────────────────────────────────────
     {
         "nip": "197308202000031001",
         "nama_lengkap": "Fajar Basuki Rahmat, S.Ag",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.wakasek,
-        "bidang_wakasek": BidangWakasek.kurikulum,
-        "mata_pelajaran": "Pendidikan Agama Islam",
-        "pendidikan_terakhir": "S1",
+        "structural_role": StructuralRole.wakamad_kurikulum,
     },
     {
-        "nip": "198005152005012001",
-        "nama_lengkap": "Leni, S.Si., M.Pd",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.wakasek,
-        "bidang_wakasek": BidangWakasek.kesiswaan,
-        "mata_pelajaran": "Matematika",
-        "pendidikan_terakhir": "S2",
-    },
-    {
-        "nip": "198112302006041001",
-        "nama_lengkap": "Afwan Suhaimi DR, S.Pd",
+        "nip": "2001",
+        "nama_lengkap": "Koordinator Tim IT",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.wakasek,
-        "bidang_wakasek": BidangWakasek.sarana_prasarana,
-        "mata_pelajaran": "Fisika",
-        "pendidikan_terakhir": "S1",
+        "structural_role": StructuralRole.tim_it,
     },
     {
-        "nip": "197609152003122001",
-        "nama_lengkap": "Rita Setyowati, S.Pd., M.Pd",
+        "nip": "2002",
+        "nama_lengkap": "Staf Pengembang Madrasah",
         "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.wakasek,
-        "bidang_wakasek": BidangWakasek.humas,
-        "mata_pelajaran": "Bahasa Indonesia",
-        "pendidikan_terakhir": "S2",
+        "structural_role": StructuralRole.pengembang_madrasah,
+    },
+    {
+        "nip": "2003",
+        "nama_lengkap": "Kepala Laboratorium Terpadu",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.kepala_laboratorium_terpadu,
     },
     {
         "nip": "198503172010011001",
         "nama_lengkap": "Hendra Kurniawan, S.Pd",
         "jenis_kelamin": JenisKelamin.laki_laki,
         "structural_role": StructuralRole.wali_kelas,
-        "mata_pelajaran": "Biologi",
-        "pendidikan_terakhir": "S1",
+    },
+
+    # ── Wakamad Bid. Kesiswaan ────────────────────────────────────────────
+    {
+        "nip": "198005152005012001",
+        "nama_lengkap": "Leni, S.Si., M.Pd",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "structural_role": StructuralRole.wakamad_kesiswaan,
     },
     {
         "nip": "198711252012012001",
         "nama_lengkap": "Sari Rahmawati, S.Pd",
         "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.guru_bk,
-        "mata_pelajaran": "Bimbingan Konseling",
-        "pendidikan_terakhir": "S1",
+        "structural_role": StructuralRole.bimbingan_konseling,
+    },
+    {
+        "nip": "3001",
+        "nama_lengkap": "Koordinator Ramah Anak",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "structural_role": StructuralRole.satuan_pendidikan_ramah_anak,
+    },
+    {
+        "nip": "3002",
+        "nama_lengkap": "Tim Pendidikan Karakter",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.tim_pendidikan_karakter,
+    },
+    {
+        "nip": "3003",
+        "nama_lengkap": "Pembina Ekstrakurikuler",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.pembina_ekstrakurikuler,
+    },
+
+    # ── Wakamad Bid. Sarpras ─────────────────────────────────────────────
+    {
+        "nip": "198112302006041001",
+        "nama_lengkap": "Afwan Suhaimi DR, S.Pd",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.wakamad_sarpras,
     },
     {
         "nip": "199002082015031001",
         "nama_lengkap": "Eko Prasetyo, S.Kom",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.laboran,
-        "mata_pelajaran": "Informatika",
-        "pendidikan_terakhir": "S1",
+        "structural_role": StructuralRole.laboratorium_komputer,
     },
+    {
+        "nip": "5001",
+        "nama_lengkap": "Tim Adiwiyata",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "structural_role": StructuralRole.tim_adiwiyata,
+    },
+
+    # ── Wakamad Bid. Humas ───────────────────────────────────────────────
+    {
+        "nip": "197609152003122001",
+        "nama_lengkap": "Rita Setyowati, S.Pd., M.Pd",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "structural_role": StructuralRole.wakamad_humas,
+    },
+    {
+        "nip": "6001",
+        "nama_lengkap": "Staff Publikasi dan Informasi",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "structural_role": StructuralRole.publikasi_informasi,
+    },
+    {
+        "nip": "6002",
+        "nama_lengkap": "Staff Multimedia dan Studio",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "structural_role": StructuralRole.multimedia_studio,
+    },
+
+    # ── Umum ──────────────────────────────────────────────────────────────
     {
         "nip": "199205152018012001",
         "nama_lengkap": "Anisa Putri, S.Pd",
         "jenis_kelamin": JenisKelamin.perempuan,
         "structural_role": StructuralRole.guru,
-        "mata_pelajaran": "Kimia",
-        "pendidikan_terakhir": "S1",
     },
 ]
 
@@ -209,15 +256,12 @@ async def seed():
                 nama_lengkap=t["nama_lengkap"],
                 jenis_kelamin=t.get("jenis_kelamin"),
                 structural_role=t.get("structural_role", StructuralRole.guru),
-                bidang_wakasek=t.get("bidang_wakasek"),
                 mata_pelajaran=t.get("mata_pelajaran"),
                 pendidikan_terakhir=t.get("pendidikan_terakhir"),
                 status_guru=StatusGuru.aktif,
             )
             session.add(profile)
             role_label = t.get("structural_role", StructuralRole.guru).value
-            if t.get("bidang_wakasek"):
-                role_label += f" ({t['bidang_wakasek'].value})"
             print(f"  CREATED teacher: {t['nip']} - {t['nama_lengkap']} [{role_label}]")
 
         await session.commit()
