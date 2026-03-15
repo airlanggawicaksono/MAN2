@@ -83,3 +83,4 @@ logs/
 *.rar
 *.pdf
 App+csv template/
+.venv

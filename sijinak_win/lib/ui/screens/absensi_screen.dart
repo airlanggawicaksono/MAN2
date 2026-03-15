@@ -27,7 +27,7 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
 
       final config = ref.read(configProvider).valueOrNull;
       final baseUrl = config?.frontendUrl ?? 'http://localhost:4923';
-      await _controller.loadUrl('$baseUrl/beranda');
+      await _controller.loadUrl('$baseUrl/absensi');
 
       if (mounted) setState(() => _ready = true);
     } catch (e) {
