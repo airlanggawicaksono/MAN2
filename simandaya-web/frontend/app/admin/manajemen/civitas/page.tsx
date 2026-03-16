@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useListTeachersQuery } from "@/api/teachers";
 import type { GuruProfile } from "@/types/teachers";
 import { useTeacherPrecache } from "@/hooks/useTeacherPrecache";
@@ -70,9 +76,9 @@ export default function CivitasAkademikPage() {
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-2xl font-bold">Penambahan Data Civitas Akademik</h1>
+        <h1 className="text-2xl font-bold">Pengaturan Data Civitas Akademik</h1>
         <p className="mt-1 text-muted-foreground">
-          Kelola data guru dan tenaga kependidikan MAN 2 Kota Malang
+          Kelola data guru dan tenaga kependidikan MAN 2 Kota Yogyakarta
         </p>
       </div>
 
@@ -102,7 +108,8 @@ export default function CivitasAkademikPage() {
         {data && total > LIMIT && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-sm text-muted-foreground">
-              Menampilkan {skip + 1}-{Math.min(skip + LIMIT, total)} dari {total} civitas
+              Menampilkan {skip + 1}-{Math.min(skip + LIMIT, total)} dari{" "}
+              {total} civitas
             </p>
             <div className="flex items-center gap-2">
               <Button

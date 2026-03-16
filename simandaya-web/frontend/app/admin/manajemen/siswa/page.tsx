@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useListStudentsQuery } from "@/api/students";
 import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
@@ -70,9 +76,9 @@ export default function DataSiswaPage() {
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-2xl font-bold">Penambahan Data Siswa</h1>
+        <h1 className="text-2xl font-bold">Pengaturan Data Siswa</h1>
         <p className="mt-1 text-muted-foreground">
-          Kelola data siswa MAN 2 Kota Malang
+          Kelola data siswa MAN 2 Kota Yogyakarta
         </p>
       </div>
 
@@ -98,7 +104,8 @@ export default function DataSiswaPage() {
         {data && total > LIMIT && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-sm text-muted-foreground">
-              Menampilkan {skip + 1}-{Math.min(skip + LIMIT, total)} dari {total} siswa
+              Menampilkan {skip + 1}-{Math.min(skip + LIMIT, total)} dari{" "}
+              {total} siswa
             </p>
             <div className="flex items-center gap-2">
               <Button

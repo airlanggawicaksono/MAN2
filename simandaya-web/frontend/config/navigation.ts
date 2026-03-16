@@ -23,8 +23,18 @@ export const roleRoutePrefix: Record<UserType, string> = {
   Siswa: "/siswa",
 };
 
-export const publicNav: NavLink[] = [
+export const publicNav: NavItem[] = [
   { label: "Beranda", href: "/" },
+  { label: "Struktur Organisasi", href: "/struktur-organisasi" },
+  {
+    label: "Layanan",
+    width: "w-[240px]",
+    children: [
+      { label: "Layanan Akademik", href: "/layanan-akademik" },
+      { label: "Layanan Publik", href: "/layanan-publik" },
+      { label: "Layanan PTK", href: "/layanan-ptk" },
+    ],
+  },
   { label: "Absensi", href: "/absensi" },
 ];
 
@@ -42,8 +52,8 @@ export const adminNav: NavItem[] = [
     label: "Manajemen Data",
     width: "w-[280px]",
     children: [
-      { label: "Penambahan Data Siswa", href: "/admin/manajemen/siswa" },
-      { label: "Penambahan Data Civitas Akademik", href: "/admin/manajemen/civitas" },
+      { label: "Pengaturan Data Siswa", href: "/admin/manajemen/siswa" },
+      { label: "Pengaturan Data Civitas Akademik", href: "/admin/manajemen/civitas" },
       { label: "Pengaturan Manajemen Konten", href: "/admin/manajemen/pengaturan-cms" },
     ],
   },

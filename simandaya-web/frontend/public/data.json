@@ -33,9 +33,22 @@
     "bg": "bg-primary",
     "fg": "text-primary-foreground",
     "image_url": null,
-    "link_url": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3952.896433586157!2d110.35445567493237!3d-7.800788392219411!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e7a578b6f8a9a4d%3A0x6eae2cee09f9f2b3!2sMadrasah%20Aliyah%20Negeri%202%20Yogyakarta!5e0!3m2!1sen!2sid!4v1773478601176!5m2!1sen!2sid",
+    "link_url": "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d988.2248596631154!2d110.35725228222613!3d-7.800470442045576!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e7a578b6f8a9a4d%3A0x6eae2cee09f9f2b3!2sMadrasah%20Aliyah%20Negeri%202%20Yogyakarta!5e0!3m2!1sen!2sid!4v1773567646831!5m2!1sen!2sid",
     "link_label": null,
     "order_index": 2,
+    "is_active": true
+  },
+  {
+    "id": "db5c488f-e90f-4ff8-bd24-afa249c9f882",
+    "type": "video",
+    "title": null,
+    "description": null,
+    "bg": "bg-primary",
+    "fg": "text-primary-foreground",
+    "image_url": null,
+    "link_url": "https://www.youtube.com/watch?v=JcCCcKTV_IM",
+    "link_label": null,
+    "order_index": 3,
     "is_active": true
   }
 ]

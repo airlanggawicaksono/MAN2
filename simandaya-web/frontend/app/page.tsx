@@ -16,7 +16,15 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Briefcase, MapPin, Play, Image as ImageIcon, Video } from "lucide-react";
+import {
+  BookOpen,
+  Users,
+  Briefcase,
+  MapPin,
+  Play,
+  Image as ImageIcon,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
 import type { CarouselSlide } from "@/types/cms";
 
@@ -28,21 +36,20 @@ const layananCards = [
     description:
       "Informasi kurikulum, jadwal pelajaran, nilai, dan rapor siswa MAN 2 Yogyakarta.",
     icon: BookOpen,
-    href: undefined as string | undefined,
+    href: "/layanan-akademik",
   },
   {
     title: "Layanan Publik",
     description:
       "Informasi umum, pengumuman, dan layanan publik bagi masyarakat dan orang tua.",
     icon: Users,
-    href: "https://man2yogyakarta.sch.id/",
+    href: "/layanan-publik",
   },
   {
     title: "Layanan PTK",
-    description:
-      "Layanan bagi Pendidik dan Tenaga Kependidikan: absensi, tugas, dan administrasi.",
+    description: "Layanan bagi Pendidik dan Tenaga Kependidikan.",
     icon: Briefcase,
-    href: undefined as string | undefined,
+    href: "/layanan-ptk",
   },
 ];
 
@@ -50,14 +57,20 @@ const layananCards = [
 
 function extractYouTubeId(url: string): string | null {
   const match = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   );
   return match?.[1] ?? null;
 }
 
 // ── Section Header ──────────────────────────────────────────────────
 
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+function SectionHeader({
+  icon: Icon,
+  title,
+}: {
+  icon: React.ElementType;
+  title: string;
+}) {
   return (
     <div className="flex items-center gap-3 mb-4">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -147,7 +160,7 @@ export default function IndexPage() {
         setSlides(
           data
             .filter((s) => s.is_active)
-            .filter((s) => !s.type || s.type === "carousel")
+            .filter((s) => !s.type || s.type === "carousel"),
         );
       })
       .catch(() => {});
@@ -157,22 +170,30 @@ export default function IndexPage() {
   useEffect(() => {
     fetch("/api/cms/slides?type=flyer")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setFlyerItems(data.filter((s) => s.is_active)))
+      .then((data: CarouselSlide[]) =>
+        setFlyerItems(data.filter((s) => s.is_active)),
+      )
       .catch(() => {});
 
     fetch("/api/cms/slides?type=media")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setMediaItems(data.filter((s) => s.is_active)))
+      .then((data: CarouselSlide[]) =>
+        setMediaItems(data.filter((s) => s.is_active)),
+      )
       .catch(() => {});
 
     fetch("/api/cms/slides?type=video")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setVideoItems(data.filter((s) => s.is_active)))
+      .then((data: CarouselSlide[]) =>
+        setVideoItems(data.filter((s) => s.is_active)),
+      )
       .catch(() => {});
 
     fetch("/api/cms/slides?type=lokasi")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setLokasiItems(data.filter((s) => s.is_active)))
+      .then((data: CarouselSlide[]) =>
+        setLokasiItems(data.filter((s) => s.is_active)),
+      )
       .catch(() => {});
   }, []);
 
@@ -182,7 +203,11 @@ export default function IndexPage() {
       if (!video.link_url) return;
       const videoId = extractYouTubeId(video.link_url);
       if (!videoId || videoTitles[video.id]) return;
-      fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(video.link_url)}&format=json`)
+      fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(
+          video.link_url,
+        )}&format=json`,
+      )
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.title) {
@@ -201,7 +226,9 @@ export default function IndexPage() {
           <CarouselContent>
             {slides.map((slide) => (
               <CarouselItem key={slide.id}>
-                <Card className={`${slide.bg} ${slide.fg} border-none overflow-hidden`}>
+                <Card
+                  className={`${slide.bg} ${slide.fg} border-none overflow-hidden`}
+                >
                   <CardContent className="flex flex-col p-0">
                     {slide.image_url && (
                       <img
@@ -210,10 +237,14 @@ export default function IndexPage() {
                         className="w-full max-h-[480px] object-contain"
                       />
                     )}
-                    {(slide.title || slide.description || (slide.link_url && slide.link_label)) && (
+                    {(slide.title ||
+                      slide.description ||
+                      (slide.link_url && slide.link_label)) && (
                       <div className="flex flex-col items-center p-6 text-center">
                         {slide.title && (
-                          <h2 className="text-2xl font-bold md:text-4xl">{slide.title}</h2>
+                          <h2 className="text-2xl font-bold md:text-4xl">
+                            {slide.title}
+                          </h2>
                         )}
                         {slide.description && (
                           <p className="mt-3 max-w-2xl text-base md:text-lg opacity-90">
@@ -222,7 +253,9 @@ export default function IndexPage() {
                         )}
                         {slide.link_url && slide.link_label && (
                           <Button asChild variant="secondary" className="mt-6">
-                            <Link href={slide.link_url}>{slide.link_label}</Link>
+                            <Link href={slide.link_url}>
+                              {slide.link_label}
+                            </Link>
                           </Button>
                         )}
                       </div>
@@ -244,7 +277,9 @@ export default function IndexPage() {
           const card = (
             <Card
               key={item.title}
-              className={`transition-shadow hover:shadow-lg${item.href ? " cursor-pointer" : ""}`}
+              className={`transition-shadow hover:shadow-lg h-full ${
+                item.href ? "cursor-pointer" : ""
+              }`}
             >
               <CardHeader className="items-center text-center">
                 <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -253,16 +288,35 @@ export default function IndexPage() {
                 <CardTitle className="text-lg">{item.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <CardDescription className="text-center">{item.description}</CardDescription>
+                <CardDescription className="text-center">
+                  {item.description}
+                </CardDescription>
               </CardContent>
             </Card>
           );
-          return item.href ? (
-            <a key={item.title} href={item.href} target="_blank" rel="noopener noreferrer">
+
+          if (!item.href) return card;
+
+          const isExternal = item.href.startsWith("http");
+
+          if (isExternal) {
+            return (
+              <a
+                key={item.title}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block h-full"
+              >
+                {card}
+              </a>
+            );
+          }
+
+          return (
+            <Link key={item.title} href={item.href} className="block h-full">
               {card}
-            </a>
-          ) : (
-            card
+            </Link>
           );
         })}
       </div>
@@ -270,10 +324,7 @@ export default function IndexPage() {
       {/* ── Flyer MAN 2 ─────────────────────────────────────────── */}
       <section>
         <SectionHeader icon={ImageIcon} title="Flyer MAN 2" />
-        <ImageCarousel
-          items={flyerItems}
-          imageClassName="max-h-[400px]"
-        />
+        <ImageCarousel items={flyerItems} imageClassName="max-h-[400px]" />
       </section>
 
       {/* ── Media Center ─────────────────────────────────────────── */}
@@ -297,7 +348,10 @@ export default function IndexPage() {
             return (
               <Card key={video.id} className="overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                  <div
+                    className="relative w-full"
+                    style={{ paddingBottom: "56.25%" }}
+                  >
                     <iframe
                       className="absolute inset-0 w-full h-full"
                       src={`https://www.youtube-nocookie.com/embed/${videoId}`}

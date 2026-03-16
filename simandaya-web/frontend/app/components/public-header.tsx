@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { publicNav } from "@/config/navigation";
+import { getNavForRole, isNavGroup } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
 import { useLogoutMutation, useLoginMutation } from "@/api/auth";
@@ -16,13 +16,26 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu";
 import RegisterModal from "./register-modal";
+
+const triggerStyle = "text-[#8FC3DD] bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA] data-[active]:text-[#EAD79A]";
+const activeTriggerStyle = "text-[#EAD79A] font-semibold bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA]";
+const dropdownLinkStyle = "block select-none rounded-md p-3 text-sm leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground";
 
 export default function PublicHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const [mounted, setMounted] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -37,6 +50,8 @@ export default function PublicHeader() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const navItems = getNavForRole(user?.user_type);
 
   const handleLogout = async () => {
     try {
@@ -101,37 +116,76 @@ export default function PublicHeader() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-8 text-sm">
-          {publicNav.map(({ label, href }) => (
-            <Link
-              key={href}
-              href={href}
-              className={
-                pathname === href
-                  ? "font-semibold border-b-2 border-[#C8A24A] text-[#EAD79A] pb-1"
-                  : "text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors"
-              }
-            >
-              {label}
-            </Link>
-          ))}
+        <div className="flex items-center gap-4">
+          <NavigationMenu>
+            <NavigationMenuList className="gap-1">
+              {navItems.map((item) => {
+                if (isNavGroup(item)) {
+                  const isActive = item.children.some(child => pathname === child.href);
+                  return (
+                    <NavigationMenuItem key={item.label}>
+                      <NavigationMenuTrigger className={isActive ? activeTriggerStyle : triggerStyle}>
+                        {item.label}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className={`${item.width ?? "w-[240px]"} p-2`}>
+                          {item.children.map((child) => (
+                            <li key={child.href}>
+                              <NavigationMenuLink asChild>
+                                {child.href.startsWith("http") ? (
+                                  <a
+                                    href={child.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={dropdownLinkStyle}
+                                  >
+                                    {child.label}
+                                  </a>
+                                ) : (
+                                  <Link href={child.href} className={dropdownLinkStyle}>
+                                    {child.label}
+                                  </Link>
+                                )}
+                              </NavigationMenuLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  );
+                }
+
+                const isActive = pathname === item.href;
+                return (
+                  <NavigationMenuItem key={item.href}>
+                    <NavigationMenuLink
+                      asChild
+                      className={navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)}
+                    >
+                      <Link href={item.href}>{item.label}</Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                );
+              })}
+            </NavigationMenuList>
+          </NavigationMenu>
 
           {mounted && isAuthenticated ? (
             <button
               onClick={() => setShowLogoutDialog(true)}
-              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors"
+              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
             >
               Keluar
             </button>
           ) : (
             <button
               onClick={openLoginDialog}
-              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors"
+              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
             >
               Masuk
             </button>
           )}
-        </nav>
+        </div>
       </header>
 
       {/* Login dialog */}

@@ -19,6 +19,8 @@ from app.dto.userMan.userman_response import (
     GuruProfileResponseDTO,
     PaginatedStudentsResponse,
     PaginatedTeachersResponse,
+    PublicCivitasResponseDTO,
+    PaginatedPublicCivitasResponse,
     MessageResponseDTO,
 )
 
@@ -365,4 +367,50 @@ class UserManagementService:
         profiles = result.scalars().all()
         return GetStructuralRoleResponseListDTO(
             list_of_struct=[self._to_structural_role_dto(p) for p in profiles]
+        )
+
+    async def list_public_civitas(
+        self, skip: int = 0, limit: int = 100, search: Optional[str] = None
+    ) -> PaginatedPublicCivitasResponse:
+        """
+        List civitas (teachers/staff) with limited fields for public access.
+        """
+        search_filter = None
+        if search:
+            pattern = f"%{search}%"
+            search_filter = or_(
+                GuruProfile.nama_lengkap.ilike(pattern),
+                GuruProfile.nip.ilike(pattern),
+                GuruProfile.nik.ilike(pattern),
+                GuruProfile.mata_pelajaran.ilike(pattern),
+            )
+
+        count_query = select(func.count()).select_from(GuruProfile)
+        data_query = select(GuruProfile)
+
+        if search_filter is not None:
+            count_query = count_query.where(search_filter)
+            data_query = data_query.where(search_filter)
+
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar_one()
+
+        result = await self.db.execute(data_query.offset(skip).limit(limit))
+        profiles = result.scalars().all()
+
+        return PaginatedPublicCivitasResponse(
+            items=[
+                PublicCivitasResponseDTO(
+                    nama=p.nama_lengkap,
+                    nip=p.nip,
+                    nik=p.nik,
+                    jabatan_struktural=p.structural_role,
+                    matapelajaran=p.mata_pelajaran,
+                    kontak=p.kontak,
+                )
+                for p in profiles
+            ],
+            total=total,
+            skip=skip,
+            limit=limit,
         )

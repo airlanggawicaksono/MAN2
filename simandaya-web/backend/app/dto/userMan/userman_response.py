@@ -46,6 +46,15 @@ class GuruProfileResponseDTO(BaseModel):
     is_active: bool = False
 
 
+class PublicCivitasResponseDTO(BaseModel):
+    nama: str
+    nip: Optional[str] = None
+    nik: Optional[str] = None
+    jabatan_struktural: StructuralRole
+    matapelajaran: Optional[str] = None
+    kontak: Optional[str] = None
+
+
 class PaginatedStudentsResponse(BaseModel):
     items: list[StudentProfileResponseDTO]
     total: int
@@ -55,6 +64,13 @@ class PaginatedStudentsResponse(BaseModel):
 
 class PaginatedTeachersResponse(BaseModel):
     items: list[GuruProfileResponseDTO]
+    total: int
+    skip: int
+    limit: int
+
+
+class PaginatedPublicCivitasResponse(BaseModel):
+    items: list[PublicCivitasResponseDTO]
     total: int
     skip: int
     limit: int
