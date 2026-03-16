@@ -47,6 +47,7 @@ class UserManagementService:
     def _to_student_dto(self, profile: SiswaProfile) -> StudentProfileResponseDTO:
         return StudentProfileResponseDTO(
             siswa_id=profile.siswa_id,
+            user_id=profile.user_id,
             nis=profile.nis,
             nama_lengkap=profile.nama_lengkap,
             dob=profile.dob,
@@ -66,6 +67,7 @@ class UserManagementService:
     def _to_guru_dto(self, profile: GuruProfile) -> GuruProfileResponseDTO:
         return GuruProfileResponseDTO(
             guru_id=profile.guru_id,
+            user_id=profile.user_id,
             nip=profile.nip,
             nama_lengkap=profile.nama_lengkap,
             dob=profile.dob,
@@ -142,6 +144,22 @@ class UserManagementService:
         if not profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+            )
+        return self._to_student_dto(profile)
+
+    async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
+        """
+        Get a student profile by their user_id.
+        """
+        result = await self.db.execute(
+            select(SiswaProfile)
+            .options(selectinload(SiswaProfile.user))
+            .where(SiswaProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student profile not found"
             )
         return self._to_student_dto(profile)
 
@@ -274,6 +292,22 @@ class UserManagementService:
         if not profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
+            )
+        return self._to_guru_dto(profile)
+
+    async def get_guru_by_user_id(self, user_id: UUID) -> GuruProfileResponseDTO:
+        """
+        Get a teacher profile by their user_id.
+        """
+        result = await self.db.execute(
+            select(GuruProfile)
+            .options(selectinload(GuruProfile.user))
+            .where(GuruProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher profile not found"
             )
         return self._to_guru_dto(profile)
 

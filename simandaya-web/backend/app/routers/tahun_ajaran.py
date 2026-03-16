@@ -35,7 +35,7 @@ async def create_tahun_ajaran(
     "/tahun-ajaran",
     response_model=list[TahunAjaranResponseDTO],
     summary="List Academic Years",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
 )
 async def list_tahun_ajaran(
     db: AsyncSession = Depends(get_db),

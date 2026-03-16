@@ -6,8 +6,8 @@ Usage (from host, with Docker running):
 
 Creates:
   - 1 admin (completed)
-  - 10 students (PENDING, pre-registered with NIS + nama)
-  - Full organizational chart for teachers (PENDING, pre-registered with NIP + nama + structural roles)
+  - 10 students (COMPLETED, username: siswa_[nis], password: password123)
+  - Full organizational chart for teachers (COMPLETED, username: guru_[nip], password: password123)
 Skips any that already exist.
 """
 
@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
-from app.config.database import engine, async_session_maker
+from app.config.database import engine, async_session_maker, init_db
 from app.models.user import User
 from app.models.siswa_profile import SiswaProfile
 from app.models.guru_profile import GuruProfile
@@ -31,18 +31,43 @@ from app.enums import (
     StructuralRole,
 )
 
-
+DEFAULT_PASSWORD = "password123"
 
 ADMINS = [
     {"username": "admin", "password": "1qaz2wsx3edc"},
 ]
 
 STUDENTS = [
-    {"nis": "24001", "nama_lengkap": "Ahmad Fauzan", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "X IPA 1"},
-    {"nis": "24002", "nama_lengkap": "Siti Aisyah", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "X IPA 2"},
-    {"nis": "24003", "nama_lengkap": "Muhammad Rizky", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "X IPS 1"},
-    {"nis": "24004", "nama_lengkap": "Nur Halimah", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XI IPA 1"},
-    {"nis": "24005", "nama_lengkap": "Dimas Prasetyo", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "XI IPA 2"},
+    {
+        "nis": "24001",
+        "nama_lengkap": "Ahmad Fauzan",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "kelas_jurusan": "X IPA 1",
+    },
+    {
+        "nis": "24002",
+        "nama_lengkap": "Siti Aisyah",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "kelas_jurusan": "X IPA 2",
+    },
+    {
+        "nis": "24003",
+        "nama_lengkap": "Muhammad Rizky",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "kelas_jurusan": "X IPS 1",
+    },
+    {
+        "nis": "24004",
+        "nama_lengkap": "Nur Halimah",
+        "jenis_kelamin": JenisKelamin.perempuan,
+        "kelas_jurusan": "XI IPA 1",
+    },
+    {
+        "nis": "24005",
+        "nama_lengkap": "Dimas Prasetyo",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+        "kelas_jurusan": "XI IPA 2",
+    },
 ]
 
 TEACHERS = [
@@ -65,7 +90,6 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.perempuan,
         "structural_role": StructuralRole.kepala_tata_usaha,
     },
-
     # ── Wakamad Bid. Kurikulum ───────────────────────────────────────────
     {
         "nip": "197308202000031001",
@@ -97,7 +121,6 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.laki_laki,
         "structural_role": StructuralRole.wali_kelas,
     },
-
     # ── Wakamad Bid. Kesiswaan ────────────────────────────────────────────
     {
         "nip": "198005152005012001",
@@ -129,7 +152,6 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.laki_laki,
         "structural_role": StructuralRole.pembina_ekstrakurikuler,
     },
-
     # ── Wakamad Bid. Sarpras ─────────────────────────────────────────────
     {
         "nip": "198112302006041001",
@@ -149,7 +171,6 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.perempuan,
         "structural_role": StructuralRole.tim_adiwiyata,
     },
-
     # ── Wakamad Bid. Humas ───────────────────────────────────────────────
     {
         "nip": "197609152003122001",
@@ -169,7 +190,6 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.perempuan,
         "structural_role": StructuralRole.multimedia_studio,
     },
-
     # ── Umum ──────────────────────────────────────────────────────────────
     {
         "nip": "199205152018012001",
@@ -201,7 +221,7 @@ async def seed():
             session.add(user)
             print(f"  CREATED admin: {admin['username']}")
 
-        # ── Students (PENDING) ─────────────────────────────────────────────
+        # ── Students (ACTIVATED) ───────────────────────────────────────────
         for s in STUDENTS:
             result = await session.execute(
                 select(SiswaProfile).where(SiswaProfile.nis == s["nis"])
@@ -210,13 +230,14 @@ async def seed():
                 print(f"  SKIP student (NIS exists): {s['nis']} - {s['nama_lengkap']}")
                 continue
 
+            username = f"siswa_{s['nis']}"
             user = User(
+                username=username,
                 user_type=UserType.siswa,
-                registration_status=RegistrationStatus.pending,
-                username=None,
-                password_hash=None,
+                registration_status=RegistrationStatus.completed,
                 is_active=True,
             )
+            user.set_password(DEFAULT_PASSWORD)
             session.add(user)
             await session.flush()
 
@@ -229,9 +250,9 @@ async def seed():
                 status_siswa=StatusSiswa.aktif,
             )
             session.add(profile)
-            print(f"  CREATED student: {s['nis']} - {s['nama_lengkap']}")
+            print(f"  CREATED student: {s['nis']} - {username}")
 
-        # ── Teachers (PENDING) ─────────────────────────────────────────────
+        # ── Teachers (ACTIVATED) ───────────────────────────────────────────
         for t in TEACHERS:
             result = await session.execute(
                 select(GuruProfile).where(GuruProfile.nip == t["nip"])
@@ -240,13 +261,14 @@ async def seed():
                 print(f"  SKIP teacher (NIP exists): {t['nip']} - {t['nama_lengkap']}")
                 continue
 
+            username = f"guru_{t['nip']}"
             user = User(
+                username=username,
                 user_type=UserType.guru,
-                registration_status=RegistrationStatus.pending,
-                username=None,
-                password_hash=None,
-                is_active=False,
+                registration_status=RegistrationStatus.completed,
+                is_active=True,
             )
+            user.set_password(DEFAULT_PASSWORD)
             session.add(user)
             await session.flush()
 
@@ -262,12 +284,12 @@ async def seed():
             )
             session.add(profile)
             role_label = t.get("structural_role", StructuralRole.guru).value
-            print(f"  CREATED teacher: {t['nip']} - {t['nama_lengkap']} [{role_label}]")
+            print(f"  CREATED teacher: {username} [{role_label}]")
 
         await session.commit()
 
     await engine.dispose()
-    print("\nSeed complete.")
+    print(f"\nSeed complete. All accounts use password: {DEFAULT_PASSWORD}")
 
 
 if __name__ == "__main__":

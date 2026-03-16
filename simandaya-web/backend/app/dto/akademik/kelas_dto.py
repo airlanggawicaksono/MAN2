@@ -28,6 +28,7 @@ class KelasResponseDTO(BaseModel):
     tingkat: TingkatKelas
     jurusan: Optional[str]
     wali_kelas_id: Optional[UUID]
+    wali_kelas_nama: Optional[str] = None
     kapasitas: int
 
 
@@ -39,6 +40,20 @@ class SiswaKelasResponseDTO(BaseModel):
     siswa_kelas_id: UUID
     kelas_id: UUID
     user_id: UUID
+    nama_lengkap: Optional[str] = None
+    nis: Optional[str] = None
+
+
+class PromoteStudentsDTO(BaseModel):
+    from_tahun_ajaran_id: UUID = Field(..., description="Previous academic year")
+    to_tahun_ajaran_id: UUID = Field(..., description="New academic year")
+
+
+class PromoteResultDTO(BaseModel):
+    promoted: int = 0
+    graduated: int = 0
+    skipped: int = 0
+    message: str
 
 
 class MessageResponseDTO(BaseModel):

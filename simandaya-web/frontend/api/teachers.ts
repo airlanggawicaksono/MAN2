@@ -65,6 +65,11 @@ export const teachersApi = createApi({
         { type: "Teacher", id: "LIST" },
       ],
     }),
+
+    getMyTeacherProfile: builder.query<GuruProfile, void>({
+      query: () => "/me",
+      providesTags: ["Teacher"],
+    }),
   }),
 });
 
@@ -74,4 +79,5 @@ export const {
   usePreRegisterTeacherMutation,
   useUpdateTeacherMutation,
   useDeleteTeacherMutation,
+  useGetMyTeacherProfileQuery,
 } = teachersApi;

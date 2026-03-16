@@ -1,9 +1,11 @@
+from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
 from app.enums import UserType
+from app.models.user import User
 from app.services.jadwal_service import JadwalService
 from app.dto.akademik.guru_mapel_dto import (
     CreateGuruMapelDTO, GuruMapelResponseDTO,
@@ -51,10 +53,23 @@ async def list_guru_mapel(
 
 
 @router.get(
+    "/guru-mapel/me",
+    response_model=list[GuruMapelResponseDTO],
+    summary="List My Teacher Assignments",
+)
+async def list_my_guru_mapel(
+    current_user: User = Depends(require_role(UserType.guru)),
+    db: AsyncSession = Depends(get_db),
+) -> list[GuruMapelResponseDTO]:
+    service = JadwalService(db)
+    return await service.list_guru_mapel_by_guru(current_user.user_id)
+
+
+@router.get(
     "/guru-mapel/guru/{user_id}",
     response_model=list[GuruMapelResponseDTO],
     summary="List Assignments for a Teacher",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
 )
 async def list_guru_mapel_by_guru(
     user_id: UUID,
@@ -68,7 +83,7 @@ async def list_guru_mapel_by_guru(
     "/guru-mapel/kelas/{kelas_id}",
     response_model=list[GuruMapelResponseDTO],
     summary="List Assignments for a Class",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
 )
 async def list_guru_mapel_by_kelas(
     kelas_id: UUID,
@@ -129,7 +144,7 @@ async def list_jadwal_by_semester(
     "/jadwal/kelas/{kelas_id}",
     response_model=list[JadwalResponseDTO],
     summary="Get Timetable for a Class",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
 )
 async def list_jadwal_by_kelas(
     kelas_id: UUID,
@@ -143,7 +158,7 @@ async def list_jadwal_by_kelas(
     "/jadwal/guru/{user_id}",
     response_model=list[JadwalResponseDTO],
     summary="Get Timetable for a Teacher",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
 )
 async def list_jadwal_by_guru(
     user_id: UUID,
@@ -151,6 +166,22 @@ async def list_jadwal_by_guru(
 ) -> list[JadwalResponseDTO]:
     service = JadwalService(db)
     return await service.list_jadwal_by_guru(user_id)
+
+
+@router.get(
+    "/my-jadwal",
+    response_model=list[JadwalResponseDTO],
+    summary="Get My Timetable (Student or Teacher)",
+)
+async def get_my_jadwal(
+    current_user: User = Depends(require_role(UserType.siswa, UserType.guru)),
+    db: AsyncSession = Depends(get_db),
+) -> list[JadwalResponseDTO]:
+    service = JadwalService(db)
+    if current_user.user_type == UserType.guru:
+        return await service.list_jadwal_by_guru(current_user.user_id)
+    else:
+        return await service.get_student_jadwal(current_user.user_id)
 
 
 @router.patch(

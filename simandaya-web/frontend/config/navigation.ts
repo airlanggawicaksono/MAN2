@@ -57,12 +57,39 @@ export const adminNav: NavItem[] = [
       { label: "Pengaturan Manajemen Konten", href: "/admin/manajemen/pengaturan-cms" },
     ],
   },
+  {
+    label: "Akademik",
+    width: "w-[240px]",
+    children: [
+      { label: "Manajemen Akademik", href: "/admin/manajemen/akademik" },
+      { label: "Kelas, Guru & Siswa", href: "/admin/manajemen/akademik/kelas-guru-siswa" },
+      { label: "Manajemen Jadwal", href: "/admin/manajemen/akademik/jadwal" },
+    ],
+  },
+];
+
+export const guruNav: NavItem[] = [
+  { label: "Dashboard", href: "/guru" },
+  { label: "Jadwal Mengajar", href: "/guru/jadwal" },
+  { label: "Penilaian Siswa", href: "/guru/penilaian" },
+  { label: "Wali Kelas (Rapor)", href: "/guru/rapor" },
+];
+
+export const siswaNav: NavItem[] = [
+  { label: "Dashboard", href: "/siswa" },
+  { label: "Jadwal Pelajaran", href: "/siswa/jadwal" },
+  { label: "Nilai Saya", href: "/siswa/nilai" },
+  { label: "Rapor Digital", href: "/siswa/rapor" },
 ];
 
 export function getNavForRole(role?: UserType): NavItem[] {
   switch (role) {
     case "Admin":
       return adminNav;
+    case "Guru":
+      return guruNav;
+    case "Siswa":
+      return siswaNav;
     default:
       return publicNav;
   }

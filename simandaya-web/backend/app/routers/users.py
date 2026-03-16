@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
 from app.enums import UserType
+from app.models.user import User
 from app.services.userMan_service import UserManagementService
 from app.dto.userMan.userman_request import (
     UpdateStudentRequestDTO, UpdateGuruRequestDTO,
@@ -65,6 +67,19 @@ async def list_students(
 ) -> PaginatedStudentsResponse:
     service = UserManagementService(db)
     return await service.list_students(skip=skip, limit=limit, search=search)
+
+
+@router.get(
+    "/students/me",
+    response_model=StudentProfileResponseDTO,
+    summary="Get My Student Profile",
+)
+async def get_my_student_profile(
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> StudentProfileResponseDTO:
+    service = UserManagementService(db)
+    return await service.get_student_by_user_id(current_user.user_id)
 
 
 @router.get(
@@ -131,6 +146,19 @@ async def list_teachers(
 ) -> PaginatedTeachersResponse:
     service = UserManagementService(db)
     return await service.list_gurus(skip=skip, limit=limit, search=search)
+
+
+@router.get(
+    "/teachers/me",
+    response_model=GuruProfileResponseDTO,
+    summary="Get My Teacher Profile",
+)
+async def get_my_teacher_profile(
+    current_user: User = Depends(require_role(UserType.guru)),
+    db: AsyncSession = Depends(get_db),
+) -> GuruProfileResponseDTO:
+    service = UserManagementService(db)
+    return await service.get_guru_by_user_id(current_user.user_id)
 
 
 @router.get(

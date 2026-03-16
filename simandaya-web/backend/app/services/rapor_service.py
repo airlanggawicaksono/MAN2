@@ -8,7 +8,6 @@ from sqlalchemy.orm import selectinload
 from app.models.rapor import Rapor, RaporNilai
 from app.models.tugas import Tugas
 from app.models.nilai import Nilai
-from app.models.bobot_penilaian import BobotPenilaian
 from app.models.absensi import Absensi
 from app.models.semester import Semester
 from app.models.kelas import Kelas
@@ -96,7 +95,7 @@ class RaporService:
         1. Get all tugas for (kelas, mapel, semester)
         2. Get nilai for this student on those tugas
         3. Group by jenis, average per jenis
-        4. Apply bobot weights if set, else simple average
+        4. Simple average of all jenis averages
         """
         # Get all tugas IDs for this context
         tugas_result = await self.db.execute(
@@ -141,35 +140,8 @@ class RaporService:
         for jenis_val, scores in jenis_scores.items():
             jenis_avg[jenis_val] = sum(scores) / len(scores)
 
-        # Get bobot for this context
-        bobot_result = await self.db.execute(
-            select(BobotPenilaian).where(
-                and_(
-                    BobotPenilaian.mapel_id == mapel_id,
-                    BobotPenilaian.kelas_id == kelas_id,
-                    BobotPenilaian.semester_id == semester_id,
-                )
-            )
-        )
-        bobot_list = bobot_result.scalars().all()
-
-        if bobot_list:
-            # Weighted average
-            total_weighted = 0.0
-            total_bobot = 0
-            for b in bobot_list:
-                jenis_val = b.jenis.value
-                if jenis_val in jenis_avg:
-                    total_weighted += jenis_avg[jenis_val] * b.bobot
-                    total_bobot += b.bobot
-
-            if total_bobot > 0:
-                return round(total_weighted / total_bobot, 2)
-            # Bobot exists but none match available scores - fall back
-            return round(sum(jenis_avg.values()) / len(jenis_avg), 2)
-        else:
-            # Simple average of all jenis averages
-            return round(sum(jenis_avg.values()) / len(jenis_avg), 2)
+        # Simple average of all jenis averages
+        return round(sum(jenis_avg.values()) / len(jenis_avg), 2)
 
     # ── Attendance summary ──────────────────────────────────────────────────
 
@@ -259,7 +231,7 @@ class RaporService:
     ) -> GenerateRaporResponseDTO:
         """
         Generate rapor entries for all students in a class.
-        Auto-calculates grades from nilai + bobot.
+        Auto-calculates grades from nilai.
 
         Raises:
             HTTPException: 404 if kelas/semester not found
@@ -550,7 +522,7 @@ class RaporService:
         self, rapor_id: UUID, current_user: User
     ) -> RaporResponseDTO:
         """
-        Re-calculate all grades for a rapor from raw nilai + bobot.
+        Re-calculate all grades for a rapor from raw nilai.
         Resets manual overrides.
 
         Raises:

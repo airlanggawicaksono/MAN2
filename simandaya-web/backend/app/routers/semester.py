@@ -35,7 +35,7 @@ async def create_semester(
     "/semester",
     response_model=list[SemesterResponseDTO],
     summary="List Semesters",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
 )
 async def list_semesters(
     db: AsyncSession = Depends(get_db),

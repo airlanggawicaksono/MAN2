@@ -1,33 +1,4 @@
-import { UUID } from "./common";
-
-export interface Nilai {
-  nilai_id: UUID;
-  tugas_id: UUID;
-  user_id: UUID;
-  nilai: number;
-  catatan?: string;
-}
-
-export interface CreateNilaiRequest {
-  user_id: UUID;
-  nilai: number;
-  catatan?: string;
-}
-
-export interface BulkCreateNilaiRequest {
-  entries: CreateNilaiRequest[];
-}
-
-export interface UpdateNilaiRequest {
-  nilai?: number;
-  catatan?: string;
-}
-
-export interface BulkNilaiResponse {
-  created_count: number;
-  updated_count: number;
-  message: string;
-}
+import { UUID } from "../common";
 
 export interface AttendanceSummary {
   hadir: number;
@@ -37,7 +8,7 @@ export interface AttendanceSummary {
   terlambat: number;
 }
 
-export interface RaporNilai {
+export interface RaporNilaiResponse {
   rapor_nilai_id: UUID;
   rapor_id: UUID;
   mapel_id: UUID;
@@ -47,7 +18,7 @@ export interface RaporNilai {
   catatan?: string;
 }
 
-export interface Rapor {
+export interface RaporResponse {
   rapor_id: UUID;
   user_id: UUID;
   semester_id: UUID;
@@ -55,7 +26,7 @@ export interface Rapor {
   catatan_wali_kelas?: string;
   is_published: boolean;
   published_at?: string;
-  grades: RaporNilai[];
+  grades: RaporNilaiResponse[];
   attendance_summary: AttendanceSummary;
 }
 

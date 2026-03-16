@@ -6,6 +6,7 @@ import type {
 
 export interface GuruProfile {
   guru_id: string;
+  user_id: string;
   nip: string | null;
   nama_lengkap: string;
   dob: string | null;

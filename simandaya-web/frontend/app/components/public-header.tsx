@@ -4,10 +4,11 @@ import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { getNavForRole, isNavGroup } from "@/config/navigation";
+import { getNavForRole, isNavGroup, roleRoutePrefix } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
 import { useLogoutMutation, useLoginMutation } from "@/api/auth";
+import { UserType } from "@/types/auth";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,8 @@ export default function PublicHeader() {
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
+
+      router.push("/");
     } catch (err: any) {
       setLoginError(err.data?.detail || "Login gagal. Silakan coba lagi.");
     }
@@ -117,73 +120,78 @@ export default function PublicHeader() {
         </div>
 
         <div className="flex items-center gap-4">
-          <NavigationMenu>
-            <NavigationMenuList className="gap-1">
-              {navItems.map((item) => {
-                if (isNavGroup(item)) {
-                  const isActive = item.children.some(child => pathname === child.href);
-                  return (
-                    <NavigationMenuItem key={item.label}>
-                      <NavigationMenuTrigger className={isActive ? activeTriggerStyle : triggerStyle}>
-                        {item.label}
-                      </NavigationMenuTrigger>
-                      <NavigationMenuContent>
-                        <ul className={`${item.width ?? "w-[240px]"} p-2`}>
-                          {item.children.map((child) => (
-                            <li key={child.href}>
-                              <NavigationMenuLink asChild>
-                                {child.href.startsWith("http") ? (
-                                  <a
-                                    href={child.href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={dropdownLinkStyle}
-                                  >
-                                    {child.label}
-                                  </a>
-                                ) : (
-                                  <Link href={child.href} className={dropdownLinkStyle}>
-                                    {child.label}
-                                  </Link>
-                                )}
-                              </NavigationMenuLink>
-                            </li>
-                          ))}
-                        </ul>
-                      </NavigationMenuContent>
-                    </NavigationMenuItem>
-                  );
-                }
+          {mounted && (
+            <>
+              <NavigationMenu>
+                <NavigationMenuList className="gap-1">
+                  {navItems.map((item) => {
+                    if (isNavGroup(item)) {
+                      const isActive = item.children.some(child => pathname === child.href);
+                      return (
+                        <NavigationMenuItem key={item.label}>
+                          <NavigationMenuTrigger className={isActive ? activeTriggerStyle : triggerStyle}>
+                            {item.label}
+                          </NavigationMenuTrigger>
+                          <NavigationMenuContent>
+                            <ul className={`${item.width ?? "w-[240px]"} p-2`}>
+                              {item.children.map((child) => (
+                                <li key={child.href}>
+                                  <NavigationMenuLink asChild>
+                                    {child.href.startsWith("http") ? (
+                                      <a
+                                        href={child.href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={dropdownLinkStyle}
+                                      >
+                                        {child.label}
+                                      </a>
+                                    ) : (
+                                      <Link href={child.href} className={dropdownLinkStyle}>
+                                        {child.label}
+                                      </Link>
+                                    )}
+                                  </NavigationMenuLink>
+                                </li>
+                              ))}
+                            </ul>
+                          </NavigationMenuContent>
+                        </NavigationMenuItem>
+                      );
+                    }
 
-                const isActive = pathname === item.href;
-                return (
-                  <NavigationMenuItem key={item.href}>
-                    <NavigationMenuLink
-                      asChild
-                      className={navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)}
-                    >
-                      <Link href={item.href}>{item.label}</Link>
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                );
-              })}
-            </NavigationMenuList>
-          </NavigationMenu>
+                    const href = "href" in item ? item.href : "#";
+                    const isActive = pathname === href;
+                    return (
+                      <NavigationMenuItem key={href}>
+                        <NavigationMenuLink
+                          asChild
+                          className={navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)}
+                        >
+                          <Link href={href}>{item.label}</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    );
+                  })}
+                </NavigationMenuList>
+              </NavigationMenu>
 
-          {mounted && isAuthenticated ? (
-            <button
-              onClick={() => setShowLogoutDialog(true)}
-              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
-            >
-              Keluar
-            </button>
-          ) : (
-            <button
-              onClick={openLoginDialog}
-              className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
-            >
-              Masuk
-            </button>
+              {isAuthenticated ? (
+                <button
+                  onClick={() => setShowLogoutDialog(true)}
+                  className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
+                >
+                  Keluar
+                </button>
+              ) : (
+                <button
+                  onClick={openLoginDialog}
+                  className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
+                >
+                  Masuk
+                </button>
+              )}
+            </>
           )}
         </div>
       </header>

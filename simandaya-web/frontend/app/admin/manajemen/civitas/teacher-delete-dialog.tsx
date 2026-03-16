@@ -34,7 +34,7 @@ export function TeacherDeleteDialog({ teacher, open, onClose }: TeacherDeleteDia
 
   const errorMessage =
     error && "data" in error
-      ? (error.data as { detail?: string })?.detail
+      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
       : undefined;
 
   return (

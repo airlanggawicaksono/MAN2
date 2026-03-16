@@ -2,6 +2,7 @@ import type { JenisKelamin, StatusSiswa } from "./enums";
 
 export interface StudentProfile {
   siswa_id: string;
+  user_id: string;
   nis: string | null;
   nama_lengkap: string;
   dob: string | null;

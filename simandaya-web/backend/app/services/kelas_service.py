@@ -1,18 +1,22 @@
 from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.kelas import Kelas
 from app.models.siswa_kelas import SiswaKelas
 from app.models.tahun_ajaran import TahunAjaran
 from app.models.user import User
 from app.enums import UserType
+from app.enums import TingkatKelas
 from app.dto.akademik.kelas_dto import (
     CreateKelasDTO,
     UpdateKelasDTO,
     KelasResponseDTO,
     AssignSiswaDTO,
     SiswaKelasResponseDTO,
+    PromoteStudentsDTO,
+    PromoteResultDTO,
     MessageResponseDTO
 )
 
@@ -30,6 +34,9 @@ class KelasService:
 
     def _to_kelas_dto(self, kelas: Kelas) -> KelasResponseDTO:
         """Convert Kelas model to KelasResponseDTO"""
+        wali_nama = None
+        if kelas.wali_kelas and hasattr(kelas.wali_kelas, 'guru_profile') and kelas.wali_kelas.guru_profile:
+            wali_nama = kelas.wali_kelas.guru_profile.nama_lengkap
         return KelasResponseDTO(
             kelas_id=kelas.kelas_id,
             tahun_ajaran_id=kelas.tahun_ajaran_id,
@@ -37,15 +44,23 @@ class KelasService:
             tingkat=kelas.tingkat,
             jurusan=kelas.jurusan,
             wali_kelas_id=kelas.wali_kelas_id,
+            wali_kelas_nama=wali_nama,
             kapasitas=kelas.kapasitas
         )
 
     def _to_siswa_kelas_dto(self, siswa_kelas: SiswaKelas) -> SiswaKelasResponseDTO:
         """Convert SiswaKelas model to SiswaKelasResponseDTO"""
+        nama_lengkap = None
+        nis = None
+        if siswa_kelas.user and siswa_kelas.user.siswa_profile:
+            nama_lengkap = siswa_kelas.user.siswa_profile.nama_lengkap
+            nis = siswa_kelas.user.siswa_profile.nis
         return SiswaKelasResponseDTO(
             siswa_kelas_id=siswa_kelas.siswa_kelas_id,
             kelas_id=siswa_kelas.kelas_id,
-            user_id=siswa_kelas.user_id
+            user_id=siswa_kelas.user_id,
+            nama_lengkap=nama_lengkap,
+            nis=nis,
         )
 
     async def create_kelas(self, request: CreateKelasDTO) -> KelasResponseDTO:
@@ -124,7 +139,14 @@ class KelasService:
 
             self.db.add(kelas)
             await self.db.commit()
-            await self.db.refresh(kelas)
+
+            # Re-fetch with wali_kelas loaded
+            result = await self.db.execute(
+                select(Kelas).where(Kelas.kelas_id == kelas.kelas_id).options(
+                    selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                )
+            )
+            kelas = result.scalar_one()
 
             return self._to_kelas_dto(kelas)
 
@@ -148,7 +170,11 @@ class KelasService:
             HTTPException: 500 if database error occurs
         """
         try:
-            result = await self.db.execute(select(Kelas))
+            result = await self.db.execute(
+                select(Kelas).options(
+                    selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                )
+            )
             kelas_list = result.scalars().all()
             return [self._to_kelas_dto(kelas) for kelas in kelas_list]
 
@@ -174,7 +200,9 @@ class KelasService:
         """
         try:
             result = await self.db.execute(
-                select(Kelas).where(Kelas.kelas_id == kelas_id)
+                select(Kelas).where(Kelas.kelas_id == kelas_id).options(
+                    selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                )
             )
             kelas = result.scalar_one_or_none()
 
@@ -209,7 +237,9 @@ class KelasService:
         """
         try:
             result = await self.db.execute(
-                select(Kelas).where(Kelas.tahun_ajaran_id == tahun_ajaran_id)
+                select(Kelas).where(Kelas.tahun_ajaran_id == tahun_ajaran_id).options(
+                    selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                )
             )
             kelas_list = result.scalars().all()
             return [self._to_kelas_dto(kelas) for kelas in kelas_list]
@@ -284,7 +314,14 @@ class KelasService:
                 setattr(kelas, field, value)
 
             await self.db.commit()
-            await self.db.refresh(kelas)
+
+            # Re-fetch with wali_kelas loaded
+            result = await self.db.execute(
+                select(Kelas).where(Kelas.kelas_id == kelas_id).options(
+                    selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                )
+            )
+            kelas = result.scalar_one()
 
             return self._to_kelas_dto(kelas)
 
@@ -426,7 +463,16 @@ class KelasService:
 
             self.db.add(siswa_kelas)
             await self.db.commit()
-            await self.db.refresh(siswa_kelas)
+
+            # Re-fetch with profile loaded
+            result = await self.db.execute(
+                select(SiswaKelas)
+                .where(SiswaKelas.siswa_kelas_id == siswa_kelas.siswa_kelas_id)
+                .options(
+                    selectinload(SiswaKelas.user).selectinload(User.siswa_profile)
+                )
+            )
+            siswa_kelas = result.scalar_one()
 
             return self._to_siswa_kelas_dto(siswa_kelas)
 
@@ -512,9 +558,13 @@ class KelasService:
                     detail=f"Kelas with ID {kelas_id} not found"
                 )
 
-            # Get all siswa in kelas
+            # Get all siswa in kelas with profile data
             result = await self.db.execute(
-                select(SiswaKelas).where(SiswaKelas.kelas_id == kelas_id)
+                select(SiswaKelas)
+                .where(SiswaKelas.kelas_id == kelas_id)
+                .options(
+                    selectinload(SiswaKelas.user).selectinload(User.siswa_profile)
+                )
             )
             siswa_kelas_list = result.scalars().all()
 
@@ -527,3 +577,113 @@ class KelasService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list siswa in kelas: {str(e)}"
             )
+
+    async def promote_students(self, request: PromoteStudentsDTO) -> PromoteResultDTO:
+        """
+        Promote students from previous year to new year.
+        X → XI, XI → XII, XII → graduated (skipped).
+        Students are distributed into matching classes (same jurusan, next tingkat).
+        """
+        PROMOTION_MAP = {
+            TingkatKelas.x: TingkatKelas.xi,
+            TingkatKelas.xi: TingkatKelas.xii,
+        }
+
+        # Get all classes from previous year with their students
+        prev_classes_result = await self.db.execute(
+            select(Kelas).where(Kelas.tahun_ajaran_id == request.from_tahun_ajaran_id)
+        )
+        prev_classes = prev_classes_result.scalars().all()
+
+        # Get all classes from new year
+        new_classes_result = await self.db.execute(
+            select(Kelas).where(Kelas.tahun_ajaran_id == request.to_tahun_ajaran_id)
+        )
+        new_classes = new_classes_result.scalars().all()
+
+        if not new_classes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target academic year has no classes. Create classes first."
+            )
+
+        promoted = 0
+        graduated = 0
+        skipped = 0
+
+        for prev_class in prev_classes:
+            # Get students in this class
+            students_result = await self.db.execute(
+                select(SiswaKelas).where(SiswaKelas.kelas_id == prev_class.kelas_id)
+            )
+            students = students_result.scalars().all()
+
+            next_tingkat = PROMOTION_MAP.get(prev_class.tingkat)
+
+            if next_tingkat is None:
+                # XII students → graduated
+                graduated += len(students)
+                continue
+
+            # Find matching classes in new year (same jurusan, next tingkat)
+            target_classes = [
+                c for c in new_classes
+                if c.tingkat == next_tingkat and c.jurusan == prev_class.jurusan
+            ]
+
+            if not target_classes:
+                # No matching class found, try any class with same tingkat
+                target_classes = [
+                    c for c in new_classes if c.tingkat == next_tingkat
+                ]
+
+            if not target_classes:
+                skipped += len(students)
+                continue
+
+            # Distribute students across target classes
+            for i, student in enumerate(students):
+                target_class = target_classes[i % len(target_classes)]
+
+                # Check if already assigned
+                existing = await self.db.execute(
+                    select(SiswaKelas).where(
+                        SiswaKelas.kelas_id == target_class.kelas_id,
+                        SiswaKelas.user_id == student.user_id,
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    skipped += 1
+                    continue
+
+                new_assignment = SiswaKelas(
+                    kelas_id=target_class.kelas_id,
+                    user_id=student.user_id,
+                )
+                self.db.add(new_assignment)
+                promoted += 1
+
+        await self.db.commit()
+
+        return PromoteResultDTO(
+            promoted=promoted,
+            graduated=graduated,
+            skipped=skipped,
+            message=f"{promoted} siswa dipromosikan, {graduated} siswa lulus (XII), {skipped} dilewati."
+        )
+
+    async def get_student_kelas(self, user_id: UUID) -> KelasResponseDTO:
+        """
+        Get the current active class for a student.
+        """
+        result = await self.db.execute(
+            select(Kelas).join(SiswaKelas).where(SiswaKelas.user_id == user_id)
+            .options(selectinload(Kelas.wali_kelas).selectinload(User.guru_profile))
+        )
+        kelas = result.scalar_one_or_none()
+        if not kelas:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not assigned to any class"
+            )
+        return self._to_kelas_dto(kelas)

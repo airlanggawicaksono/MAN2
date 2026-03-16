@@ -43,6 +43,7 @@ Simandaya Web (Windows)
 Dev  (.env):
   .\make.ps1 dev-up         Start all services in background
   .\make.ps1 dev-down       Stop all services
+  .\make.ps1 dev-reset-seed Reset volumes, restart dev, and run all seeds
   .\make.ps1 dev-backend    Start backend only (background)
   .\make.ps1 dev-frontend   Start frontend only (background)
 
@@ -93,6 +94,18 @@ Ports:
     # ── Dev ───────────────────────────────────────────────────────────────
     "dev-up"       { Invoke-Dev "up -d" }
     "dev-down"     { Invoke-Dev "stop" }
+    "dev-reset-seed" {
+        Write-Host "Resetting dev environment and seeding..."
+        Invoke-Dev "down -v"
+        Invoke-Dev "up -d"
+        Write-Host "Waiting for services to initialize (10s)..."
+        Start-Sleep -Seconds 10
+        Write-Host "Seeding admins..."
+        Invoke-Dev "exec backend python scripts/seed_admins.py"
+        Write-Host "Seeding absensi..."
+        Invoke-Dev "exec backend python scripts/seed_absensi.py"
+        Write-Host "Reset and Seed complete!"
+    }
     "dev-backend"  { Invoke-Dev "up -d backend" }
     "dev-frontend" { Invoke-Dev "up -d frontend" }
 

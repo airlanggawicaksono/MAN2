@@ -11,6 +11,7 @@ from app.enums import (
 
 class StudentProfileResponseDTO(BaseModel):
     siswa_id: UUID
+    user_id: UUID
     nis: Optional[str] = None
     nama_lengkap: str
     dob: Optional[str] = None
@@ -29,6 +30,7 @@ class StudentProfileResponseDTO(BaseModel):
 
 class GuruProfileResponseDTO(BaseModel):
     guru_id: UUID
+    user_id: UUID
     nip: Optional[str] = None
     nama_lengkap: str
     dob: Optional[str] = None

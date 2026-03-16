@@ -1,6 +1,7 @@
 from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.guru_mapel import GuruMapel
 from app.models.jadwal import Jadwal
@@ -129,7 +130,18 @@ class JadwalService:
 
         self.db.add(guru_mapel)
         await self.db.commit()
-        await self.db.refresh(guru_mapel)
+
+        # Re-fetch with relationships loaded
+        result = await self.db.execute(
+            select(GuruMapel)
+            .where(GuruMapel.guru_mapel_id == guru_mapel.guru_mapel_id)
+            .options(
+                selectinload(GuruMapel.user).selectinload(User.guru_profile),
+                selectinload(GuruMapel.mapel),
+                selectinload(GuruMapel.kelas),
+            )
+        )
+        guru_mapel = result.scalar_one()
 
         return self._to_guru_mapel_dto(guru_mapel)
 
@@ -140,7 +152,14 @@ class JadwalService:
         Returns:
             list[GuruMapelResponseDTO]: All assignments
         """
-        result = await self.db.execute(select(GuruMapel))
+        result = await self.db.execute(
+            select(GuruMapel)
+            .options(
+                selectinload(GuruMapel.user).selectinload(User.guru_profile),
+                selectinload(GuruMapel.mapel),
+                selectinload(GuruMapel.kelas),
+            )
+        )
         guru_mapels = result.scalars().all()
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
@@ -155,7 +174,13 @@ class JadwalService:
             list[GuruMapelResponseDTO]: Assignments for the teacher
         """
         result = await self.db.execute(
-            select(GuruMapel).where(GuruMapel.user_id == user_id)
+            select(GuruMapel)
+            .where(GuruMapel.user_id == user_id)
+            .options(
+                selectinload(GuruMapel.user).selectinload(User.guru_profile),
+                selectinload(GuruMapel.mapel),
+                selectinload(GuruMapel.kelas),
+            )
         )
         guru_mapels = result.scalars().all()
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
@@ -171,7 +196,13 @@ class JadwalService:
             list[GuruMapelResponseDTO]: Assignments for the class
         """
         result = await self.db.execute(
-            select(GuruMapel).where(GuruMapel.kelas_id == kelas_id)
+            select(GuruMapel)
+            .where(GuruMapel.kelas_id == kelas_id)
+            .options(
+                selectinload(GuruMapel.user).selectinload(User.guru_profile),
+                selectinload(GuruMapel.mapel),
+                selectinload(GuruMapel.kelas),
+            )
         )
         guru_mapels = result.scalars().all()
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
@@ -382,6 +413,24 @@ class JadwalService:
         jadwals = result.scalars().all()
         return [self._to_jadwal_dto(j) for j in jadwals]
 
+    async def get_student_jadwal(self, user_id: UUID) -> list[JadwalResponseDTO]:
+        """
+        Get the current timetable for a student based on their class.
+        """
+        # First find the student's class
+        result = await self.db.execute(
+            select(SiswaKelas.kelas_id).where(SiswaKelas.user_id == user_id)
+        )
+        kelas_id = result.scalar_one_or_none()
+        if not kelas_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not assigned to any class"
+            )
+        
+        # Then get the jadwal for that class
+        return await self.list_jadwal_by_kelas(kelas_id)
+
     async def update_jadwal(self, jadwal_id: UUID, request: UpdateJadwalDTO) -> JadwalResponseDTO:
         """
         Update a timetable entry with clash re-validation.
@@ -537,12 +586,21 @@ class JadwalService:
 
     def _to_guru_mapel_dto(self, guru_mapel: GuruMapel) -> GuruMapelResponseDTO:
         """Convert GuruMapel model to DTO."""
+        guru_nama = None
+        if guru_mapel.user and guru_mapel.user.guru_profile:
+            guru_nama = guru_mapel.user.guru_profile.nama_lengkap
+        mapel_nama = guru_mapel.mapel.nama_mapel if guru_mapel.mapel else None
+        kelas_nama = guru_mapel.kelas.nama_kelas if guru_mapel.kelas else None
+
         return GuruMapelResponseDTO(
             guru_mapel_id=guru_mapel.guru_mapel_id,
             user_id=guru_mapel.user_id,
             mapel_id=guru_mapel.mapel_id,
             kelas_id=guru_mapel.kelas_id,
             tahun_ajaran_id=guru_mapel.tahun_ajaran_id,
+            guru_nama=guru_nama,
+            mapel_nama=mapel_nama,
+            kelas_nama=kelas_nama,
         )
 
     def _to_jadwal_dto(self, jadwal: Jadwal) -> JadwalResponseDTO:
