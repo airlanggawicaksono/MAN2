@@ -13,6 +13,11 @@ class StatusSiswa(Enum):
     lulus = "Lulus"
 
 
+class idType(Enum):
+    nis = "NIS"
+    nik = "NIK"
+
+
 class StatusGuru(Enum):
     aktif = "Aktif"
     nonaktif = "Non-Aktif"

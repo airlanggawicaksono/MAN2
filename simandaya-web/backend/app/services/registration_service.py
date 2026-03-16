@@ -1,59 +1,40 @@
-from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
-from app.models.user import User
-from app.models.siswa_profile import SiswaProfile
-from app.models.guru_profile import GuruProfile
-from app.enums import (
-    UserType, RegistrationStatus, StatusSiswa, StatusGuru,
-)
 from app.dto.registration.registration_dto import (
-    StudentLookupResponseDTO, TeacherLookupResponseDTO,
-    ClaimStudentRequestDTO, ClaimTeacherRequestDTO, ClaimResponseDTO,
-    PreRegisterStudentDTO, PreRegisterTeacherDTO, PreRegisterResponseDTO,
+    ClaimResponseDTO,
+    ClaimStudentRequestDTO,
+    ClaimTeacherRequestDTO,
+    PreRegisterResponseDTO,
+    PreRegisterStudentDTO,
+    PreRegisterTeacherDTO,
+    StudentLookupResponseDTO,
+    TeacherLookupResponseDTO,
 )
+from app.enums import StatusGuru, StatusSiswa, UserType, RegistrationStatus
+from app.models.guru_profile import GuruProfile
+from app.models.siswa_profile import SiswaProfile
+from app.policy.registration_policy import RegistrationPolicy
+from app.repositoriy.registration_repository import RegistrationRepository
 
 
 class RegistrationService:
     """
     Handles pre-registration and NIS/NIP-based claim flow.
-
-    Raises:
-        HTTPException: 400, 404
     """
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
-
-    # ── Lookup (Step 2: verify NIS/NIP) ──────────────────────────────────────
+    def __init__(
+        self,
+        db: AsyncSession,
+        repo: RegistrationRepository | None = None,
+        policy: type[RegistrationPolicy] = RegistrationPolicy,
+    ):
+        self.repo = repo or RegistrationRepository(db)
+        self.policy = policy
 
     async def lookup_student_by_nis(self, nis: str) -> StudentLookupResponseDTO:
-        """
-        Lookup a PENDING student by NIS.
-
-        Raises:
-            HTTPException: 404 if NIS not found or not PENDING
-        """
-        result = await self.db.execute(
-            select(SiswaProfile)
-            .options(joinedload(SiswaProfile.user))
-            .where(SiswaProfile.nis == nis)
-        )
-        profile = result.scalar_one_or_none()
-
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="NIS tidak ditemukan"
-            )
-
-        if profile.user.registration_status != RegistrationStatus.pending:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Akun dengan NIS ini sudah terdaftar"
-            )
+        profile = await self.repo.get_student_profile_by_nis_with_user(nis)
+        self.policy.ensure_student_profile_exists(profile)
+        self.policy.ensure_pending_student(profile.user)
 
         return StudentLookupResponseDTO(
             siswa_id=profile.siswa_id,
@@ -64,30 +45,9 @@ class RegistrationService:
         )
 
     async def lookup_teacher_by_nip(self, nip: str) -> TeacherLookupResponseDTO:
-        """
-        Lookup a PENDING teacher by NIP.
-
-        Raises:
-            HTTPException: 404 if NIP not found or not PENDING
-        """
-        result = await self.db.execute(
-            select(GuruProfile)
-            .options(joinedload(GuruProfile.user))
-            .where(GuruProfile.nip == nip)
-        )
-        profile = result.scalar_one_or_none()
-
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="NIP tidak ditemukan"
-            )
-
-        if profile.user.registration_status != RegistrationStatus.pending:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Akun dengan NIP ini sudah terdaftar"
-            )
+        profile = await self.repo.get_teacher_profile_by_nip_with_user(nip)
+        self.policy.ensure_teacher_profile_exists(profile)
+        self.policy.ensure_pending_teacher(profile.user)
 
         return TeacherLookupResponseDTO(
             guru_id=profile.guru_id,
@@ -96,53 +56,22 @@ class RegistrationService:
             jenis_kelamin=profile.jenis_kelamin,
         )
 
-    # ── Claim (Step 3: set credentials) ──────────────────────────────────────
-
     async def claim_student(self, request: ClaimStudentRequestDTO) -> ClaimResponseDTO:
-        """
-        Student claims a PENDING entry by NIS and sets username + password.
-
-        Raises:
-            HTTPException: 404 if NIS not found
-            HTTPException: 400 if not PENDING or username taken
-        """
-        result = await self.db.execute(
-            select(SiswaProfile)
-            .options(joinedload(SiswaProfile.user))
-            .where(SiswaProfile.nis == request.nis)
-        )
-        profile = result.scalar_one_or_none()
-
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="NIS tidak ditemukan"
-            )
+        profile = await self.repo.get_student_profile_by_nis_with_user(request.nis)
+        self.policy.ensure_student_profile_exists(profile)
 
         user = profile.user
-        if user.registration_status != RegistrationStatus.pending:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Akun dengan NIS ini sudah terdaftar"
-            )
+        self.policy.ensure_pending_student(user)
 
-        # Check username uniqueness
-        username_check = await self.db.execute(
-            select(User).where(User.username == request.username)
-        )
-        if username_check.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Username '{request.username}' sudah digunakan"
-            )
+        is_taken = await self.repo.is_username_taken(request.username)
+        self.policy.ensure_username_available(is_taken, request.username)
 
-        # Activate account
         user.username = request.username
         user.set_password(request.password)
         user.registration_status = RegistrationStatus.completed
         user.is_active = True
 
-        await self.db.commit()
+        await self.repo.commit()
 
         return ClaimResponseDTO(
             message="Registrasi berhasil! Silakan login.",
@@ -151,50 +80,21 @@ class RegistrationService:
         )
 
     async def claim_teacher(self, request: ClaimTeacherRequestDTO) -> ClaimResponseDTO:
-        """
-        Teacher claims a PENDING entry by NIP and sets username + password.
-
-        Raises:
-            HTTPException: 404 if NIP not found
-            HTTPException: 400 if not PENDING or username taken
-        """
-        result = await self.db.execute(
-            select(GuruProfile)
-            .options(joinedload(GuruProfile.user))
-            .where(GuruProfile.nip == request.nip)
-        )
-        profile = result.scalar_one_or_none()
-
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="NIP tidak ditemukan"
-            )
+        profile = await self.repo.get_teacher_profile_by_nip_with_user(request.nip)
+        self.policy.ensure_teacher_profile_exists(profile)
 
         user = profile.user
-        if user.registration_status != RegistrationStatus.pending:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Akun dengan NIP ini sudah terdaftar"
-            )
+        self.policy.ensure_pending_teacher(user)
 
-        # Check username uniqueness
-        username_check = await self.db.execute(
-            select(User).where(User.username == request.username)
-        )
-        if username_check.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Username '{request.username}' sudah digunakan"
-            )
+        is_taken = await self.repo.is_username_taken(request.username)
+        self.policy.ensure_username_available(is_taken, request.username)
 
-        # Activate account
         user.username = request.username
         user.set_password(request.password)
         user.registration_status = RegistrationStatus.completed
         user.is_active = True
 
-        await self.db.commit()
+        await self.repo.commit()
 
         return ClaimResponseDTO(
             message="Registrasi berhasil! Silakan login.",
@@ -202,35 +102,13 @@ class RegistrationService:
             user_type=user.user_type.value,
         )
 
-    # ── Admin Pre-Register ──────────────────────────────────────────────────
-
     async def pre_register_student(self, request: PreRegisterStudentDTO) -> PreRegisterResponseDTO:
-        """
-        Admin creates a PENDING student entry (nis + nama required, rest optional).
+        is_taken = await self.repo.is_nis_taken(request.nis)
+        self.policy.ensure_nis_available(is_taken, request.nis)
 
-        Raises:
-            HTTPException: 400 if NIS already exists
-        """
-        nis_check = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.nis == request.nis)
-        )
-        if nis_check.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"NIS '{request.nis}' sudah digunakan"
-            )
-
-        user = User(
-            user_type=UserType.siswa,
-            registration_status=RegistrationStatus.pending,
-            username=None,
-            password_hash=None,
-            is_active=False,
-        )
-        self.db.add(user)
-        await self.db.flush()
-
+        user = await self.repo.create_pending_user(UserType.siswa)
         profile_data = request.model_dump(exclude_unset=True)
+
         profile = SiswaProfile(
             user_id=user.user_id,
             nama_lengkap=request.nama_lengkap,
@@ -238,48 +116,20 @@ class RegistrationService:
             status_siswa=StatusSiswa.aktif,
             kewarganegaraan=profile_data.get("kewarganegaraan", "Indonesia"),
         )
-        optional_fields = [
-            "dob", "tempat_lahir", "jenis_kelamin", "alamat",
-            "nama_wali", "nik", "kelas_jurusan", "tahun_masuk", "kontak",
-        ]
-        for field in optional_fields:
-            if field in profile_data:
-                setattr(profile, field, profile_data[field])
+        self._set_student_optional_fields(profile, profile_data)
 
-        self.db.add(profile)
-        await self.db.commit()
+        await self.repo.add_student_profile(profile)
+        await self.repo.commit()
 
-        return PreRegisterResponseDTO(
-            message=f"Siswa '{request.nama_lengkap}' berhasil didaftarkan (PENDING)"
-        )
+        return PreRegisterResponseDTO(message=f"Siswa '{request.nama_lengkap}' berhasil didaftarkan (PENDING)")
 
     async def pre_register_teacher(self, request: PreRegisterTeacherDTO) -> PreRegisterResponseDTO:
-        """
-        Admin creates a PENDING teacher entry (nip + nama required, rest optional).
+        is_taken = await self.repo.is_nip_taken(request.nip)
+        self.policy.ensure_nip_available(is_taken, request.nip)
 
-        Raises:
-            HTTPException: 400 if NIP already exists
-        """
-        nip_check = await self.db.execute(
-            select(GuruProfile).where(GuruProfile.nip == request.nip)
-        )
-        if nip_check.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"NIP '{request.nip}' sudah digunakan"
-            )
-
-        user = User(
-            user_type=UserType.guru,
-            registration_status=RegistrationStatus.pending,
-            username=None,
-            password_hash=None,
-            is_active=False,
-        )
-        self.db.add(user)
-        await self.db.flush()
-
+        user = await self.repo.create_pending_user(UserType.guru)
         profile_data = request.model_dump(exclude_unset=True)
+
         profile = GuruProfile(
             user_id=user.user_id,
             nama_lengkap=request.nama_lengkap,
@@ -287,18 +137,45 @@ class RegistrationService:
             status_guru=StatusGuru.aktif,
             kewarganegaraan=profile_data.get("kewarganegaraan", "Indonesia"),
         )
+        self._set_teacher_optional_fields(profile, profile_data)
+
+        await self.repo.add_teacher_profile(profile)
+        await self.repo.commit()
+
+        return PreRegisterResponseDTO(message=f"Guru '{request.nama_lengkap}' berhasil didaftarkan (PENDING)")
+
+    @staticmethod
+    def _set_student_optional_fields(profile: SiswaProfile, profile_data: dict) -> None:
         optional_fields = [
-            "dob", "tempat_lahir", "jenis_kelamin", "alamat",
-            "nik", "tahun_masuk", "kontak", "structural_role",
-            "bidang_wakasek", "mata_pelajaran", "pendidikan_terakhir",
+            "dob",
+            "tempat_lahir",
+            "jenis_kelamin",
+            "alamat",
+            "nama_wali",
+            "nik",
+            "kelas_jurusan",
+            "tahun_masuk",
+            "kontak",
         ]
         for field in optional_fields:
             if field in profile_data:
                 setattr(profile, field, profile_data[field])
 
-        self.db.add(profile)
-        await self.db.commit()
-
-        return PreRegisterResponseDTO(
-            message=f"Guru '{request.nama_lengkap}' berhasil didaftarkan (PENDING)"
-        )
+    @staticmethod
+    def _set_teacher_optional_fields(profile: GuruProfile, profile_data: dict) -> None:
+        optional_fields = [
+            "dob",
+            "tempat_lahir",
+            "jenis_kelamin",
+            "alamat",
+            "nik",
+            "tahun_masuk",
+            "kontak",
+            "structural_role",
+            "bidang_wakasek",
+            "mata_pelajaran",
+            "pendidikan_terakhir",
+        ]
+        for field in optional_fields:
+            if field in profile_data:
+                setattr(profile, field, profile_data[field])
