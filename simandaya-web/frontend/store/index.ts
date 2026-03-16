@@ -10,6 +10,8 @@ import { registrationApi } from "@/api/registration";
 import { cmsApi } from "@/api/setContentManagement";
 import { absensiApi } from "@/api/absensi";
 import { usermanApi } from "@/api/userman";
+import { akademikApi } from "@/api/akademik";
+import { penilaianApi } from "@/api/penilaian";
 
 const rootReducer = combineSlices(
   authApi,
@@ -19,6 +21,8 @@ const rootReducer = combineSlices(
   cmsApi,
   absensiApi,
   usermanApi,
+  akademikApi,
+  penilaianApi,
   { auth: authReducer, cms: cmsReducer, absensi: absensiReducer }
 );
 
@@ -36,6 +40,8 @@ export const makeStore = () => {
         cmsApi.middleware,
         absensiApi.middleware,
         usermanApi.middleware,
+        akademikApi.middleware,
+        penilaianApi.middleware,
       ),
   });
 };

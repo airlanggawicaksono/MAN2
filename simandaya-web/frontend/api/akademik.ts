@@ -1,111 +1,101 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { createBaseQuery } from "./base";
 import type {
-  TahunAjaran, CreateTahunAjaranRequest,
-  Semester, CreateSemesterRequest,
-  MataPelajaran, CreateMapelRequest,
-  Kelas, CreateKelasRequest,
-  Jadwal, CreateJadwalRequest,
-  SlotWaktu,
-  KalenderAkademik,
+  Mapel, CreateMapelRequest, UpdateMapelRequest,
+  Kelas, CreateKelasRequest, UpdateKelasRequest,
+  Jadwal, CreateJadwalRequest, UpdateJadwalRequest,
+  TahunAjaran, Semester,
 } from "@/types/akademik";
-import { MessageResponse } from "@/types/common";
+import type { MessageResponse } from "@/types/common";
+import { UUID } from "@/types/common";
 
 export const akademikApi = createApi({
   reducerPath: "akademikApi",
   baseQuery: createBaseQuery("/akademik"),
-  tagTypes: ["TahunAjaran", "Semester", "Mapel", "Kelas", "Jadwal", "SlotWaktu", "Kalender"],
+  tagTypes: ["Mapel", "Kelas", "Jadwal", "TahunAjaran", "Semester"],
   endpoints: (builder) => ({
-    // ── Tahun Ajaran ─────────────────────────────────────────────────────────
-    listTahunAjaran: builder.query<TahunAjaran[], void>({
-      query: () => "/tahun-ajaran",
-      providesTags: ["TahunAjaran"],
-    }),
-    getActiveTahunAjaran: builder.query<TahunAjaran | null, void>({
-      query: () => "/tahun-ajaran/active",
-      providesTags: ["TahunAjaran"],
-    }),
-    createTahunAjaran: builder.mutation<TahunAjaran, CreateTahunAjaranRequest>({
-      query: (body) => ({
-        url: "/tahun-ajaran",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: ["TahunAjaran"],
-    }),
-
-    // ── Semester ─────────────────────────────────────────────────────────────
-    listSemesters: builder.query<Semester[], void>({
-      query: () => "/semester",
-      providesTags: ["Semester"],
-    }),
-    getActiveSemester: builder.query<Semester | null, void>({
-      query: () => "/semester/active",
-      providesTags: ["Semester"],
-    }),
-    listSemestersByTahunAjaran: builder.query<Semester[], string>({
-      query: (tahunAjaranId) => `/semester/tahun-ajaran/${tahunAjaranId}`,
-      providesTags: ["Semester"],
-    }),
-
-    // ── Mata Pelajaran ───────────────────────────────────────────────────────
-    listMapel: builder.query<MataPelajaran[], void>({
+    // ── Mata Pelajaran ──────────────────────────────────────────────────────────
+    listMapel: builder.query<Mapel[], void>({
       query: () => "/mapel",
       providesTags: ["Mapel"],
     }),
-    createMapel: builder.mutation<MataPelajaran, CreateMapelRequest>({
-      query: (body) => ({
-        url: "/mapel",
-        method: "POST",
-        body,
-      }),
+    getMapel: builder.query<Mapel, UUID>({
+      query: (id) => `/mapel/${id}`,
+      providesTags: (result, error, id) => [{ type: "Mapel", id }],
+    }),
+    createMapel: builder.mutation<Mapel, CreateMapelRequest>({
+      query: (body) => ({ url: "/mapel", method: "POST", body }),
+      invalidatesTags: ["Mapel"],
+    }),
+    updateMapel: builder.mutation<Mapel, { id: UUID; body: UpdateMapelRequest }>({
+      query: ({ id, body }) => ({ url: `/mapel/${id}`, method: "PATCH", body }),
+      invalidatesTags: (result, error, { id }) => ["Mapel", { type: "Mapel", id }],
+    }),
+    deleteMapel: builder.mutation<MessageResponse, UUID>({
+      query: (id) => ({ url: `/mapel/${id}`, method: "DELETE" }),
       invalidatesTags: ["Mapel"],
     }),
 
-    // ── Kelas ────────────────────────────────────────────────────────────────
+    // ── Kelas ───────────────────────────────────────────────────────────────────
     listKelas: builder.query<Kelas[], void>({
       query: () => "/kelas",
       providesTags: ["Kelas"],
     }),
-    listKelasByTahunAjaran: builder.query<Kelas[], string>({
-      query: (tahunAjaranId) => `/kelas/tahun-ajaran/${tahunAjaranId}`,
-      providesTags: ["Kelas"],
+    getKelas: builder.query<Kelas, UUID>({
+      query: (id) => `/kelas/${id}`,
+      providesTags: (result, error, id) => [{ type: "Kelas", id }],
     }),
-    getMyKelas: builder.query<Kelas | null, void>({
-      query: () => "/me/kelas",
-      providesTags: ["Kelas"],
+    createKelas: builder.mutation<Kelas, CreateKelasRequest>({
+      query: (body) => ({ url: "/kelas", method: "POST", body }),
+      invalidatesTags: ["Kelas"],
+    }),
+    updateKelas: builder.mutation<Kelas, { id: UUID; body: UpdateKelasRequest }>({
+      query: ({ id, body }) => ({ url: `/kelas/${id}`, method: "PATCH", body }),
+      invalidatesTags: (result, error, { id }) => ["Kelas", { type: "Kelas", id }],
+    }),
+    deleteKelas: builder.mutation<MessageResponse, UUID>({
+      query: (id) => ({ url: `/kelas/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Kelas"],
     }),
 
-    // ── Slot Waktu ───────────────────────────────────────────────────────────
-    listSlotWaktu: builder.query<SlotWaktu[], void>({
-      query: () => "/slot-waktu",
-      providesTags: ["SlotWaktu"],
-    }),
-
-    // ── Jadwal ───────────────────────────────────────────────────────────────
-    listJadwalByKelas: builder.query<Jadwal[], string>({
+    // ── Jadwal ──────────────────────────────────────────────────────────────────
+    listJadwalByKelas: builder.query<Jadwal[], UUID>({
       query: (kelasId) => `/jadwal/kelas/${kelasId}`,
       providesTags: ["Jadwal"],
     }),
-    listJadwalByGuru: builder.query<Jadwal[], string>({
-      query: (userId) => `/jadwal/guru/${userId}`,
+    listJadwalByGuru: builder.query<Jadwal[], UUID>({
+      query: (guruId) => `/jadwal/guru/${guruId}`,
       providesTags: ["Jadwal"],
+    }),
+    createJadwal: builder.mutation<Jadwal, CreateJadwalRequest>({
+      query: (body) => ({ url: "/jadwal", method: "POST", body }),
+      invalidatesTags: ["Jadwal"],
+    }),
+    updateJadwal: builder.mutation<Jadwal, { id: UUID; body: UpdateJadwalRequest }>({
+      query: ({ id, body }) => ({ url: `/jadwal/${id}`, method: "PATCH", body }),
+      invalidatesTags: ["Jadwal"],
+    }),
+    deleteJadwal: builder.mutation<MessageResponse, UUID>({
+      query: (id) => ({ url: `/jadwal/${id}`, method: "DELETE" }),
+      invalidatesTags: ["Jadwal"],
     }),
   }),
 });
 
 export const {
-  useListTahunAjaranQuery,
-  useGetActiveTahunAjaranQuery,
-  useCreateTahunAjaranMutation,
-  useListSemestersQuery,
-  useGetActiveSemesterQuery,
-  useListSemestersByTahunAjaranQuery,
   useListMapelQuery,
+  useGetMapelQuery,
   useCreateMapelMutation,
+  useUpdateMapelMutation,
+  useDeleteMapelMutation,
   useListKelasQuery,
-  useListKelasByTahunAjaranQuery,
-  useListSlotWaktuQuery,
+  useGetKelasQuery,
+  useCreateKelasMutation,
+  useUpdateKelasMutation,
+  useDeleteKelasMutation,
   useListJadwalByKelasQuery,
   useListJadwalByGuruQuery,
+  useCreateJadwalMutation,
+  useUpdateJadwalMutation,
+  useDeleteJadwalMutation,
 } = akademikApi;
