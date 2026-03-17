@@ -15,16 +15,16 @@ from app.dto.akademik.jadwal_dto import (
     CreateJadwalDTO, UpdateJadwalDTO, JadwalResponseDTO,
 )
 
-router = APIRouter(
-    prefix="/api/v1/akademik",
-    tags=["Jadwal"]
-)
+router = APIRouter(prefix="/api/v1/akademik")
+admin_router = APIRouter(tags=["Jadwal - Admin"])
+guru_router = APIRouter(tags=["Jadwal - Guru"])
+student_router = APIRouter(tags=["Jadwal - Student"])
 
 
 # ── Guru Mapel (Teacher Assignment) ─────────────────────────────────────────
 
 
-@router.post(
+@admin_router.post(
     "/guru-mapel",
     response_model=GuruMapelResponseDTO,
     status_code=201,
@@ -39,7 +39,7 @@ async def create_guru_mapel(
     return await service.create_guru_mapel(request)
 
 
-@router.get(
+@admin_router.get(
     "/guru-mapel",
     response_model=list[GuruMapelResponseDTO],
     summary="List All Teacher Assignments",
@@ -52,7 +52,7 @@ async def list_guru_mapel(
     return await service.list_guru_mapel()
 
 
-@router.get(
+@guru_router.get(
     "/guru-mapel/me",
     response_model=list[GuruMapelResponseDTO],
     summary="List My Teacher Assignments",
@@ -65,7 +65,7 @@ async def list_my_guru_mapel(
     return await service.list_guru_mapel_by_guru(current_user.user_id)
 
 
-@router.get(
+@guru_router.get(
     "/guru-mapel/guru/{user_id}",
     response_model=list[GuruMapelResponseDTO],
     summary="List Assignments for a Teacher",
@@ -79,7 +79,7 @@ async def list_guru_mapel_by_guru(
     return await service.list_guru_mapel_by_guru(user_id)
 
 
-@router.get(
+@guru_router.get(
     "/guru-mapel/kelas/{kelas_id}",
     response_model=list[GuruMapelResponseDTO],
     summary="List Assignments for a Class",
@@ -93,7 +93,7 @@ async def list_guru_mapel_by_kelas(
     return await service.list_guru_mapel_by_kelas(kelas_id)
 
 
-@router.delete(
+@admin_router.delete(
     "/guru-mapel/{guru_mapel_id}",
     response_model=MessageResponseDTO,
     summary="Remove Teacher Assignment",
@@ -110,7 +110,7 @@ async def delete_guru_mapel(
 # ── Jadwal (Timetable) ──────────────────────────────────────────────────────
 
 
-@router.post(
+@admin_router.post(
     "/jadwal",
     response_model=JadwalResponseDTO,
     status_code=201,
@@ -126,7 +126,7 @@ async def create_jadwal(
     return await service.create_jadwal(request)
 
 
-@router.get(
+@admin_router.get(
     "/jadwal/semester/{semester_id}",
     response_model=list[JadwalResponseDTO],
     summary="List Timetable by Semester",
@@ -140,7 +140,7 @@ async def list_jadwal_by_semester(
     return await service.list_jadwal_by_semester(semester_id)
 
 
-@router.get(
+@guru_router.get(
     "/jadwal/kelas/{kelas_id}",
     response_model=list[JadwalResponseDTO],
     summary="Get Timetable for a Class",
@@ -154,7 +154,7 @@ async def list_jadwal_by_kelas(
     return await service.list_jadwal_by_kelas(kelas_id)
 
 
-@router.get(
+@guru_router.get(
     "/jadwal/guru/{user_id}",
     response_model=list[JadwalResponseDTO],
     summary="Get Timetable for a Teacher",
@@ -168,7 +168,7 @@ async def list_jadwal_by_guru(
     return await service.list_jadwal_by_guru(user_id)
 
 
-@router.get(
+@student_router.get(
     "/my-jadwal",
     response_model=list[JadwalResponseDTO],
     summary="Get My Timetable (Student or Teacher)",
@@ -184,7 +184,7 @@ async def get_my_jadwal(
         return await service.get_student_jadwal(current_user.user_id)
 
 
-@router.patch(
+@admin_router.patch(
     "/jadwal/{jadwal_id}",
     response_model=JadwalResponseDTO,
     summary="Update Timetable Entry",
@@ -200,7 +200,7 @@ async def update_jadwal(
     return await service.update_jadwal(jadwal_id, request)
 
 
-@router.delete(
+@admin_router.delete(
     "/jadwal/{jadwal_id}",
     response_model=MessageResponseDTO,
     summary="Delete Timetable Entry",
@@ -212,3 +212,8 @@ async def delete_jadwal(
 ) -> MessageResponseDTO:
     service = JadwalService(db)
     return await service.delete_jadwal(jadwal_id)
+
+
+router.include_router(admin_router)
+router.include_router(guru_router)
+router.include_router(student_router)

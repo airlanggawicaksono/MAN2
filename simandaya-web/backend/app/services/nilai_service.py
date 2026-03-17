@@ -1,32 +1,34 @@
-from uuid import UUID
+from collections import defaultdict
 from typing import Optional
+from uuid import UUID
+
 from fastapi import HTTPException, status
-from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.nilai import Nilai
-from app.models.tugas import Tugas
-from app.models.guru_mapel import GuruMapel
-from app.models.siswa_kelas import SiswaKelas
-from app.models.user import User
-from app.enums import UserType
+
 from app.dto.penilaian.nilai_dto import (
-    CreateNilaiDTO, BulkCreateNilaiDTO, UpdateNilaiDTO,
-    NilaiResponseDTO, BulkNilaiResponseDTO, MessageResponseDTO,
+    BulkCreateNilaiDTO,
+    BulkNilaiResponseDTO,
+    CreateNilaiDTO,
+    MessageResponseDTO,
+    NilaiByMapelDTO,
+    NilaiResponseDTO,
+    UpdateNilaiDTO,
 )
+from app.models.nilai import Nilai
+from app.models.user import User
+from app.policy.nilai_policy import NilaiPolicy
+from app.repositoriy.nilai_repository import NilaiRepository
 
 
 class NilaiService:
-    """
-    Service for student grade management.
-
-    Raises:
-        HTTPException: 400, 403, 404, 500
-    """
-
-    def __init__(self, db: AsyncSession):
-        self.db = db
-
-    # ── Helpers ────────────────────────────────────────────────────────────────
+    def __init__(
+        self,
+        db: AsyncSession,
+        repo: NilaiRepository | None = None,
+        policy: type[NilaiPolicy] = NilaiPolicy,
+    ):
+        self.repo = repo or NilaiRepository(db)
+        self.policy = policy
 
     def _to_dto(self, nilai: Nilai) -> NilaiResponseDTO:
         return NilaiResponseDTO(
@@ -37,114 +39,37 @@ class NilaiService:
             catatan=nilai.catatan,
         )
 
-    async def _get_tugas(self, tugas_id: UUID) -> Tugas:
-        """Fetch tugas or raise 404."""
-        result = await self.db.execute(
-            select(Tugas).where(Tugas.tugas_id == tugas_id)
-        )
-        tugas = result.scalar_one_or_none()
-        if not tugas:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Tugas with ID {tugas_id} not found"
-            )
+    async def _get_tugas_or_404(self, tugas_id: UUID):
+        tugas = await self.repo.find_tugas_by_id(tugas_id)
+        self.policy.ensure_tugas_exists(tugas, tugas_id)
         return tugas
 
-    async def _validate_guru_permission(
-        self, current_user: User, tugas: Tugas
-    ) -> None:
-        """Guru must be creator or teach the mapel+kelas."""
-        if current_user.user_type == UserType.admin:
-            return
-
-        # Check if creator
-        if tugas.created_by == current_user.user_id:
-            return
-
-        # Check if teaches this mapel in this kelas
-        result = await self.db.execute(
-            select(GuruMapel).where(
-                and_(
-                    GuruMapel.user_id == current_user.user_id,
-                    GuruMapel.kelas_id == tugas.kelas_id,
-                    GuruMapel.mapel_id == tugas.mapel_id,
-                )
-            )
+    async def _ensure_teacher_permission(self, current_user: User, tugas) -> None:
+        assignment = await self.repo.find_guru_assignment(
+            current_user.user_id, tugas.kelas_id, tugas.mapel_id
         )
-        if not result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to manage scores for this tugas"
-            )
-
-    async def _validate_student_in_kelas(
-        self, user_id: UUID, kelas_id: UUID
-    ) -> None:
-        """Verify user is a siswa and in the kelas."""
-        # Check user is siswa
-        result = await self.db.execute(
-            select(User).where(User.user_id == user_id)
+        self.policy.ensure_can_manage_tugas_scores(
+            current_user=current_user,
+            tugas=tugas,
+            has_assignment=assignment is not None,
         )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User with ID {user_id} not found"
-            )
-        if user.user_type != UserType.siswa:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User {user.username} is not a student"
-            )
 
-        # Check student in kelas
-        result = await self.db.execute(
-            select(SiswaKelas).where(
-                and_(
-                    SiswaKelas.user_id == user_id,
-                    SiswaKelas.kelas_id == kelas_id,
-                )
-            )
-        )
-        if not result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Student {user_id} is not in this class"
-            )
-
-    # ── CRUD ───────────────────────────────────────────────────────────────────
+    async def _ensure_student_in_tugas_class(self, user_id: UUID, kelas_id: UUID) -> None:
+        user = await self.repo.find_user_by_id(user_id)
+        self.policy.ensure_student_exists(user, user_id)
+        student_kelas = await self.repo.find_student_in_kelas(user_id, kelas_id)
+        self.policy.ensure_student_in_kelas(student_kelas, user_id)
 
     async def create_nilai(
         self, tugas_id: UUID, request: CreateNilaiDTO, current_user: User
     ) -> NilaiResponseDTO:
-        """
-        Create a single score for a student.
-
-        Raises:
-            HTTPException: 404 if tugas/user not found
-            HTTPException: 403 if no permission
-            HTTPException: 400 if student not in class or duplicate
-            HTTPException: 500 on database error
-        """
         try:
-            tugas = await self._get_tugas(tugas_id)
-            await self._validate_guru_permission(current_user, tugas)
-            await self._validate_student_in_kelas(request.user_id, tugas.kelas_id)
+            tugas = await self._get_tugas_or_404(tugas_id)
+            await self._ensure_teacher_permission(current_user, tugas)
+            await self._ensure_student_in_tugas_class(request.user_id, tugas.kelas_id)
 
-            # Check duplicate
-            existing = await self.db.execute(
-                select(Nilai).where(
-                    and_(
-                        Nilai.tugas_id == tugas_id,
-                        Nilai.user_id == request.user_id,
-                    )
-                )
-            )
-            if existing.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Score already exists for student {request.user_id} on this tugas"
-                )
+            existing = await self.repo.find_nilai_by_tugas_and_user(tugas_id, request.user_id)
+            self.policy.ensure_unique_nilai(existing, request.user_id)
 
             nilai = Nilai(
                 tugas_id=tugas_id,
@@ -152,54 +77,33 @@ class NilaiService:
                 nilai=request.nilai,
                 catatan=request.catatan,
             )
-
-            self.db.add(nilai)
-            await self.db.commit()
-            await self.db.refresh(nilai)
-
+            await self.repo.add_nilai(nilai)
+            await self.repo.commit()
+            await self.repo.refresh(nilai)
             return self._to_dto(nilai)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create nilai: {str(e)}"
+                detail=f"Failed to create nilai: {str(e)}",
             )
 
     async def bulk_create_nilai(
         self, tugas_id: UUID, request: BulkCreateNilaiDTO, current_user: User
     ) -> BulkNilaiResponseDTO:
-        """
-        Bulk create/update scores for a tugas (upsert).
-
-        Raises:
-            HTTPException: 404 if tugas not found
-            HTTPException: 403 if no permission
-            HTTPException: 500 on database error
-        """
         try:
-            tugas = await self._get_tugas(tugas_id)
-            await self._validate_guru_permission(current_user, tugas)
+            tugas = await self._get_tugas_or_404(tugas_id)
+            await self._ensure_teacher_permission(current_user, tugas)
 
             created = 0
             updated = 0
 
             for entry in request.entries:
-                await self._validate_student_in_kelas(entry.user_id, tugas.kelas_id)
-
-                # Check existing
-                result = await self.db.execute(
-                    select(Nilai).where(
-                        and_(
-                            Nilai.tugas_id == tugas_id,
-                            Nilai.user_id == entry.user_id,
-                        )
-                    )
-                )
-                existing = result.scalar_one_or_none()
-
+                await self._ensure_student_in_tugas_class(entry.user_id, tugas.kelas_id)
+                existing = await self.repo.find_nilai_by_tugas_and_user(tugas_id, entry.user_id)
                 if existing:
                     existing.nilai = entry.nilai
                     existing.catatan = entry.catatan
@@ -211,155 +115,110 @@ class NilaiService:
                         nilai=entry.nilai,
                         catatan=entry.catatan,
                     )
-                    self.db.add(nilai)
+                    await self.repo.add_nilai(nilai)
                     created += 1
 
-            await self.db.commit()
-
+            await self.repo.commit()
             return BulkNilaiResponseDTO(
                 created_count=created,
                 updated_count=updated,
-                message=f"Bulk nilai: {created} created, {updated} updated"
+                message=f"Bulk nilai: {created} created, {updated} updated",
             )
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to bulk create nilai: {str(e)}"
+                detail=f"Failed to bulk create nilai: {str(e)}",
             )
 
     async def list_nilai_by_tugas(
         self, tugas_id: UUID, current_user: User
     ) -> list[NilaiResponseDTO]:
-        """
-        List all scores for a tugas.
-
-        Raises:
-            HTTPException: 404 if tugas not found
-            HTTPException: 403 if no permission
-        """
-        tugas = await self._get_tugas(tugas_id)
-        await self._validate_guru_permission(current_user, tugas)
-
-        result = await self.db.execute(
-            select(Nilai).where(Nilai.tugas_id == tugas_id)
-        )
-        return [self._to_dto(n) for n in result.scalars().all()]
+        tugas = await self._get_tugas_or_404(tugas_id)
+        await self._ensure_teacher_permission(current_user, tugas)
+        nilai_list = await self.repo.list_nilai_by_tugas(tugas_id)
+        return [self._to_dto(n) for n in nilai_list]
 
     async def list_my_scores(
         self, current_user: User, semester_id: Optional[UUID] = None
     ) -> list[NilaiResponseDTO]:
-        """
-        List scores for the current student, optionally filtered by semester.
+        nilai_list = await self.repo.list_nilai_by_user(current_user.user_id, semester_id)
+        return [self._to_dto(n) for n in nilai_list]
 
-        Raises:
-            HTTPException: 500 on database error
-        """
-        if semester_id:
-            result = await self.db.execute(
-                select(Nilai)
-                .join(Tugas, Nilai.tugas_id == Tugas.tugas_id)
-                .where(
-                    and_(
-                        Nilai.user_id == current_user.user_id,
-                        Tugas.semester_id == semester_id,
-                    )
+    async def list_my_scores_by_mapel(
+        self, current_user: User, semester_id: Optional[UUID] = None
+    ) -> list[NilaiByMapelDTO]:
+        rows = await self.repo.list_nilai_by_user_with_mapel(current_user.user_id, semester_id)
+        grouped: dict[UUID, dict] = defaultdict(lambda: {"mapel_nama": "", "scores": []})
+
+        for nilai, mapel_id, mapel_nama in rows:
+            grouped[mapel_id]["mapel_nama"] = mapel_nama
+            grouped[mapel_id]["scores"].append(self._to_dto(nilai))
+
+        response: list[NilaiByMapelDTO] = []
+        for mapel_id, payload in grouped.items():
+            scores = payload["scores"]
+            avg = round(sum(s.nilai for s in scores) / len(scores), 2) if scores else 0.0
+            response.append(
+                NilaiByMapelDTO(
+                    mapel_id=mapel_id,
+                    mapel_nama=payload["mapel_nama"],
+                    scores=scores,
+                    average=avg,
                 )
             )
-        else:
-            result = await self.db.execute(
-                select(Nilai).where(Nilai.user_id == current_user.user_id)
-            )
-        return [self._to_dto(n) for n in result.scalars().all()]
+        return response
 
     async def update_nilai(
         self, nilai_id: UUID, request: UpdateNilaiDTO, current_user: User
     ) -> NilaiResponseDTO:
-        """
-        Update a score.
-
-        Raises:
-            HTTPException: 404 if not found
-            HTTPException: 403 if no permission
-            HTTPException: 400 if no fields to update
-            HTTPException: 500 on database error
-        """
         try:
-            result = await self.db.execute(
-                select(Nilai).where(Nilai.nilai_id == nilai_id)
-            )
-            nilai = result.scalar_one_or_none()
-            if not nilai:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Nilai with ID {nilai_id} not found"
-                )
+            nilai = await self.repo.find_nilai_by_id(nilai_id)
+            self.policy.ensure_nilai_exists(nilai, nilai_id)
 
-            tugas = await self._get_tugas(nilai.tugas_id)
-            await self._validate_guru_permission(current_user, tugas)
+            tugas = await self._get_tugas_or_404(nilai.tugas_id)
+            await self._ensure_teacher_permission(current_user, tugas)
 
             update_data = request.model_dump(exclude_unset=True)
-            if not update_data:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No fields to update"
-                )
-
+            self.policy.ensure_update_payload(update_data)
             for field, value in update_data.items():
                 setattr(nilai, field, value)
 
-            await self.db.commit()
-            await self.db.refresh(nilai)
-
+            await self.repo.commit()
+            await self.repo.refresh(nilai)
             return self._to_dto(nilai)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to update nilai: {str(e)}"
+                detail=f"Failed to update nilai: {str(e)}",
             )
 
     async def delete_nilai(
         self, nilai_id: UUID, current_user: User
     ) -> MessageResponseDTO:
-        """
-        Delete a score.
-
-        Raises:
-            HTTPException: 404 if not found
-            HTTPException: 403 if no permission
-            HTTPException: 500 on database error
-        """
         try:
-            result = await self.db.execute(
-                select(Nilai).where(Nilai.nilai_id == nilai_id)
-            )
-            nilai = result.scalar_one_or_none()
-            if not nilai:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Nilai with ID {nilai_id} not found"
-                )
+            nilai = await self.repo.find_nilai_by_id(nilai_id)
+            self.policy.ensure_nilai_exists(nilai, nilai_id)
 
-            tugas = await self._get_tugas(nilai.tugas_id)
-            await self._validate_guru_permission(current_user, tugas)
+            tugas = await self._get_tugas_or_404(nilai.tugas_id)
+            await self._ensure_teacher_permission(current_user, tugas)
 
-            await self.db.delete(nilai)
-            await self.db.commit()
-
+            await self.repo.delete_nilai(nilai)
+            await self.repo.commit()
             return MessageResponseDTO(message="Nilai deleted successfully")
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to delete nilai: {str(e)}"
+                detail=f"Failed to delete nilai: {str(e)}",
             )

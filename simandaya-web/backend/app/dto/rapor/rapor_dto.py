@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 from uuid import UUID
+from app.enums import JenisTugas
 
 
 # ── Request DTOs ────────────────────────────────────────────────────────────
@@ -19,6 +20,18 @@ class UpdateRaporDTO(BaseModel):
 class OverrideNilaiDTO(BaseModel):
     nilai_akhir: float = Field(..., ge=0, le=100)
     catatan: Optional[str] = Field(default=None, max_length=500)
+
+
+class BobotJenisDTO(BaseModel):
+    jenis_tugas: JenisTugas
+    bobot: float = Field(..., ge=0, le=100)
+
+
+class SetRaporBobotDTO(BaseModel):
+    kelas_id: UUID
+    semester_id: UUID
+    mapel_id: UUID
+    weights: list[BobotJenisDTO] = Field(..., min_length=1)
 
 
 # ── Response DTOs ───────────────────────────────────────────────────────────
@@ -61,6 +74,15 @@ class RaporListItemDTO(BaseModel):
     nama_lengkap: str
     is_published: bool
     published_at: Optional[datetime]
+
+
+class RaporBobotResponseDTO(BaseModel):
+    rapor_bobot_id: UUID
+    kelas_id: UUID
+    semester_id: UUID
+    mapel_id: UUID
+    jenis_tugas: JenisTugas
+    bobot: float
 
 
 class GenerateRaporResponseDTO(BaseModel):

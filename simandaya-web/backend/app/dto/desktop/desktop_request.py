@@ -1,4 +1,4 @@
-from datetime import time, datetime
+from datetime import datetime
 from uuid import UUID
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
@@ -20,8 +20,3 @@ class AttendanceEventDTO(BaseModel):
 class BulkAttendanceSyncDTO(BaseModel):
     """Request to sync multiple attendance events via HTTP POST."""
     events: list[AttendanceEventDTO] = Field(..., description="List of events to sync")
-
-
-class UpdateDesktopSettingsDTO(BaseModel):
-    """Request to update desktop settings (admin only)."""
-    late_cutoff_time: time = Field(..., description="Late cutoff time, e.g. '07:15:00'")

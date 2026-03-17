@@ -1,50 +1,94 @@
+from __future__ import annotations
+
 from typing import Optional
 from uuid import UUID
-from fastapi import HTTPException, status
-from sqlalchemy import select, func, or_
-from sqlalchemy.orm import selectinload
+
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.user import User
-from app.models.siswa_profile import SiswaProfile
-from app.models.guru_profile import GuruProfile
-from app.enums import UserType
-
-from app.dto.userMan.userman_request import (
-    UpdateStudentRequestDTO,
-    UpdateGuruRequestDTO,
-)
-from app.dto.userMan.userman_response import (
-    StudentProfileResponseDTO,
-    GuruProfileResponseDTO,
-    PaginatedStudentsResponse,
-    PaginatedTeachersResponse,
-    PublicCivitasResponseDTO,
-    PaginatedPublicCivitasResponse,
-    MessageResponseDTO,
-)
 
 from app.dto.struktural.struktural_dto import (
     GetStructuralRoleResponseDTO,
     GetStructuralRoleResponseListDTO,
 )
+from app.dto.userMan.userman_request import UpdateGuruRequestDTO, UpdateStudentRequestDTO
+from app.dto.userMan.userman_response import (
+    GuruProfileResponseDTO,
+    MessageResponseDTO,
+    PaginatedPublicCivitasResponse,
+    PaginatedStudentsResponse,
+    PaginatedTeachersResponse,
+    PublicCivitasResponseDTO,
+    StudentProfileResponseDTO,
+)
+from app.enums import UserType
+from app.models.guru_profile import GuruProfile
+from app.models.siswa_profile import SiswaProfile
+from app.policy.user_management_policy import UserManagementPolicy
+from app.repositoriy.user_management_repository import UserManagementRepository
 
 
-class UserManagementService:
-    """
-    User management service for CRUD on students and teachers.
+class StudentUserManagementService:
+    def __init__(self, repo: UserManagementRepository, policy: type[UserManagementPolicy]):
+        self.repo = repo
+        self.policy = policy
 
-    Only accessible by Admin.
-    Raises:
-        HTTPException: 400, 404, 500
-    """
+    async def list_students(
+        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+    ) -> PaginatedStudentsResponse:
+        total = await self.repo.count_students(search=search)
+        profiles = await self.repo.list_students(skip=skip, limit=limit, search=search)
+        return PaginatedStudentsResponse(
+            items=[self._to_student_dto(p) for p in profiles],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    async def get_student(self, siswa_id: UUID) -> StudentProfileResponseDTO:
+        profile = await self.repo.find_student_by_id_with_user(siswa_id)
+        self.policy.ensure_student_exists(profile, detail="Student not found")
+        return self._to_student_dto(profile)
 
-    # ── Helpers ──────────────────────────────────────────────────────────────
+    async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
+        profile = await self.repo.find_student_by_user_id_with_user(user_id)
+        self.policy.ensure_student_exists(profile, detail="Student profile not found")
+        return self._to_student_dto(profile)
 
-    def _to_student_dto(self, profile: SiswaProfile) -> StudentProfileResponseDTO:
+    async def update_student(
+        self, siswa_id: UUID, request: UpdateStudentRequestDTO
+    ) -> StudentProfileResponseDTO:
+        profile = await self.repo.find_student_by_id(siswa_id)
+        self.policy.ensure_student_exists(profile, detail="Student not found")
+
+        update_data = request.model_dump(exclude_unset=True)
+        self.policy.ensure_update_payload(update_data)
+
+        if "nis" in update_data and update_data["nis"] != profile.nis:
+            nis_check = await self.repo.find_student_by_nis(update_data["nis"])
+            self.policy.ensure_nis_available(nis_check is not None, update_data["nis"])
+
+        for field, value in update_data.items():
+            setattr(profile, field, value)
+
+        await self.repo.commit()
+        await self.repo.refresh(profile)
+
+        profile_with_user = await self.repo.find_student_by_id_with_user(siswa_id)
+        self.policy.ensure_student_exists(profile_with_user, detail="Student not found")
+        return self._to_student_dto(profile_with_user)
+
+    async def delete_student(self, siswa_id: UUID) -> MessageResponseDTO:
+        profile = await self.repo.find_student_by_id(siswa_id)
+        self.policy.ensure_student_exists(profile, detail="Student not found")
+
+        user = await self.repo.find_user_by_id(profile.user_id)
+        if user:
+            await self.repo.delete_user(user)
+
+        await self.repo.commit()
+        return MessageResponseDTO(message="Student deleted successfully")
+
+    @staticmethod
+    def _to_student_dto(profile: SiswaProfile) -> StudentProfileResponseDTO:
         return StudentProfileResponseDTO(
             siswa_id=profile.siswa_id,
             user_id=profile.user_id,
@@ -64,7 +108,98 @@ class UserManagementService:
             is_active=profile.user.is_active if profile.user else False,
         )
 
-    def _to_guru_dto(self, profile: GuruProfile) -> GuruProfileResponseDTO:
+
+class TeacherUserManagementService:
+    def __init__(self, repo: UserManagementRepository, policy: type[UserManagementPolicy]):
+        self.repo = repo
+        self.policy = policy
+
+    async def list_teachers(
+        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+    ) -> PaginatedTeachersResponse:
+        total = await self.repo.count_teachers(search=search)
+        profiles = await self.repo.list_teachers(skip=skip, limit=limit, search=search)
+        return PaginatedTeachersResponse(
+            items=[self._to_teacher_dto(p) for p in profiles],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_teacher(self, guru_id: UUID) -> GuruProfileResponseDTO:
+        profile = await self.repo.find_teacher_by_id_with_user(guru_id)
+        self.policy.ensure_teacher_exists(profile, detail="Teacher not found")
+        return self._to_teacher_dto(profile)
+
+    async def get_teacher_by_user_id(self, user_id: UUID) -> GuruProfileResponseDTO:
+        profile = await self.repo.find_teacher_by_user_id_with_user(user_id)
+        self.policy.ensure_teacher_exists(profile, detail="Teacher profile not found")
+        return self._to_teacher_dto(profile)
+
+    async def update_teacher(
+        self, guru_id: UUID, request: UpdateGuruRequestDTO
+    ) -> GuruProfileResponseDTO:
+        profile = await self.repo.find_teacher_by_id(guru_id)
+        self.policy.ensure_teacher_exists(profile, detail="Teacher not found")
+
+        update_data = request.model_dump(exclude_unset=True)
+        self.policy.ensure_update_payload(update_data)
+
+        if "nip" in update_data and update_data["nip"] != profile.nip:
+            nip_check = await self.repo.find_teacher_by_nip(update_data["nip"])
+            self.policy.ensure_nip_available(nip_check is not None, update_data["nip"])
+
+        for field, value in update_data.items():
+            setattr(profile, field, value)
+
+        await self.repo.commit()
+        await self.repo.refresh(profile)
+
+        profile_with_user = await self.repo.find_teacher_by_id_with_user(guru_id)
+        self.policy.ensure_teacher_exists(profile_with_user, detail="Teacher not found")
+        return self._to_teacher_dto(profile_with_user)
+
+    async def delete_teacher(self, guru_id: UUID) -> MessageResponseDTO:
+        profile = await self.repo.find_teacher_by_id(guru_id)
+        self.policy.ensure_teacher_exists(profile, detail="Teacher not found")
+
+        user = await self.repo.find_user_by_id(profile.user_id)
+        if user:
+            await self.repo.delete_user(user)
+
+        await self.repo.commit()
+        return MessageResponseDTO(message="Teacher deleted successfully")
+
+    async def get_structural_roles(self) -> GetStructuralRoleResponseListDTO:
+        profiles = await self.repo.list_all_teachers_with_user()
+        return GetStructuralRoleResponseListDTO(
+            list_of_struct=[self._to_structural_role_dto(p) for p in profiles]
+        )
+
+    async def list_public_civitas(
+        self, skip: int = 0, limit: int = 100, search: Optional[str] = None
+    ) -> PaginatedPublicCivitasResponse:
+        total = await self.repo.count_public_civitas(search=search)
+        profiles = await self.repo.list_public_civitas(skip=skip, limit=limit, search=search)
+        return PaginatedPublicCivitasResponse(
+            items=[
+                PublicCivitasResponseDTO(
+                    nama=p.nama_lengkap,
+                    nip=p.nip,
+                    nik=p.nik,
+                    jabatan_struktural=p.structural_role,
+                    matapelajaran=p.mata_pelajaran,
+                    kontak=p.kontak,
+                )
+                for p in profiles
+            ],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+    @staticmethod
+    def _to_teacher_dto(profile: GuruProfile) -> GuruProfileResponseDTO:
         return GuruProfileResponseDTO(
             guru_id=profile.guru_id,
             user_id=profile.user_id,
@@ -85,304 +220,8 @@ class UserManagementService:
             is_active=profile.user.is_active if profile.user else False,
         )
 
-    # ── Student CRUD ─────────────────────────────────────────────────────────
-
-    async def list_students(
-        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
-    ) -> PaginatedStudentsResponse:
-        """
-        List student profiles with pagination and optional search.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        search_filter = None
-        if search:
-            pattern = f"%{search}%"
-            search_filter = or_(
-                SiswaProfile.nis.ilike(pattern),
-                SiswaProfile.nama_lengkap.ilike(pattern),
-                SiswaProfile.nik.ilike(pattern),
-                SiswaProfile.kelas_jurusan.ilike(pattern),
-                SiswaProfile.kontak.ilike(pattern),
-                SiswaProfile.tempat_lahir.ilike(pattern),
-            )
-
-        count_query = select(func.count()).select_from(SiswaProfile)
-        data_query = select(SiswaProfile).options(selectinload(SiswaProfile.user))
-
-        if search_filter is not None:
-            count_query = count_query.where(search_filter)
-            data_query = data_query.where(search_filter)
-
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar_one()
-
-        result = await self.db.execute(data_query.offset(skip).limit(limit))
-        profiles = result.scalars().all()
-
-        return PaginatedStudentsResponse(
-            items=[self._to_student_dto(p) for p in profiles],
-            total=total,
-            skip=skip,
-            limit=limit,
-        )
-
-    async def get_student(self, siswa_id: UUID) -> StudentProfileResponseDTO:
-        """
-        Get a single student profile by ID.
-
-        Raises:
-            HTTPException: 404 if student not found
-        """
-        result = await self.db.execute(
-            select(SiswaProfile)
-            .options(selectinload(SiswaProfile.user))
-            .where(SiswaProfile.siswa_id == siswa_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
-            )
-        return self._to_student_dto(profile)
-
-    async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
-        """
-        Get a student profile by their user_id.
-        """
-        result = await self.db.execute(
-            select(SiswaProfile)
-            .options(selectinload(SiswaProfile.user))
-            .where(SiswaProfile.user_id == user_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Student profile not found"
-            )
-        return self._to_student_dto(profile)
-
-    async def update_student(
-        self, siswa_id: UUID, request: UpdateStudentRequestDTO
-    ) -> StudentProfileResponseDTO:
-        """
-        Partial update a student profile.
-
-        Raises:
-            HTTPException: 404 if student not found
-            HTTPException: 400 if NIS conflict
-        """
-        result = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.siswa_id == siswa_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
-            )
-
-        update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-            )
-
-        # Check NIS uniqueness if being changed
-        if "nis" in update_data and update_data["nis"] != profile.nis:
-            nis_check = await self.db.execute(
-                select(SiswaProfile).where(SiswaProfile.nis == update_data["nis"])
-            )
-            if nis_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"NIS '{update_data['nis']}' already exists",
-                )
-
-        for field, value in update_data.items():
-            setattr(profile, field, value)
-
-        await self.db.commit()
-        await self.db.refresh(profile)
-        return self._to_student_dto(profile)
-
-    async def delete_student(self, siswa_id: UUID) -> MessageResponseDTO:
-        """
-        Delete a student profile and its associated user account.
-
-        Raises:
-            HTTPException: 404 if student not found
-        """
-        result = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.siswa_id == siswa_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
-            )
-
-        # Delete the user row — CASCADE will remove the profile
-        user_result = await self.db.execute(
-            select(User).where(User.user_id == profile.user_id)
-        )
-        user = user_result.scalar_one_or_none()
-        if user:
-            await self.db.delete(user)
-
-        await self.db.commit()
-        return MessageResponseDTO(message="Student deleted successfully")
-
-    # ── Guru CRUD ────────────────────────────────────────────────────────────
-
-    async def list_gurus(
-        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
-    ) -> PaginatedTeachersResponse:
-        """
-        List teacher profiles with pagination and optional search.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        search_filter = None
-        if search:
-            pattern = f"%{search}%"
-            search_filter = or_(
-                GuruProfile.nip.ilike(pattern),
-                GuruProfile.nama_lengkap.ilike(pattern),
-                GuruProfile.nik.ilike(pattern),
-                GuruProfile.kontak.ilike(pattern),
-                GuruProfile.mata_pelajaran.ilike(pattern),
-                GuruProfile.tempat_lahir.ilike(pattern),
-            )
-
-        count_query = select(func.count()).select_from(GuruProfile)
-        data_query = select(GuruProfile).options(selectinload(GuruProfile.user))
-
-        if search_filter is not None:
-            count_query = count_query.where(search_filter)
-            data_query = data_query.where(search_filter)
-
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar_one()
-
-        result = await self.db.execute(data_query.offset(skip).limit(limit))
-        profiles = result.scalars().all()
-
-        return PaginatedTeachersResponse(
-            items=[self._to_guru_dto(p) for p in profiles],
-            total=total,
-            skip=skip,
-            limit=limit,
-        )
-
-    async def get_guru(self, guru_id: UUID) -> GuruProfileResponseDTO:
-        """
-        Get a single teacher profile by ID.
-
-        Raises:
-            HTTPException: 404 if teacher not found
-        """
-        result = await self.db.execute(
-            select(GuruProfile)
-            .options(selectinload(GuruProfile.user))
-            .where(GuruProfile.guru_id == guru_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
-            )
-        return self._to_guru_dto(profile)
-
-    async def get_guru_by_user_id(self, user_id: UUID) -> GuruProfileResponseDTO:
-        """
-        Get a teacher profile by their user_id.
-        """
-        result = await self.db.execute(
-            select(GuruProfile)
-            .options(selectinload(GuruProfile.user))
-            .where(GuruProfile.user_id == user_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher profile not found"
-            )
-        return self._to_guru_dto(profile)
-
-    async def update_guru(
-        self, guru_id: UUID, request: UpdateGuruRequestDTO
-    ) -> GuruProfileResponseDTO:
-        """
-        Partial update a teacher profile.
-
-        Raises:
-            HTTPException: 404 if teacher not found
-            HTTPException: 400 if NIP conflict
-        """
-        result = await self.db.execute(
-            select(GuruProfile).where(GuruProfile.guru_id == guru_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
-            )
-
-        update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-            )
-
-        # Check NIP uniqueness if being changed
-        if "nip" in update_data and update_data["nip"] != profile.nip:
-            nip_check = await self.db.execute(
-                select(GuruProfile).where(GuruProfile.nip == update_data["nip"])
-            )
-            if nip_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"NIP '{update_data['nip']}' already exists",
-                )
-
-        for field, value in update_data.items():
-            setattr(profile, field, value)
-
-        await self.db.commit()
-        await self.db.refresh(profile)
-        return self._to_guru_dto(profile)
-
-    async def delete_guru(self, guru_id: UUID) -> MessageResponseDTO:
-        """
-        Delete a teacher profile and its associated user account.
-
-        Raises:
-            HTTPException: 404 if teacher not found
-        """
-        result = await self.db.execute(
-            select(GuruProfile).where(GuruProfile.guru_id == guru_id)
-        )
-        profile = result.scalar_one_or_none()
-        if not profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found"
-            )
-
-        user_result = await self.db.execute(
-            select(User).where(User.user_id == profile.user_id)
-        )
-        user = user_result.scalar_one_or_none()
-        if user:
-            await self.db.delete(user)
-
-        await self.db.commit()
-        return MessageResponseDTO(message="Teacher deleted successfully")
-
-    def _to_structural_role_dto(
-        self, profile: GuruProfile
-    ) -> GetStructuralRoleResponseDTO:
+    @staticmethod
+    def _to_structural_role_dto(profile: GuruProfile) -> GetStructuralRoleResponseDTO:
         return GetStructuralRoleResponseDTO(
             guru_id=profile.guru_id,
             nip=profile.nip,
@@ -391,60 +230,66 @@ class UserManagementService:
             user_type=profile.user.user_type if profile.user else UserType.guru,
         )
 
+
+class UserManagementService:
+    """
+    Compatibility facade for routers.
+    Internally delegates to student/teacher specific services.
+    """
+
+    def __init__(
+        self,
+        db: AsyncSession,
+        repo: UserManagementRepository | None = None,
+        policy: type[UserManagementPolicy] = UserManagementPolicy,
+    ):
+        self.repo = repo or UserManagementRepository(db)
+        self.policy = policy
+        self.students = StudentUserManagementService(self.repo, self.policy)
+        self.teachers = TeacherUserManagementService(self.repo, self.policy)
+
+    async def list_students(
+        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+    ) -> PaginatedStudentsResponse:
+        return await self.students.list_students(skip=skip, limit=limit, search=search)
+
+    async def get_student(self, siswa_id: UUID) -> StudentProfileResponseDTO:
+        return await self.students.get_student(siswa_id)
+
+    async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
+        return await self.students.get_student_by_user_id(user_id)
+
+    async def update_student(
+        self, siswa_id: UUID, request: UpdateStudentRequestDTO
+    ) -> StudentProfileResponseDTO:
+        return await self.students.update_student(siswa_id, request)
+
+    async def delete_student(self, siswa_id: UUID) -> MessageResponseDTO:
+        return await self.students.delete_student(siswa_id)
+
+    async def list_gurus(
+        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+    ) -> PaginatedTeachersResponse:
+        return await self.teachers.list_teachers(skip=skip, limit=limit, search=search)
+
+    async def get_guru(self, guru_id: UUID) -> GuruProfileResponseDTO:
+        return await self.teachers.get_teacher(guru_id)
+
+    async def get_guru_by_user_id(self, user_id: UUID) -> GuruProfileResponseDTO:
+        return await self.teachers.get_teacher_by_user_id(user_id)
+
+    async def update_guru(
+        self, guru_id: UUID, request: UpdateGuruRequestDTO
+    ) -> GuruProfileResponseDTO:
+        return await self.teachers.update_teacher(guru_id, request)
+
+    async def delete_guru(self, guru_id: UUID) -> MessageResponseDTO:
+        return await self.teachers.delete_teacher(guru_id)
+
     async def get_struktur_guru(self) -> GetStructuralRoleResponseListDTO:
-        """
-        Get all gurus with their structural roles.
-        """
-        result = await self.db.execute(
-            select(GuruProfile).options(selectinload(GuruProfile.user))
-        )
-        profiles = result.scalars().all()
-        return GetStructuralRoleResponseListDTO(
-            list_of_struct=[self._to_structural_role_dto(p) for p in profiles]
-        )
+        return await self.teachers.get_structural_roles()
 
     async def list_public_civitas(
         self, skip: int = 0, limit: int = 100, search: Optional[str] = None
     ) -> PaginatedPublicCivitasResponse:
-        """
-        List civitas (teachers/staff) with limited fields for public access.
-        """
-        search_filter = None
-        if search:
-            pattern = f"%{search}%"
-            search_filter = or_(
-                GuruProfile.nama_lengkap.ilike(pattern),
-                GuruProfile.nip.ilike(pattern),
-                GuruProfile.nik.ilike(pattern),
-                GuruProfile.mata_pelajaran.ilike(pattern),
-            )
-
-        count_query = select(func.count()).select_from(GuruProfile)
-        data_query = select(GuruProfile)
-
-        if search_filter is not None:
-            count_query = count_query.where(search_filter)
-            data_query = data_query.where(search_filter)
-
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar_one()
-
-        result = await self.db.execute(data_query.offset(skip).limit(limit))
-        profiles = result.scalars().all()
-
-        return PaginatedPublicCivitasResponse(
-            items=[
-                PublicCivitasResponseDTO(
-                    nama=p.nama_lengkap,
-                    nip=p.nip,
-                    nik=p.nik,
-                    jabatan_struktural=p.structural_role,
-                    matapelajaran=p.mata_pelajaran,
-                    kontak=p.kontak,
-                )
-                for p in profiles
-            ],
-            total=total,
-            skip=skip,
-            limit=limit,
-        )
+        return await self.teachers.list_public_civitas(skip=skip, limit=limit, search=search)

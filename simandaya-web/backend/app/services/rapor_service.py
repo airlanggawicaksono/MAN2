@@ -6,6 +6,7 @@ from sqlalchemy import select, func, and_, case, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.models.rapor import Rapor, RaporNilai
+from app.models.rapor_bobot import RaporBobot
 from app.models.tugas import Tugas
 from app.models.nilai import Nilai
 from app.models.absensi import Absensi
@@ -19,6 +20,7 @@ from app.models.user import User
 from app.enums import UserType, StatusAbsensi
 from app.dto.rapor.rapor_dto import (
     GenerateRaporDTO, UpdateRaporDTO, OverrideNilaiDTO,
+    SetRaporBobotDTO, RaporBobotResponseDTO,
     RaporResponseDTO, RaporNilaiResponseDTO, RaporListItemDTO,
     AttendanceSummaryDTO, GenerateRaporResponseDTO, MessageResponseDTO,
 )
@@ -140,8 +142,32 @@ class RaporService:
         for jenis_val, scores in jenis_scores.items():
             jenis_avg[jenis_val] = sum(scores) / len(scores)
 
-        # Simple average of all jenis averages
-        return round(sum(jenis_avg.values()) / len(jenis_avg), 2)
+        # Try weighted mode if bobot is configured for this class+semester+mapel.
+        # Fallback to equal-average mode if no bobot exists.
+        bobot_result = await self.db.execute(
+            select(RaporBobot).where(
+                and_(
+                    RaporBobot.kelas_id == kelas_id,
+                    RaporBobot.semester_id == semester_id,
+                    RaporBobot.mapel_id == mapel_id,
+                )
+            )
+        )
+        bobot_rows = bobot_result.scalars().all()
+
+        if not bobot_rows:
+            return round(sum(jenis_avg.values()) / len(jenis_avg), 2)
+
+        weighted_total = 0.0
+        total_weight = 0.0
+        for row in bobot_rows:
+            w = float(row.bobot)
+            total_weight += w
+            weighted_total += jenis_avg.get(row.jenis_tugas.value, 0.0) * w
+
+        if total_weight <= 0:
+            return 0.0
+        return round(weighted_total / total_weight, 2)
 
     # ── Attendance summary ──────────────────────────────────────────────────
 
@@ -192,6 +218,121 @@ class RaporService:
             is_manual_override=rn.is_manual_override,
             catatan=rn.catatan,
         )
+
+    def _bobot_to_dto(self, bobot: RaporBobot) -> RaporBobotResponseDTO:
+        return RaporBobotResponseDTO(
+            rapor_bobot_id=bobot.rapor_bobot_id,
+            kelas_id=bobot.kelas_id,
+            semester_id=bobot.semester_id,
+            mapel_id=bobot.mapel_id,
+            jenis_tugas=bobot.jenis_tugas,
+            bobot=float(bobot.bobot),
+        )
+
+    async def set_rapor_bobot(
+        self, request: SetRaporBobotDTO, current_user: User
+    ) -> list[RaporBobotResponseDTO]:
+        """
+        Configure grade weights (bobot) for a class+semester+subject.
+        Allowed for admin or wali kelas.
+        """
+        try:
+            await self._check_wali_kelas(request.kelas_id, current_user)
+
+            sem_result = await self.db.execute(
+                select(Semester).where(Semester.semester_id == request.semester_id)
+            )
+            if not sem_result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Semester with ID {request.semester_id} not found",
+                )
+
+            mapel_result = await self.db.execute(
+                select(MataPelajaran).where(MataPelajaran.mapel_id == request.mapel_id)
+            )
+            if not mapel_result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Mata pelajaran with ID {request.mapel_id} not found",
+                )
+
+            seen = set()
+            total = 0.0
+            for w in request.weights:
+                if w.jenis_tugas in seen:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Duplicate jenis_tugas: {w.jenis_tugas.value}",
+                    )
+                seen.add(w.jenis_tugas)
+                total += float(w.bobot)
+
+            if round(total, 2) != 100.0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Total bobot must equal 100. Current total: {round(total, 2)}",
+                )
+
+            existing_result = await self.db.execute(
+                select(RaporBobot).where(
+                    and_(
+                        RaporBobot.kelas_id == request.kelas_id,
+                        RaporBobot.semester_id == request.semester_id,
+                        RaporBobot.mapel_id == request.mapel_id,
+                    )
+                )
+            )
+            for row in existing_result.scalars().all():
+                await self.db.delete(row)
+
+            new_rows: list[RaporBobot] = []
+            for item in request.weights:
+                row = RaporBobot(
+                    kelas_id=request.kelas_id,
+                    semester_id=request.semester_id,
+                    mapel_id=request.mapel_id,
+                    jenis_tugas=item.jenis_tugas,
+                    bobot=item.bobot,
+                )
+                self.db.add(row)
+                new_rows.append(row)
+
+            await self.db.commit()
+            for row in new_rows:
+                await self.db.refresh(row)
+
+            return [self._bobot_to_dto(r) for r in new_rows]
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to set rapor bobot: {str(e)}",
+            )
+
+    async def list_rapor_bobot(
+        self,
+        kelas_id: UUID,
+        semester_id: UUID,
+        mapel_id: UUID,
+        current_user: User,
+    ) -> list[RaporBobotResponseDTO]:
+        await self._check_wali_kelas(kelas_id, current_user)
+
+        result = await self.db.execute(
+            select(RaporBobot).where(
+                and_(
+                    RaporBobot.kelas_id == kelas_id,
+                    RaporBobot.semester_id == semester_id,
+                    RaporBobot.mapel_id == mapel_id,
+                )
+            )
+        )
+        rows = result.scalars().all()
+        return [self._bobot_to_dto(r) for r in rows]
 
     async def _rapor_to_full_dto(self, rapor: Rapor) -> RaporResponseDTO:
         """Build full rapor response with grades and attendance summary."""

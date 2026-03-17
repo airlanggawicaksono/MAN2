@@ -26,6 +26,13 @@ class NilaiResponseDTO(BaseModel):
     catatan: Optional[str]
 
 
+class NilaiByMapelDTO(BaseModel):
+    mapel_id: UUID
+    mapel_nama: str
+    scores: list[NilaiResponseDTO]
+    average: float
+
+
 class BulkNilaiResponseDTO(BaseModel):
     created_count: int
     updated_count: int

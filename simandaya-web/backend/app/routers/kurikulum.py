@@ -53,7 +53,7 @@ async def bulk_assign_kurikulum_mapel(
     "/kurikulum-mapel/tahun-ajaran/{tahun_ajaran_id}",
     response_model=list[KurikulumMapelResponseDTO],
     summary="List All Curriculum Subjects for Academic Year",
-    dependencies=[Depends(require_role(UserType.admin, UserType.guru))],
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def list_kurikulum_by_tahun_ajaran(
     tahun_ajaran_id: UUID,
@@ -67,7 +67,7 @@ async def list_kurikulum_by_tahun_ajaran(
     "/kurikulum-mapel/tahun-ajaran/{tahun_ajaran_id}/tingkat/{tingkat}",
     response_model=list[KurikulumMapelResponseDTO],
     summary="List Curriculum Subjects by Grade Level",
-    dependencies=[Depends(require_role(UserType.admin, UserType.guru))],
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def list_kurikulum_by_tingkat(
     tahun_ajaran_id: UUID,

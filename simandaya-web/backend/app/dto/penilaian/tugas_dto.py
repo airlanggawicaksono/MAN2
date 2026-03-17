@@ -37,5 +37,25 @@ class TugasResponseDTO(BaseModel):
     created_at: datetime
 
 
+class CreateTugasSubmissionDTO(BaseModel):
+    submission_link: Optional[str] = Field(default=None, max_length=500)
+    jawaban_text: Optional[str] = Field(default=None)
+
+
+class UpdateTugasSubmissionDTO(BaseModel):
+    submission_link: Optional[str] = Field(default=None, max_length=500)
+    jawaban_text: Optional[str] = Field(default=None)
+
+
+class TugasSubmissionResponseDTO(BaseModel):
+    submission_id: UUID
+    tugas_id: UUID
+    user_id: UUID
+    submission_link: Optional[str]
+    jawaban_text: Optional[str]
+    submitted_at: datetime
+    updated_at: datetime
+
+
 class MessageResponseDTO(BaseModel):
     message: str

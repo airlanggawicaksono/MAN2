@@ -17,13 +17,16 @@ from app.dto.akademik.kelas_dto import (
     MessageResponseDTO,
 )
 
-router = APIRouter(prefix="/api/v1/akademik", tags=["Kelas"])
+router = APIRouter(prefix="/api/v1/akademik")
+admin_router = APIRouter(tags=["Kelas - Admin"])
+guru_router = APIRouter(tags=["Kelas - Guru"])
+student_router = APIRouter(tags=["Kelas - Student"])
 
 
 # ── Kelas CRUD ───────────────────────────────────────────────────────────────
 
 
-@router.post(
+@admin_router.post(
     "/kelas",
     response_model=KelasResponseDTO,
     status_code=201,
@@ -38,7 +41,7 @@ async def create_kelas(
     return await service.create_kelas(request)
 
 
-@router.get(
+@guru_router.get(
     "/kelas",
     response_model=list[KelasResponseDTO],
     summary="List Classes",
@@ -51,7 +54,7 @@ async def list_kelas(
     return await service.list_kelas()
 
 
-@router.get(
+@student_router.get(
     "/kelas/my-kelas",
     response_model=KelasResponseDTO,
     summary="Get My Class (Student)",
@@ -64,7 +67,7 @@ async def get_my_kelas(
     return await service.get_student_kelas(current_user.user_id)
 
 
-@router.get(
+@guru_router.get(
     "/kelas/tahun-ajaran/{tahun_ajaran_id}",
     response_model=list[KelasResponseDTO],
     summary="List Classes by Academic Year",
@@ -78,7 +81,7 @@ async def list_kelas_by_tahun_ajaran(
     return await service.list_kelas_by_tahun_ajaran(tahun_ajaran_id)
 
 
-@router.get(
+@guru_router.get(
     "/kelas/{kelas_id}",
     response_model=KelasResponseDTO,
     summary="Get Class",
@@ -92,7 +95,7 @@ async def get_kelas(
     return await service.get_kelas(kelas_id)
 
 
-@router.patch(
+@admin_router.patch(
     "/kelas/{kelas_id}",
     response_model=KelasResponseDTO,
     summary="Update Class",
@@ -107,7 +110,7 @@ async def update_kelas(
     return await service.update_kelas(kelas_id, request)
 
 
-@router.delete(
+@admin_router.delete(
     "/kelas/{kelas_id}",
     response_model=MessageResponseDTO,
     summary="Delete Class",
@@ -124,7 +127,7 @@ async def delete_kelas(
 # ── Student Promotion ────────────────────────────────────────────────────────
 
 
-@router.post(
+@admin_router.post(
     "/kelas/promote",
     response_model=PromoteResultDTO,
     summary="Promote Students to New Academic Year",
@@ -141,7 +144,7 @@ async def promote_students(
 # ── Student Assignment ───────────────────────────────────────────────────────
 
 
-@router.post(
+@admin_router.post(
     "/kelas/{kelas_id}/siswa",
     response_model=SiswaKelasResponseDTO,
     status_code=201,
@@ -157,7 +160,7 @@ async def assign_siswa(
     return await service.assign_siswa(kelas_id, request)
 
 
-@router.get(
+@guru_router.get(
     "/kelas/{kelas_id}/siswa",
     response_model=list[SiswaKelasResponseDTO],
     summary="List Students in Class",
@@ -171,7 +174,7 @@ async def list_siswa_in_kelas(
     return await service.list_siswa_in_kelas(kelas_id)
 
 
-@router.delete(
+@admin_router.delete(
     "/kelas/{kelas_id}/siswa/{user_id}",
     response_model=MessageResponseDTO,
     summary="Remove Student from Class",
@@ -184,3 +187,8 @@ async def remove_siswa(
 ) -> MessageResponseDTO:
     service = KelasService(db)
     return await service.remove_siswa(kelas_id, user_id)
+
+
+router.include_router(admin_router)
+router.include_router(guru_router)
+router.include_router(student_router)

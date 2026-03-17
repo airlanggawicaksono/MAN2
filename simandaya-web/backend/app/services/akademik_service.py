@@ -7,6 +7,16 @@ from app.models.semester import Semester
 from app.models.kalender_akademik import KalenderAkademik
 from app.models.mata_pelajaran import MataPelajaran
 from app.models.slot_waktu import SlotWaktu
+from app.policy.kalender_policy import KalenderPolicy
+from app.policy.mapel_policy import MapelPolicy
+from app.policy.semester_policy import SemesterPolicy
+from app.policy.slot_waktu_policy import SlotWaktuPolicy
+from app.policy.tahun_ajaran_policy import TahunAjaranPolicy
+from app.repositoriy.kalender_repository import KalenderRepository
+from app.repositoriy.mapel_repository import MapelRepository
+from app.repositoriy.semester_repository import SemesterRepository
+from app.repositoriy.slot_waktu_repository import SlotWaktuRepository
+from app.repositoriy.tahun_ajaran_repository import TahunAjaranRepository
 from app.dto.akademik.tahun_ajaran_dto import (
     CreateTahunAjaranDTO, UpdateTahunAjaranDTO, TahunAjaranResponseDTO
 )
@@ -35,6 +45,16 @@ class AkademikService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.kalender_repo = KalenderRepository(db)
+        self.kalender_policy = KalenderPolicy
+        self.mapel_repo = MapelRepository(db)
+        self.mapel_policy = MapelPolicy
+        self.semester_repo = SemesterRepository(db)
+        self.semester_policy = SemesterPolicy
+        self.slot_waktu_repo = SlotWaktuRepository(db)
+        self.slot_waktu_policy = SlotWaktuPolicy
+        self.tahun_ajaran_repo = TahunAjaranRepository(db)
+        self.tahun_ajaran_policy = TahunAjaranPolicy
 
     # ── TahunAjaran CRUD ─────────────────────────────────────────────────────
 
@@ -47,15 +67,11 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
-            # Check if nama already exists
-            result = await self.db.execute(
-                select(TahunAjaran).where(TahunAjaran.nama == request.nama)
+            existing = await self.tahun_ajaran_repo.find_by_nama(request.nama)
+            self.tahun_ajaran_policy.ensure_nama_available(
+                is_taken=existing is not None,
+                nama=request.nama,
             )
-            if result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Academic year '{request.nama}' already exists"
-                )
 
             tahun_ajaran = TahunAjaran(
                 nama=request.nama,
@@ -63,16 +79,16 @@ class AkademikService:
                 tanggal_selesai=request.tanggal_selesai,
                 is_active=request.is_active,
             )
-            self.db.add(tahun_ajaran)
-            await self.db.commit()
-            await self.db.refresh(tahun_ajaran)
+            await self.tahun_ajaran_repo.add(tahun_ajaran)
+            await self.tahun_ajaran_repo.commit()
+            await self.tahun_ajaran_repo.refresh(tahun_ajaran)
 
             return self._to_tahun_ajaran_dto(tahun_ajaran)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.tahun_ajaran_repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create academic year: {str(e)}"
@@ -85,8 +101,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(select(TahunAjaran))
-        tahun_ajaran_list = result.scalars().all()
+        tahun_ajaran_list = await self.tahun_ajaran_repo.list_all()
         return [self._to_tahun_ajaran_dto(ta) for ta in tahun_ajaran_list]
 
     async def get_tahun_ajaran(self, tahun_ajaran_id: UUID) -> TahunAjaranResponseDTO:
@@ -96,15 +111,8 @@ class AkademikService:
         Raises:
             HTTPException: 404 if academic year not found
         """
-        result = await self.db.execute(
-            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == tahun_ajaran_id)
-        )
-        tahun_ajaran = result.scalar_one_or_none()
-        if not tahun_ajaran:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Academic year not found"
-            )
+        tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(tahun_ajaran_id)
+        self.tahun_ajaran_policy.ensure_exists(tahun_ajaran)
         return self._to_tahun_ajaran_dto(tahun_ajaran)
 
     async def update_tahun_ajaran(
@@ -118,39 +126,25 @@ class AkademikService:
             HTTPException: 400 if nama conflict or no fields to update
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == tahun_ajaran_id)
-        )
-        tahun_ajaran = result.scalar_one_or_none()
-        if not tahun_ajaran:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Academic year not found"
-            )
+        tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(tahun_ajaran_id)
+        self.tahun_ajaran_policy.ensure_exists(tahun_ajaran)
 
         update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+        self.tahun_ajaran_policy.ensure_update_payload(update_data)
 
         # Check nama uniqueness if being changed
         if "nama" in update_data and update_data["nama"] != tahun_ajaran.nama:
-            nama_check = await self.db.execute(
-                select(TahunAjaran).where(TahunAjaran.nama == update_data["nama"])
+            nama_check = await self.tahun_ajaran_repo.find_by_nama(update_data["nama"])
+            self.tahun_ajaran_policy.ensure_nama_available(
+                is_taken=nama_check is not None,
+                nama=update_data["nama"],
             )
-            if nama_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Academic year '{update_data['nama']}' already exists"
-                )
 
         for field, value in update_data.items():
             setattr(tahun_ajaran, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(tahun_ajaran)
+        await self.tahun_ajaran_repo.commit()
+        await self.tahun_ajaran_repo.refresh(tahun_ajaran)
         return self._to_tahun_ajaran_dto(tahun_ajaran)
 
     async def delete_tahun_ajaran(self, tahun_ajaran_id: UUID) -> MessageResponseDTO:
@@ -161,18 +155,11 @@ class AkademikService:
             HTTPException: 404 if academic year not found
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == tahun_ajaran_id)
-        )
-        tahun_ajaran = result.scalar_one_or_none()
-        if not tahun_ajaran:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Academic year not found"
-            )
+        tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(tahun_ajaran_id)
+        self.tahun_ajaran_policy.ensure_exists(tahun_ajaran)
 
-        await self.db.delete(tahun_ajaran)
-        await self.db.commit()
+        await self.tahun_ajaran_repo.delete(tahun_ajaran)
+        await self.tahun_ajaran_repo.commit()
         return MessageResponseDTO(message="Academic year deleted successfully")
 
     # ── Semester CRUD ────────────────────────────────────────────────────────
@@ -186,28 +173,19 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
-            # Validate tahun_ajaran_id exists
-            result = await self.db.execute(
-                select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == request.tahun_ajaran_id)
+            tahun_ajaran = await self.semester_repo.find_tahun_ajaran_by_id(
+                request.tahun_ajaran_id
             )
-            if not result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Academic year with ID '{request.tahun_ajaran_id}' does not exist"
-                )
+            self.semester_policy.ensure_tahun_ajaran_exists(
+                tahun_ajaran, request.tahun_ajaran_id
+            )
 
-            # Check unique constraint (tahun_ajaran_id, tipe)
-            semester_check = await self.db.execute(
-                select(Semester).where(
-                    Semester.tahun_ajaran_id == request.tahun_ajaran_id,
-                    Semester.tipe == request.tipe
-                )
+            semester_check = await self.semester_repo.find_by_tahun_ajaran_and_tipe(
+                request.tahun_ajaran_id, request.tipe
             )
-            if semester_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Semester {request.tipe.value} already exists for this academic year"
-                )
+            self.semester_policy.ensure_unique_for_tahun_ajaran(
+                semester_check, request.tipe
+            )
 
             semester = Semester(
                 tahun_ajaran_id=request.tahun_ajaran_id,
@@ -216,16 +194,16 @@ class AkademikService:
                 tanggal_selesai=request.tanggal_selesai,
                 is_active=request.is_active,
             )
-            self.db.add(semester)
-            await self.db.commit()
-            await self.db.refresh(semester)
+            await self.semester_repo.add(semester)
+            await self.semester_repo.commit()
+            await self.semester_repo.refresh(semester)
 
             return self._to_semester_dto(semester)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.semester_repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create semester: {str(e)}"
@@ -238,8 +216,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(select(Semester))
-        semesters = result.scalars().all()
+        semesters = await self.semester_repo.list_all()
         return [self._to_semester_dto(s) for s in semesters]
 
     async def get_semester(self, semester_id: UUID) -> SemesterResponseDTO:
@@ -249,15 +226,8 @@ class AkademikService:
         Raises:
             HTTPException: 404 if semester not found
         """
-        result = await self.db.execute(
-            select(Semester).where(Semester.semester_id == semester_id)
-        )
-        semester = result.scalar_one_or_none()
-        if not semester:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Semester not found"
-            )
+        semester = await self.semester_repo.find_by_id(semester_id)
+        self.semester_policy.ensure_exists(semester)
         return self._to_semester_dto(semester)
 
     async def list_semesters_by_tahun_ajaran(self, tahun_ajaran_id: UUID) -> list[SemesterResponseDTO]:
@@ -267,10 +237,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(Semester).where(Semester.tahun_ajaran_id == tahun_ajaran_id)
-        )
-        semesters = result.scalars().all()
+        semesters = await self.semester_repo.list_by_tahun_ajaran(tahun_ajaran_id)
         return [self._to_semester_dto(s) for s in semesters]
 
     async def update_semester(
@@ -284,28 +251,17 @@ class AkademikService:
             HTTPException: 400 if no fields to update
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(Semester).where(Semester.semester_id == semester_id)
-        )
-        semester = result.scalar_one_or_none()
-        if not semester:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Semester not found"
-            )
+        semester = await self.semester_repo.find_by_id(semester_id)
+        self.semester_policy.ensure_exists(semester)
 
         update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+        self.semester_policy.ensure_update_payload(update_data)
 
         for field, value in update_data.items():
             setattr(semester, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(semester)
+        await self.semester_repo.commit()
+        await self.semester_repo.refresh(semester)
         return self._to_semester_dto(semester)
 
     async def delete_semester(self, semester_id: UUID) -> MessageResponseDTO:
@@ -316,18 +272,11 @@ class AkademikService:
             HTTPException: 404 if semester not found
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(Semester).where(Semester.semester_id == semester_id)
-        )
-        semester = result.scalar_one_or_none()
-        if not semester:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Semester not found"
-            )
+        semester = await self.semester_repo.find_by_id(semester_id)
+        self.semester_policy.ensure_exists(semester)
 
-        await self.db.delete(semester)
-        await self.db.commit()
+        await self.semester_repo.delete(semester)
+        await self.semester_repo.commit()
         return MessageResponseDTO(message="Semester deleted successfully")
 
     # ── KalenderAkademik CRUD ────────────────────────────────────────────────
@@ -341,15 +290,12 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
-            # Validate tahun_ajaran_id exists
-            result = await self.db.execute(
-                select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == request.tahun_ajaran_id)
+            tahun_ajaran = await self.kalender_repo.find_tahun_ajaran_by_id(
+                request.tahun_ajaran_id
             )
-            if not result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Academic year with ID '{request.tahun_ajaran_id}' does not exist"
-                )
+            self.kalender_policy.ensure_tahun_ajaran_exists(
+                tahun_ajaran, request.tahun_ajaran_id
+            )
 
             kalender = KalenderAkademik(
                 tahun_ajaran_id=request.tahun_ajaran_id,
@@ -357,16 +303,16 @@ class AkademikService:
                 jenis=request.jenis,
                 keterangan=request.keterangan,
             )
-            self.db.add(kalender)
-            await self.db.commit()
-            await self.db.refresh(kalender)
+            await self.kalender_repo.add(kalender)
+            await self.kalender_repo.commit()
+            await self.kalender_repo.refresh(kalender)
 
             return self._to_kalender_dto(kalender)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.kalender_repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create calendar entry: {str(e)}"
@@ -379,8 +325,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(select(KalenderAkademik))
-        kalender_list = result.scalars().all()
+        kalender_list = await self.kalender_repo.list_all()
         return [self._to_kalender_dto(k) for k in kalender_list]
 
     async def list_kalender_by_tahun_ajaran(self, tahun_ajaran_id: UUID) -> list[KalenderResponseDTO]:
@@ -390,10 +335,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(KalenderAkademik).where(KalenderAkademik.tahun_ajaran_id == tahun_ajaran_id)
-        )
-        kalender_list = result.scalars().all()
+        kalender_list = await self.kalender_repo.list_by_tahun_ajaran(tahun_ajaran_id)
         return [self._to_kalender_dto(k) for k in kalender_list]
 
     async def update_kalender(
@@ -407,28 +349,17 @@ class AkademikService:
             HTTPException: 400 if no fields to update
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(KalenderAkademik).where(KalenderAkademik.kalender_id == kalender_id)
-        )
-        kalender = result.scalar_one_or_none()
-        if not kalender:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Calendar entry not found"
-            )
+        kalender = await self.kalender_repo.find_by_id(kalender_id)
+        self.kalender_policy.ensure_exists(kalender)
 
         update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+        self.kalender_policy.ensure_update_payload(update_data)
 
         for field, value in update_data.items():
             setattr(kalender, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(kalender)
+        await self.kalender_repo.commit()
+        await self.kalender_repo.refresh(kalender)
         return self._to_kalender_dto(kalender)
 
     async def delete_kalender(self, kalender_id: UUID) -> MessageResponseDTO:
@@ -439,18 +370,11 @@ class AkademikService:
             HTTPException: 404 if calendar entry not found
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(KalenderAkademik).where(KalenderAkademik.kalender_id == kalender_id)
-        )
-        kalender = result.scalar_one_or_none()
-        if not kalender:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Calendar entry not found"
-            )
+        kalender = await self.kalender_repo.find_by_id(kalender_id)
+        self.kalender_policy.ensure_exists(kalender)
 
-        await self.db.delete(kalender)
-        await self.db.commit()
+        await self.kalender_repo.delete(kalender)
+        await self.kalender_repo.commit()
         return MessageResponseDTO(message="Calendar entry deleted successfully")
 
     # ── MataPelajaran CRUD ───────────────────────────────────────────────────
@@ -464,15 +388,11 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
-            # Check if kode_mapel already exists
-            result = await self.db.execute(
-                select(MataPelajaran).where(MataPelajaran.kode_mapel == request.kode_mapel)
+            existing = await self.mapel_repo.find_by_kode(request.kode_mapel)
+            self.mapel_policy.ensure_kode_available(
+                is_taken=existing is not None,
+                kode_mapel=request.kode_mapel,
             )
-            if result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Subject code '{request.kode_mapel}' already exists"
-                )
 
             mapel = MataPelajaran(
                 kode_mapel=request.kode_mapel,
@@ -481,16 +401,16 @@ class AkademikService:
                 jam_per_minggu=request.jam_per_minggu,
                 is_active=request.is_active,
             )
-            self.db.add(mapel)
-            await self.db.commit()
-            await self.db.refresh(mapel)
+            await self.mapel_repo.add(mapel)
+            await self.mapel_repo.commit()
+            await self.mapel_repo.refresh(mapel)
 
             return self._to_mapel_dto(mapel)
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.mapel_repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create subject: {str(e)}"
@@ -503,8 +423,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(select(MataPelajaran))
-        mapel_list = result.scalars().all()
+        mapel_list = await self.mapel_repo.list_all()
         return [self._to_mapel_dto(m) for m in mapel_list]
 
     async def get_mapel(self, mapel_id: UUID) -> MapelResponseDTO:
@@ -514,15 +433,8 @@ class AkademikService:
         Raises:
             HTTPException: 404 if subject not found
         """
-        result = await self.db.execute(
-            select(MataPelajaran).where(MataPelajaran.mapel_id == mapel_id)
-        )
-        mapel = result.scalar_one_or_none()
-        if not mapel:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subject not found"
-            )
+        mapel = await self.mapel_repo.find_by_id(mapel_id)
+        self.mapel_policy.ensure_exists(mapel)
         return self._to_mapel_dto(mapel)
 
     async def update_mapel(
@@ -536,39 +448,25 @@ class AkademikService:
             HTTPException: 400 if kode_mapel conflict or no fields to update
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(MataPelajaran).where(MataPelajaran.mapel_id == mapel_id)
-        )
-        mapel = result.scalar_one_or_none()
-        if not mapel:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subject not found"
-            )
+        mapel = await self.mapel_repo.find_by_id(mapel_id)
+        self.mapel_policy.ensure_exists(mapel)
 
         update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+        self.mapel_policy.ensure_update_payload(update_data)
 
         # Check kode_mapel uniqueness if being changed
         if "kode_mapel" in update_data and update_data["kode_mapel"] != mapel.kode_mapel:
-            kode_check = await self.db.execute(
-                select(MataPelajaran).where(MataPelajaran.kode_mapel == update_data["kode_mapel"])
+            kode_check = await self.mapel_repo.find_by_kode(update_data["kode_mapel"])
+            self.mapel_policy.ensure_kode_available(
+                is_taken=kode_check is not None,
+                kode_mapel=update_data["kode_mapel"],
             )
-            if kode_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Subject code '{update_data['kode_mapel']}' already exists"
-                )
 
         for field, value in update_data.items():
             setattr(mapel, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(mapel)
+        await self.mapel_repo.commit()
+        await self.mapel_repo.refresh(mapel)
         return self._to_mapel_dto(mapel)
 
     async def delete_mapel(self, mapel_id: UUID) -> MessageResponseDTO:
@@ -579,18 +477,11 @@ class AkademikService:
             HTTPException: 404 if subject not found
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(MataPelajaran).where(MataPelajaran.mapel_id == mapel_id)
-        )
-        mapel = result.scalar_one_or_none()
-        if not mapel:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subject not found"
-            )
+        mapel = await self.mapel_repo.find_by_id(mapel_id)
+        self.mapel_policy.ensure_exists(mapel)
 
-        await self.db.delete(mapel)
-        await self.db.commit()
+        await self.mapel_repo.delete(mapel)
+        await self.mapel_repo.commit()
         return MessageResponseDTO(message="Subject deleted successfully")
 
     # ── SlotWaktu CRUD ───────────────────────────────────────────────────────
@@ -610,14 +501,14 @@ class AkademikService:
                 urutan=request.urutan,
                 is_piket=request.is_piket,
             )
-            self.db.add(slot)
-            await self.db.commit()
-            await self.db.refresh(slot)
+            await self.slot_waktu_repo.add(slot)
+            await self.slot_waktu_repo.commit()
+            await self.slot_waktu_repo.refresh(slot)
 
             return self._to_slot_waktu_dto(slot)
 
         except Exception as e:
-            await self.db.rollback()
+            await self.slot_waktu_repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create time slot: {str(e)}"
@@ -630,8 +521,7 @@ class AkademikService:
         Raises:
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(select(SlotWaktu).order_by(SlotWaktu.urutan))
-        slots = result.scalars().all()
+        slots = await self.slot_waktu_repo.list_all_ordered()
         return [self._to_slot_waktu_dto(s) for s in slots]
 
     async def update_slot_waktu(
@@ -645,28 +535,17 @@ class AkademikService:
             HTTPException: 400 if no fields to update
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(SlotWaktu).where(SlotWaktu.slot_id == slot_id)
-        )
-        slot = result.scalar_one_or_none()
-        if not slot:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Time slot not found"
-            )
+        slot = await self.slot_waktu_repo.find_by_id(slot_id)
+        self.slot_waktu_policy.ensure_exists(slot)
 
         update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+        self.slot_waktu_policy.ensure_update_payload(update_data)
 
         for field, value in update_data.items():
             setattr(slot, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(slot)
+        await self.slot_waktu_repo.commit()
+        await self.slot_waktu_repo.refresh(slot)
         return self._to_slot_waktu_dto(slot)
 
     async def delete_slot_waktu(self, slot_id: UUID) -> MessageResponseDTO:
@@ -677,18 +556,11 @@ class AkademikService:
             HTTPException: 404 if time slot not found
             HTTPException: 500 if database error
         """
-        result = await self.db.execute(
-            select(SlotWaktu).where(SlotWaktu.slot_id == slot_id)
-        )
-        slot = result.scalar_one_or_none()
-        if not slot:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Time slot not found"
-            )
+        slot = await self.slot_waktu_repo.find_by_id(slot_id)
+        self.slot_waktu_policy.ensure_exists(slot)
 
-        await self.db.delete(slot)
-        await self.db.commit()
+        await self.slot_waktu_repo.delete(slot)
+        await self.slot_waktu_repo.commit()
         return MessageResponseDTO(message="Time slot deleted successfully")
 
     # ── Helpers ──────────────────────────────────────────────────────────────

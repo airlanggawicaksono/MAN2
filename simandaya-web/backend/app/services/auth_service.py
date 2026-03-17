@@ -1,9 +1,10 @@
 from uuid import UUID
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.utils.jwt_utils import JWTManager
+from app.repositoriy.auth_repository import AuthRepository
+from app.policy.auth_policy import AuthPolicy
 from app.dto.auth.auth_request import SignupRequestDTO, LoginRequestDTO
 from app.dto.auth.auth_response import (
     UserResponseDTO,
@@ -11,7 +12,6 @@ from app.dto.auth.auth_response import (
     SignupResponseDTO,
     MessageResponseDTO
 )
-from app.enums import RegistrationStatus
 
 
 class AuthService:
@@ -28,8 +28,11 @@ class AuthService:
         self,
         db: AsyncSession,
         jwt_manager: JWTManager | None = None,
+        repo: AuthRepository | None = None,
+        policy: type[AuthPolicy] = AuthPolicy,
     ):
-        self.db = db
+        self.repo = repo or AuthRepository(db)
+        self.policy = policy
         self.jwt_manager = jwt_manager or JWTManager()
 
     async def signup(self, request: SignupRequestDTO) -> SignupResponseDTO:
@@ -47,17 +50,11 @@ class AuthService:
             HTTPException: 500 if database error occurs
         """
         try:
-            # Check if username already exists
-            result = await self.db.execute(
-                select(User).where(User.username == request.username)
+            existing_user = await self.repo.find_by_username(request.username)
+            self.policy.ensure_username_available(
+                is_taken=existing_user is not None,
+                username=request.username,
             )
-            existing_user = result.scalar_one_or_none()
-
-            if existing_user:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Username '{request.username}' is already taken"
-                )
 
             user = User(
                 username=request.username,
@@ -66,30 +63,19 @@ class AuthService:
             user.set_password(request.password)
 
             # Save to database
-            self.db.add(user)
-            await self.db.commit()
-            await self.db.refresh(user)
-
-            # Convert to DTO
-            user_dto = UserResponseDTO(
-                user_id=user.user_id,
-                username=user.username,
-                user_type=user.user_type.value,
-                registration_status=user.registration_status.value,
-                created_at=user.created_at,
-                last_login=user.last_login,
-                is_active=user.is_active
-            )
+            await self.repo.add_user(user)
+            await self.repo.commit()
+            await self.repo.refresh(user)
 
             return SignupResponseDTO(
                 message="User created successfully",
-                user=user_dto
+                user=self._to_user_dto(user)
             )
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create user: {str(e)}"
@@ -109,39 +95,14 @@ class AuthService:
             HTTPException: 401 if credentials are invalid
             HTTPException: 403 if user account is deactivated
         """
-        # Find user by username
-        result = await self.db.execute(
-            select(User).where(User.username == request.username)
-        )
-        user = result.scalar_one_or_none()
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
-
-        if not user.verify_password(request.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
-
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is deactivated"
-            )
-
-        if user.registration_status == RegistrationStatus.pending:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Registrasi belum selesai. Silakan lengkapi pendaftaran."
-            )
+        user = await self.repo.find_by_username(request.username)
+        self.policy.ensure_valid_credentials(user, request.password)
+        self.policy.ensure_user_active(user)
+        self.policy.ensure_registration_completed(user)
 
         # Update last login
         user.update_last_login()
-        await self.db.commit()
+        await self.repo.commit()
 
         # Generate JWT token
         jwt_token = self.jwt_manager.create_access_token(
@@ -149,22 +110,11 @@ class AuthService:
             username=user.username
         )
 
-        # Create response
-        user_dto = UserResponseDTO(
-            user_id=user.user_id,
-            username=user.username,
-            user_type=user.user_type.value,
-            registration_status=user.registration_status.value,
-            created_at=user.created_at,
-            last_login=user.last_login,
-            is_active=user.is_active
-        )
-
         return TokenResponseDTO(
             access_token=jwt_token,
             token_type="bearer",
             expires_in=self.jwt_manager.get_token_expiration(),
-            user=user_dto
+            user=self._to_user_dto(user)
         )
 
     async def verify_token(self, token: str) -> UserResponseDTO:
@@ -183,41 +133,15 @@ class AuthService:
             HTTPException: 403 if user account is deactivated
         """
         payload = self.jwt_manager.verify_token(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
-            )
+        self.policy.ensure_valid_token_payload(payload)
 
         user_id = UUID(payload["sub"])
 
-        # Query user from database
-        result = await self.db.execute(
-            select(User).where(User.user_id == user_id)
-        )
-        user = result.scalar_one_or_none()
+        user = await self.repo.find_by_id(user_id)
+        self.policy.ensure_user_exists(user)
+        self.policy.ensure_user_active(user)
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is deactivated"
-            )
-
-        return UserResponseDTO(
-            user_id=user.user_id,
-            username=user.username,
-            user_type=user.user_type.value,
-            registration_status=user.registration_status.value,
-            created_at=user.created_at,
-            last_login=user.last_login,
-            is_active=user.is_active
-        )
+        return self._to_user_dto(user)
 
     async def logout(self, token: str) -> MessageResponseDTO:
         """
@@ -239,14 +163,22 @@ class AuthService:
         """
         # Verify token is valid
         payload = self.jwt_manager.verify_token(token)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
-            )
+        self.policy.ensure_valid_token_payload(payload)
 
         # In basic implementation, client is responsible for deleting token
         # Future: Add Redis blacklist here
         return MessageResponseDTO(
             message="Logged out successfully"
+        )
+
+    @staticmethod
+    def _to_user_dto(user: User) -> UserResponseDTO:
+        return UserResponseDTO(
+            user_id=user.user_id,
+            username=user.username,
+            user_type=user.user_type.value,
+            registration_status=user.registration_status.value,
+            created_at=user.created_at,
+            last_login=user.last_login,
+            is_active=user.is_active,
         )
