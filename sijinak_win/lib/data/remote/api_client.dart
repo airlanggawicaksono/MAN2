@@ -16,7 +16,7 @@ class ApiClient {
   Future<void> testConnection() async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 10);
-    final url = '$baseUrl/api/desktop/settings';
+    final url = '$baseUrl/api/desktop/ping';
     print('[ApiClient] Testing connection to: $url');
     print('[ApiClient] Using X-API-Key: ${apiKey.length > 5 ? "${apiKey.substring(0, 5)}***" : "***"}');
     

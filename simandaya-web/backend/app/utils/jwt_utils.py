@@ -51,6 +51,26 @@ class JWTManager:
 
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
+    
+    def create_refresh_token(
+        self,
+        user_id: UUID,
+        username: str,
+        expires_delta: Optional[timedelta] = None,
+    ) -> str:
+        if expires_delta:
+            expire = datetime.now(timezone.utc) + expires_delta
+        else:
+            expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+
+        to_encode = {
+            "sub": str(user_id),
+            "username": username,
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+            "type": "refresh",
+        }
+        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
@@ -67,6 +87,22 @@ class JWTManager:
             return payload
         except InvalidTokenError:
             return None
+
+    def verify_refresh_token(self, token: str) -> Optional[Dict[str, Any]]:
+        payload = self.verify_token(token)
+        if not payload:
+            return None
+        if payload.get("type") != "refresh":
+            return None
+        return payload
+
+    def verify_access_token(self, token: str) -> Optional[Dict[str, Any]]:
+        payload = self.verify_token(token)
+        if not payload:
+            return None
+        if payload.get("type") != "access":
+            return None
+        return payload
 
     def get_token_expiration(self) -> int:
         """Get token expiration time in seconds"""

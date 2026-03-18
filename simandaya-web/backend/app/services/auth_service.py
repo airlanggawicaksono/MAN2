@@ -104,18 +104,8 @@ class AuthService:
         user.update_last_login()
         await self.repo.commit()
 
-        # Generate JWT token
-        jwt_token = self.jwt_manager.create_access_token(
-            user_id=user.user_id,
-            username=user.username
-        )
-
-        return TokenResponseDTO(
-            access_token=jwt_token,
-            token_type="bearer",
-            expires_in=self.jwt_manager.get_token_expiration(),
-            user=self._to_user_dto(user)
-        )
+        token_response, _ = self._build_token_pair(user)
+        return token_response
 
     async def verify_token(self, token: str) -> UserResponseDTO:
         """
@@ -132,7 +122,7 @@ class AuthService:
             HTTPException: 404 if user not found
             HTTPException: 403 if user account is deactivated
         """
-        payload = self.jwt_manager.verify_token(token)
+        payload = self.jwt_manager.verify_access_token(token)
         self.policy.ensure_valid_token_payload(payload)
 
         user_id = UUID(payload["sub"])
@@ -162,13 +152,51 @@ class AuthService:
             - Token versioning in database
         """
         # Verify token is valid
-        payload = self.jwt_manager.verify_token(token)
+        payload = self.jwt_manager.verify_access_token(token)
         self.policy.ensure_valid_token_payload(payload)
 
         # In basic implementation, client is responsible for deleting token
         # Future: Add Redis blacklist here
         return MessageResponseDTO(
             message="Logged out successfully"
+        )
+
+    async def refresh_access_token(self, refresh_token: str) -> tuple[TokenResponseDTO, str]:
+        payload = self.jwt_manager.verify_refresh_token(refresh_token)
+        self.policy.ensure_valid_token_payload(payload)
+
+        user_id = UUID(payload["sub"])
+        user = await self.repo.find_by_id(user_id)
+        self.policy.ensure_user_exists(user)
+        self.policy.ensure_user_active(user)
+        self.policy.ensure_registration_completed(user)
+
+        return self._build_token_pair(user)
+
+    def issue_refresh_token_for_user(self, user: User) -> str:
+        return self.jwt_manager.create_refresh_token(
+            user_id=user.user_id,
+            username=user.username,
+        )
+
+    def _build_token_pair(self, user: User) -> tuple[TokenResponseDTO, str]:
+        access_token = self.jwt_manager.create_access_token(
+            user_id=user.user_id,
+            username=user.username
+        )
+        refresh_token = self.jwt_manager.create_refresh_token(
+            user_id=user.user_id,
+            username=user.username
+        )
+
+        return (
+            TokenResponseDTO(
+                access_token=access_token,
+                token_type="bearer",
+                expires_in=self.jwt_manager.get_token_expiration(),
+                user=self._to_user_dto(user)
+            ),
+            refresh_token,
         )
 
     @staticmethod

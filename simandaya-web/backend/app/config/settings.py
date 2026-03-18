@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "your-secret-key-change-this-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_REFRESH_COOKIE_NAME: str = "refresh_token"
+    JWT_REFRESH_COOKIE_SECURE: bool = False
+    JWT_REFRESH_COOKIE_SAMESITE: str = "lax"
 
     # Password Hashing Configuration
     BCRYPT_ROUNDS: int = 12
