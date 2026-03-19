@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Network, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { StructuralRole } from "@/types/enums";
+import { useListPublicCivitasQuery } from "@/api/usertype/public";
 
 // Dynamic import for OrgChart to avoid hydration issues (SSR: false)
 const OrgChart = dynamic(
@@ -21,41 +21,12 @@ const OrgChart = dynamic(
   },
 );
 
-interface PublicCivitas {
-  nama: string;
-  nip: string;
-  nik: string;
-  jabatan_struktural: StructuralRole;
-  matapelajaran?: string;
-  kontak?: string;
-}
-
 export default function StrukturOrganisasiPage() {
-  const [civitas, setCivitas] = useState<PublicCivitas[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<any>(null);
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    const fetchCivitas = async () => {
-      try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:2385";
-        const response = await fetch(
-          `${apiUrl}/api/v1/users/civitas?limit=100`,
-        );
-        if (!response.ok) throw new Error("Failed to fetch civitas data");
-        const data = await response.json();
-        setCivitas(data.items || []);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCivitas();
-  }, []);
+  const { data, isLoading: loading, error } = useListPublicCivitasQuery({
+    limit: 100,
+  });
+  const civitas = data?.items ?? [];
 
   const filteredCivitas = useMemo(() => {
     return civitas.filter((p) => {

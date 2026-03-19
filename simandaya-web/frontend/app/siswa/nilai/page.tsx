@@ -1,7 +1,6 @@
 "use client";
 
-import { useGetMyScoresQuery } from "@/api/penilaian";
-import { useListSemestersQuery } from "@/api/akademik";
+import { useGetMyScoresQuery, useListSemestersQuery } from "@/api/usertype/siswa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Table, 

@@ -1,12 +1,12 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from app.enums import (
     StatusSiswa,
     StatusGuru,
     JenisKelamin,
-    StructuralRole,
 )
+from app.dto.struktural.assignment_dto import GuruStructuralAssignmentDTO
 
 
 class StudentProfileResponseDTO(BaseModel):
@@ -42,7 +42,7 @@ class GuruProfileResponseDTO(BaseModel):
     status_guru: StatusGuru
     kontak: Optional[str] = None
     kewarganegaraan: str
-    structural_role: StructuralRole
+    structural_assignments: list[GuruStructuralAssignmentDTO] = Field(default_factory=list)
     mata_pelajaran: Optional[str]
     pendidikan_terakhir: Optional[str]
     is_active: bool = False
@@ -52,7 +52,7 @@ class PublicCivitasResponseDTO(BaseModel):
     nama: str
     nip: Optional[str] = None
     nik: Optional[str] = None
-    jabatan_struktural: StructuralRole
+    jabatan_struktural: list[str] = Field(default_factory=list)
     matapelajaran: Optional[str] = None
     kontak: Optional[str] = None
 

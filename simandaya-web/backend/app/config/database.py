@@ -88,6 +88,8 @@ async def init_db(drop_existing: bool = False):
     from app.models.rapor_bobot import RaporBobot  # noqa: F401
     from app.models.desktop_settings import DesktopSettings  # noqa: F401
     from app.models.kurikulum_mapel import KurikulumMapel  # noqa: F401
+    from app.models.structural_role_ref import StructuralRoleRef  # noqa: F401
+    from app.models.guru_structural_assignment import GuruStructuralAssignment  # noqa: F401
 
     async with engine.begin() as conn:
         if drop_existing:

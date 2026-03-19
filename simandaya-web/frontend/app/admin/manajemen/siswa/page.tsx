@@ -8,7 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useListStudentsQuery } from "@/api/students";
+import { useListStudentsQuery } from "@/api/usertype/admin";
 import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
 import { useDebounce } from "@/hooks/useDebounce";

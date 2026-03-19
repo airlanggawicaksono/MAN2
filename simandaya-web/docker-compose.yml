@@ -41,6 +41,11 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secret-jwt-key-minimum-32-characters}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      JWT_REFRESH_COOKIE_NAME: ${JWT_REFRESH_COOKIE_NAME:-refresh_token}
+      JWT_REFRESH_COOKIE_SECURE: ${JWT_REFRESH_COOKIE_SECURE:-false}
+      JWT_REFRESH_COOKIE_SAMESITE: ${JWT_REFRESH_COOKIE_SAMESITE:-lax}
+      CORS_ORIGINS: ${CORS_ORIGINS}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
       DESKTOP_API_KEY: ${DESKTOP_API_KEY:-your-desktop-api-key-change-this}
     ports:
@@ -71,7 +76,7 @@ services:
     container_name: simandaya-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_EXTERNAL_PORT:-2385}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NODE_ENV: ${NODE_ENV:-development}
       CI: "true"
       WATCHPACK_POLLING: "true"

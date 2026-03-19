@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
-from app.enums import JenisKelamin, StructuralRole
+from app.enums import JenisKelamin
 
 
 # ── Lookup responses (Step 2: NIS/NIP lookup confirms identity) ──────────────
@@ -80,7 +80,6 @@ class PreRegisterTeacherDTO(BaseModel):
     tahun_masuk: Optional[int] = Field(default=None, ge=2000, le=2100)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
-    structural_role: Optional[StructuralRole] = None
     mata_pelajaran: Optional[str] = Field(default=None, max_length=100)
     pendidikan_terakhir: Optional[str] = Field(default=None, max_length=100)
 

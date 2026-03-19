@@ -1,7 +1,13 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { createBaseQuery } from "./base";
 import type { MapelResponse, CreateMapelRequest, UpdateMapelRequest } from "@/types/akademik/mapel";
-import type { KelasResponse, CreateKelasRequest, UpdateKelasRequest, SiswaKelasResponse } from "@/types/akademik/kelas";
+import type {
+  KelasResponse,
+  CreateKelasRequest,
+  UpdateKelasRequest,
+  SiswaKelasResponse,
+  PromoteStudentsResponse,
+} from "@/types/akademik/kelas";
 import type { JadwalResponse, CreateJadwalRequest, UpdateJadwalRequest, GuruMapelResponse, CreateGuruMapelRequest } from "@/types/akademik/jadwal";
 import type { 
   TahunAjaranResponse, CreateTahunAjaranRequest, UpdateTahunAjaranRequest,
@@ -78,7 +84,7 @@ export const akademikApi = createApi({
       query: ({ kelasId, userId }) => ({ url: `/kelas/${kelasId}/siswa/${userId}`, method: "DELETE" }),
       invalidatesTags: ["Kelas"],
     }),
-    promoteStudents: builder.mutation<{ promoted: number; graduated: number; skipped: number; message: string }, { from_tahun_ajaran_id: UUID; to_tahun_ajaran_id: UUID }>({
+    promoteStudents: builder.mutation<PromoteStudentsResponse, { from_tahun_ajaran_id: UUID; to_tahun_ajaran_id: UUID }>({
       query: (body) => ({ url: "/kelas/promote", method: "POST", body }),
       invalidatesTags: ["Kelas"],
     }),

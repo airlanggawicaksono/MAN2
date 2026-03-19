@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # Desktop App Configuration
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"
+    CORS_ORIGINS: str = ""
 
     @property
     def database_url(self) -> str:
@@ -67,6 +68,12 @@ class Settings(BaseSettings):
             return self.DATABASE_URL
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
+    @property
+    def cors_origins(self) -> list[str]:
+        raw = self.CORS_ORIGINS.strip()
+        if not raw:
+            return []
+        return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
 
 # Singleton instance
 settings = Settings()

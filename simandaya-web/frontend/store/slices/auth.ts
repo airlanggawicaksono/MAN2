@@ -9,6 +9,20 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+function getTokenExpirationMs(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), '=');
+    const payload = JSON.parse(atob(padded));
+    if (!payload?.exp || typeof payload.exp !== 'number') return null;
+    return payload.exp * 1000;
+  } catch {
+    return null;
+  }
+}
+
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/`;
@@ -31,6 +45,19 @@ const loadAuthFromStorage = (): AuthState => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
+    const tokenExpiration = token ? getTokenExpirationMs(token) : null;
+    const isExpired = tokenExpiration !== null && tokenExpiration <= Date.now();
+
+    if (isExpired) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      deleteCookie('user_type');
+      return {
+        token: null,
+        user: null,
+        isAuthenticated: false,
+      };
+    }
 
     // Re-sync cookie on load
     if (user?.user_type) {

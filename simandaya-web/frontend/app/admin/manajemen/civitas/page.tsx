@@ -8,7 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useListTeachersQuery } from "@/api/teachers";
+import { useListTeachersQuery } from "@/api/usertype/admin";
 import type { GuruProfile } from "@/types/teachers";
 import { useTeacherPrecache } from "@/hooks/useTeacherPrecache";
 import { useDebounce } from "@/hooks/useDebounce";

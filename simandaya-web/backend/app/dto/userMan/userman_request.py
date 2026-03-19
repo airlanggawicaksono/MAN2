@@ -4,7 +4,6 @@ from app.enums import (
     JenisKelamin,
     StatusSiswa,
     StatusGuru,
-    StructuralRole,
 )
 
 
@@ -46,6 +45,5 @@ class UpdateGuruRequestDTO(BaseModel):
     status_guru: Optional[StatusGuru] = None
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
-    structural_role: Optional[StructuralRole] = None
     mata_pelajaran: Optional[str] = Field(default=None, max_length=100)
     pendidikan_terakhir: Optional[str] = Field(default=None, max_length=100)

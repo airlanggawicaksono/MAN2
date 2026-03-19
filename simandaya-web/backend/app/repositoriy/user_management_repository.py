@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.guru_profile import GuruProfile
+from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.siswa_profile import SiswaProfile
+from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
 
 
@@ -134,6 +136,55 @@ class UserManagementRepository:
 
     async def find_user_by_id(self, user_id: UUID) -> User | None:
         result = await self.db.execute(select(User).where(User.user_id == user_id))
+        return result.scalar_one_or_none()
+
+    async def list_structural_role_refs(self, include_inactive: bool = False) -> list[StructuralRoleRef]:
+        query = select(StructuralRoleRef).order_by(StructuralRoleRef.name)
+        if not include_inactive:
+            query = query.where(StructuralRoleRef.is_active.is_(True))
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def find_structural_role_ref_by_id(self, role_id: UUID) -> StructuralRoleRef | None:
+        result = await self.db.execute(
+            select(StructuralRoleRef).where(StructuralRoleRef.role_id == role_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def find_structural_role_ref_by_code(self, code: str) -> StructuralRoleRef | None:
+        result = await self.db.execute(
+            select(StructuralRoleRef).where(StructuralRoleRef.code == code)
+        )
+        return result.scalar_one_or_none()
+
+    async def add_structural_role_ref(self, role: StructuralRoleRef) -> None:
+        self.db.add(role)
+
+    async def add_structural_assignment(self, assignment: GuruStructuralAssignment) -> None:
+        self.db.add(assignment)
+
+    async def list_teacher_structural_assignments(
+        self, user_id: UUID, active_only: bool = False
+    ) -> list[GuruStructuralAssignment]:
+        query = (
+            select(GuruStructuralAssignment)
+            .options(selectinload(GuruStructuralAssignment.role))
+            .where(GuruStructuralAssignment.user_id == user_id)
+            .order_by(GuruStructuralAssignment.start_date.desc())
+        )
+        if active_only:
+            query = query.where(GuruStructuralAssignment.is_active.is_(True))
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def find_teacher_structural_assignment_by_id(
+        self, assignment_id: UUID
+    ) -> GuruStructuralAssignment | None:
+        result = await self.db.execute(
+            select(GuruStructuralAssignment)
+            .options(selectinload(GuruStructuralAssignment.role))
+            .where(GuruStructuralAssignment.assignment_id == assignment_id)
+        )
         return result.scalar_one_or_none()
 
     async def delete_user(self, user: User) -> None:

@@ -35,3 +35,26 @@ class UserManagementPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"NIP '{nip}' already exists",
             )
+
+    @staticmethod
+    def ensure_user_exists(user, detail: str = "User not found") -> None:
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    @staticmethod
+    def ensure_structural_role_ref_exists(role, detail: str = "Structural role not found") -> None:
+        if not role:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    @staticmethod
+    def ensure_structural_role_ref_code_available(is_taken: bool, code: str) -> None:
+        if is_taken:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Structural role code '{code}' already exists",
+            )
+
+    @staticmethod
+    def ensure_assignment_exists(assignment, detail: str = "Assignment not found") -> None:
+        if not assignment:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)

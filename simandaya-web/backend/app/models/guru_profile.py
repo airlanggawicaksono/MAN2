@@ -9,7 +9,7 @@ from sqlalchemy import (
     ForeignKey,
 )
 from app.config.database import Base
-from app.enums import StatusGuru, JenisKelamin, StructuralRole
+from app.enums import StatusGuru, JenisKelamin
 
 
 class GuruProfile(Base):
@@ -55,12 +55,6 @@ class GuruProfile(Base):
 
     kewarganegaraan: Mapped[str] = mapped_column(
         String(50), nullable=False, default="Indonesia"
-    )
-
-    structural_role: Mapped[StructuralRole] = mapped_column(
-        SQLAlchemyEnum(StructuralRole, values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
-        default=StructuralRole.guru,
     )
 
     # Technical role / subject taught (e.g. "Matematika", "Fisika", "Agama")

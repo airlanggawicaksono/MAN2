@@ -30,8 +30,10 @@ from app.dto.registration.registration_dto import (
     PreRegisterTeacherDTO,
     PreRegisterResponseDTO,
 )
-from app.dto.struktural.struktural_dto import (
-    GetStructuralRoleResponseListDTO,
+from app.dto.struktural.assignment_dto import (
+    AssignStructuralRoleDTO,
+    GuruStructuralAssignmentDTO,
+    StructuralRoleRefDTO,
 )
 
 router = APIRouter(prefix="/api/v1/users")
@@ -262,15 +264,61 @@ async def pre_register_teacher(
 
 
 @teacher_misc_router.get(
-    "/structural-roles",
-    response_model=GetStructuralRoleResponseListDTO,
-    summary="Get Structural Roles",
-    description="Get all gurus with their structural roles.",
+    "/structural-role-catalog",
+    response_model=list[StructuralRoleRefDTO],
+    summary="List Structural Role Catalog",
+    description="List dynamic structural role catalog (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
 )
-async def get_structural_roles(
+async def list_structural_role_catalog(
+    include_inactive: bool = Query(default=False),
     service: TeacherUserManagementService = Depends(get_teacher_user_service),
-) -> GetStructuralRoleResponseListDTO:
-    return await service.get_structural_roles()
+) -> list[StructuralRoleRefDTO]:
+    return await service.list_structural_role_catalog(include_inactive=include_inactive)
+
+
+@teacher_misc_router.post(
+    "/structural-assignments",
+    response_model=GuruStructuralAssignmentDTO,
+    status_code=201,
+    summary="Assign Structural Role to Teacher",
+    description="Assign one structural role to a teacher user (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def assign_structural_role(
+    request: AssignStructuralRoleDTO,
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruStructuralAssignmentDTO:
+    return await service.assign_structural_role(request)
+
+
+@teacher_misc_router.get(
+    "/teachers/{user_id}/structural-assignments",
+    response_model=list[GuruStructuralAssignmentDTO],
+    summary="List Teacher Structural Assignments",
+    description="List one teacher's structural assignments (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def list_teacher_structural_assignments(
+    user_id: UUID,
+    active_only: bool = Query(default=False),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> list[GuruStructuralAssignmentDTO]:
+    return await service.list_teacher_structural_assignments(user_id=user_id, active_only=active_only)
+
+
+@teacher_misc_router.delete(
+    "/structural-assignments/{assignment_id}",
+    response_model=MessageResponseDTO,
+    summary="Deactivate Structural Assignment",
+    description="Deactivate one structural assignment (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def deactivate_structural_assignment(
+    assignment_id: UUID,
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> MessageResponseDTO:
+    return await service.deactivate_structural_assignment(assignment_id)
 
 
 router.include_router(public_router)

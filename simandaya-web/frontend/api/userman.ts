@@ -3,12 +3,28 @@ import { createBaseQuery } from "./base";
 import type {
   GetStructuralRoleResponseList,
 } from "@/types/structural";
+import type {
+  ListPublicCivitasParams,
+  PaginatedPublicCivitasResponse,
+} from "@/types/userman";
 
 export const usermanApi = createApi({
   reducerPath: "usermanApi",
   baseQuery: createBaseQuery("/users"),
   tagTypes: ["User", "StructuralRole"],
   endpoints: (builder) => ({
+    listPublicCivitas: builder.query<PaginatedPublicCivitasResponse, ListPublicCivitasParams | void>({
+      query: (params) => {
+        const skip = params?.skip ?? 0;
+        const limit = params?.limit ?? 100;
+        let url = `/civitas?skip=${skip}&limit=${limit}`;
+        if (params?.search) {
+          url += `&search=${encodeURIComponent(params.search)}`;
+        }
+        return url;
+      },
+      providesTags: ["User"],
+    }),
     getStructuralRoles: builder.query<GetStructuralRoleResponseList, void>({
       query: () => "/structural-roles",
       providesTags: ["StructuralRole"],
@@ -17,5 +33,6 @@ export const usermanApi = createApi({
 });
 
 export const {
+  useListPublicCivitasQuery,
   useGetStructuralRolesQuery,
 } = usermanApi;

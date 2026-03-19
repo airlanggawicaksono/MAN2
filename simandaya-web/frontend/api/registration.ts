@@ -7,7 +7,7 @@ import type {
   ClaimResponse,
 } from "@/types/registration";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2385";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 export const registrationApi = createApi({
   reducerPath: "registrationApi",

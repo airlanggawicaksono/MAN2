@@ -173,7 +173,7 @@ class AuthService:
 
         return self._build_token_pair(user)
 
-    def issue_refresh_token_for_user(self, user: User) -> str:
+    def issue_refresh_token_for_user(self, user) -> str:
         return self.jwt_manager.create_refresh_token(
             user_id=user.user_id,
             username=user.username,

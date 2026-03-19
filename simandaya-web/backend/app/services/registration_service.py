@@ -171,7 +171,6 @@ class RegistrationService:
             "nik",
             "tahun_masuk",
             "kontak",
-            "structural_role",
             "bidang_wakasek",
             "mata_pelajaran",
             "pendidikan_terakhir",

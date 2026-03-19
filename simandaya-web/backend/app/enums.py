@@ -76,7 +76,6 @@ class StructuralRole(Enum):
     multimedia_studio = "Multimedia dan Studio"
 
     # ── Umum ──────────────────────────────────────────────────────────────
-    guru = "Guru"
     staf_tata_usaha = "Staf Tata Usaha"
     pustakawan = "Pustakawan"
     laboran = "Laboran"
