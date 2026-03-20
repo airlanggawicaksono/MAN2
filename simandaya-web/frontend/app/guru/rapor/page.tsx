@@ -4,14 +4,14 @@ import { useMemo } from "react";
 import { 
   useListKelasQuery, 
   useListSemestersQuery 
-} from "@/api/akademik";
-import { 
+} from "@/api/shared/akademik";
+import {
   useListRaporByKelasQuery, 
   useGenerateRaporMutation,
   usePublishAllRaporMutation,
   usePublishRaporMutation
-} from "@/api/penilaian";
-import { useGetMyTeacherProfileQuery } from "@/api/teachers";
+} from "@/api/shared/penilaian";
+import { useGetMyTeacherProfileQuery } from "@/api/admin/teachers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 

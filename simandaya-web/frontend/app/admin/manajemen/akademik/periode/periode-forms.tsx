@@ -15,7 +15,7 @@ import {
   useCreateTahunAjaranMutation,
   useCreateSemesterMutation,
   useListTahunAjaranQuery
-} from "@/api/akademik";
+} from "@/api/shared/akademik";
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 7 }, (_, i) => currentYear - 2 + i);

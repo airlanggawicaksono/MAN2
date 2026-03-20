@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import { createBaseQuery } from "./base";
+import { createBaseQuery } from "@/api/shared/base";
 import type { User, LoginRequest, TokenResponse } from "@/types/auth";
 import type { MessageResponse } from "@/types/common";
 

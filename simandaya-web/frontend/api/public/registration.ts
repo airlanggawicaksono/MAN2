@@ -7,12 +7,12 @@ import type {
   ClaimResponse,
 } from "@/types/registration";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const API_BASE = "/api/v1";
 
 export const registrationApi = createApi({
   reducerPath: "registrationApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${API_BASE}/api/v1/registration`,
+    baseUrl: `${API_BASE}/registration`,
   }),
   endpoints: (builder) => ({
     lookupStudentByNis: builder.query<StudentLookupResponse, string>({

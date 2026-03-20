@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateTeacherMutation } from "@/api/teachers";
+import { useUpdateTeacherMutation } from "@/api/admin/teachers";
 import type { GuruProfile, UpdateGuruRequest } from "@/types/teachers";
 import type {
   JenisKelamin,

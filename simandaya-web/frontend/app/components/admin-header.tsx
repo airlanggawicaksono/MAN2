@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/slices/auth";
-import { useLogoutMutation } from "@/api/usertype/public";
+import { useLogoutMutation } from "@/api/public/auth";
 import {
   NavigationMenu,
   NavigationMenuContent,

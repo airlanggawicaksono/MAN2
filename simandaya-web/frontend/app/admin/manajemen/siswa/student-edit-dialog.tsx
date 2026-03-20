@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateStudentMutation } from "@/api/students";
+import { useUpdateStudentMutation } from "@/api/admin/students";
 import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 

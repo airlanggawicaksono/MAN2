@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import { createBaseQuery } from "./base";
+import { createBaseQuery } from "@/api/shared/base";
 import type {
   StudentProfile,
   PreRegisterStudentRequest,

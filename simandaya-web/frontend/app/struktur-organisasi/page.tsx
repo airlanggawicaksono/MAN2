@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Network, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useListPublicCivitasQuery } from "@/api/usertype/public";
+import { useListPublicCivitasQuery } from "@/api/admin/userman";
 
 // Dynamic import for OrgChart to avoid hydration issues (SSR: false)
 const OrgChart = dynamic(

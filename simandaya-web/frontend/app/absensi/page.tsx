@@ -41,7 +41,7 @@ import {
 import {
   useListPublicAttendanceQuery,
   useListPublicIzinKeluarQuery,
-} from "@/api/absensi";
+} from "@/api/public/absensi";
 
 const STATUS_VARIANT: Record<
   string,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useGetMyJadwalQuery } from "@/api/akademik";
+import { useGetMyJadwalQuery } from "@/api/shared/akademik";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Table, 

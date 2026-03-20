@@ -7,7 +7,7 @@ import {
   useListKelasQuery, 
   useListJadwalByKelasQuery,
   useDeleteJadwalMutation 
-} from "@/api/akademik";
+} from "@/api/shared/akademik";
 import { JadwalResponse } from "@/types/akademik/jadwal";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";

@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useDeleteStudentMutation } from "@/api/students";
+import { useDeleteStudentMutation } from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
 
 interface StudentDeleteDialogProps {

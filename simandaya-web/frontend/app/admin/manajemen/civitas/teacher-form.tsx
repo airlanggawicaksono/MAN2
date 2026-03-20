@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { usePreRegisterTeacherMutation } from "@/api/teachers";
+import { usePreRegisterTeacherMutation } from "@/api/admin/teachers";
 import type { PreRegisterTeacherRequest } from "@/types/teachers";
 
 const INITIAL_STATE: PreRegisterTeacherRequest = {

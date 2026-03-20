@@ -3,15 +3,15 @@ import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/auth";
 import cmsReducer from "./slices/cms";
 import absensiReducer from "./slices/absensi";
-import { authApi } from "@/api/auth";
-import { studentsApi } from "@/api/students";
-import { teachersApi } from "@/api/teachers";
-import { registrationApi } from "@/api/registration";
-import { cmsApi } from "@/api/setContentManagement";
-import { absensiApi } from "@/api/absensi";
-import { usermanApi } from "@/api/userman";
-import { akademikApi } from "@/api/akademik";
-import { penilaianApi } from "@/api/penilaian";
+import { authApi } from "@/api/public/auth";
+import { studentsApi } from "@/api/admin/students";
+import { teachersApi } from "@/api/admin/teachers";
+import { registrationApi } from "@/api/public/registration";
+import { cmsApi } from "@/api/admin/setContentManagement";
+import { absensiApi } from "@/api/public/absensi";
+import { usermanApi } from "@/api/admin/userman";
+import { akademikApi } from "@/api/shared/akademik";
+import { penilaianApi } from "@/api/shared/penilaian";
 
 const rootReducer = combineSlices(
   authApi,

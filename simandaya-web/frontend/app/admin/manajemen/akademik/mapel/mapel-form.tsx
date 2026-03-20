@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateMapelMutation } from "@/api/akademik";
+import { useCreateMapelMutation } from "@/api/shared/akademik";
 import type { CreateMapelRequest } from "@/types/akademik/mapel";
 
 const INITIAL_STATE: CreateMapelRequest = {

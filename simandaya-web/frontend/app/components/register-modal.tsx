@@ -14,7 +14,7 @@ import {
   useLazyLookupTeacherByNipQuery,
   useClaimStudentMutation,
   useClaimTeacherMutation,
-} from "@/api/usertype/public";
+} from "@/api/public/registration";
 import type {
   StudentLookupResponse,
   TeacherLookupResponse,

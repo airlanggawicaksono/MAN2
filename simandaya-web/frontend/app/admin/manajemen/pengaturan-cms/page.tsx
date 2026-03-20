@@ -15,7 +15,7 @@ import {
   useCreateSlideMutation,
   useUpdateSlideMutation,
   useDeleteSlideMutation,
-} from "@/api/setContentManagement";
+} from "@/api/admin/setContentManagement";
 import {
   Dialog,
   DialogContent,

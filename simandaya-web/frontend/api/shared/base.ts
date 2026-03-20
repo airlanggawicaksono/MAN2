@@ -3,7 +3,7 @@ import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolk
 import type { RootState } from "@/store";
 import { logout, setCredentials } from "@/store/slices/auth";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const API_BASE = "/api/v1";
 
 function getTokenExpirationMs(token: string): number | null {
   try {
@@ -30,7 +30,7 @@ function isTokenExpired(token: string): boolean {
 
 async function tryRefreshToken(api: any): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       credentials: "include",
     });
@@ -49,7 +49,7 @@ async function tryRefreshToken(api: any): Promise<boolean> {
 
 export function createBaseQuery(path: string): BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> {
   const baseQuery = fetchBaseQuery({
-    baseUrl: `${API_BASE}/api/v1${path}`,
+    baseUrl: `${API_BASE}${path}`,
     credentials: "include",
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as RootState;

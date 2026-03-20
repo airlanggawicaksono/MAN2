@@ -1,6 +1,6 @@
 "use client";
 
-import { useListJadwalByGuruQuery } from "@/api/akademik";
+import { useListJadwalByGuruQuery } from "@/api/shared/akademik";
 import { useAppSelector } from "@/store/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

@@ -7,13 +7,13 @@ import {
   useListSemestersQuery,
   useListKelasQuery,
   useListSiswaInKelasQuery
-} from "@/api/usertype/guru";
+} from "@/api/shared/akademik";
 import { 
   useListTugasByKelasQuery, 
   useCreateTugasMutation,
   useListNilaiByTugasQuery,
   useBulkCreateNilaiMutation
-} from "@/api/usertype/guru";
+} from "@/api/shared/penilaian";
 import { useAppSelector } from "@/store/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

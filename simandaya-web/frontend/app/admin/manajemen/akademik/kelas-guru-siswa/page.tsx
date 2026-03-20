@@ -16,9 +16,9 @@ import {
   useCreateGuruMapelMutation,
   useDeleteGuruMapelMutation,
   useListMapelQuery,
-} from "@/api/akademik";
-import { useListTeachersQuery } from "@/api/teachers";
-import { useListStudentsQuery } from "@/api/students";
+} from "@/api/shared/akademik";
+import { useListTeachersQuery } from "@/api/admin/teachers";
+import { useListStudentsQuery } from "@/api/admin/students";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -1,7 +1,7 @@
 "use client";
 
-import { useGetMyRaporQuery } from "@/api/penilaian";
-import { useListSemestersQuery } from "@/api/akademik";
+import { useGetMyRaporQuery } from "@/api/shared/penilaian";
+import { useListSemestersQuery } from "@/api/shared/akademik";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Table, 

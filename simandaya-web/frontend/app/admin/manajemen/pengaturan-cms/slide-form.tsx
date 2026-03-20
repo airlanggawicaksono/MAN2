@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { CarouselSlide, CreateSlideRequest, ContentType } from "@/types/cms";
-import { useUploadImageMutation } from "@/api/setContentManagement";
+import { useUploadImageMutation } from "@/api/admin/setContentManagement";
 
 const BG_OPTIONS = [
   { label: "Primary", value: "bg-primary" },

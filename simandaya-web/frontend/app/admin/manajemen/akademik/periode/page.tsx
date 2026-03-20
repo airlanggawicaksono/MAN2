@@ -4,7 +4,7 @@ import {
   useListTahunAjaranQuery, useListSemestersQuery,
   useDeleteTahunAjaranMutation, useDeleteSemesterMutation,
   useUpdateTahunAjaranMutation, useUpdateSemesterMutation,
-} from "@/api/akademik";
+} from "@/api/shared/akademik";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";

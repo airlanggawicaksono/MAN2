@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/auth";
-import { useVerifyQuery } from "@/api/usertype/public";
+import { useVerifyQuery } from "@/api/public/auth";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();

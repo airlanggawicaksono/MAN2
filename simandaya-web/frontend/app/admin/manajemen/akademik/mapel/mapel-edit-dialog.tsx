@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateMapelMutation } from "@/api/akademik";
+import { useUpdateMapelMutation } from "@/api/shared/akademik";
 import type { MapelResponse, UpdateMapelRequest } from "@/types/akademik/mapel";
 
 interface MapelEditDialogProps {

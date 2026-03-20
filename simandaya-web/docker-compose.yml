@@ -76,7 +76,8 @@ services:
     container_name: simandaya-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:2385}
       NODE_ENV: ${NODE_ENV:-development}
       CI: "true"
       WATCHPACK_POLLING: "true"

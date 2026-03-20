@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { useListMapelQuery, useDeleteMapelMutation } from "@/api/akademik";
+import { useListMapelQuery, useDeleteMapelMutation } from "@/api/shared/akademik";
 import { MapelResponse } from "@/types/akademik/mapel";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { studentsApi } from "@/api/students";
+import { studentsApi } from "@/api/admin/students";
 
 const usePrefetch = studentsApi.usePrefetch;
 

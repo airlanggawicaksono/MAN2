@@ -8,7 +8,7 @@ import {
   useBulkAssignKurikulumMutation,
   useDeleteKurikulumMapelMutation,
   useUpdateKurikulumMapelMutation,
-} from "@/api/akademik";
+} from "@/api/shared/akademik";
 import {
   Select,
   SelectContent,

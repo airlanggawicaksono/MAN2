@@ -7,7 +7,7 @@ import Image from "next/image";
 import { getNavForRole, isNavGroup, roleRoutePrefix } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
-import { useLogoutMutation, useLoginMutation } from "@/api/usertype/public";
+import { useLogoutMutation, useLoginMutation } from "@/api/public/auth";
 import { UserType } from "@/types/auth";
 import {
   Dialog,

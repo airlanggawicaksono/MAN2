@@ -16,7 +16,7 @@ import {
   useListKelasQuery, 
   useListSemestersQuery,
   useListGuruMapelQuery
-} from "@/api/akademik";
+} from "@/api/shared/akademik";
 import type { CreateJadwalRequest } from "@/types/akademik/jadwal";
 
 const HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];

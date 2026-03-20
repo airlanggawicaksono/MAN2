@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://backend:2385";
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -10,6 +12,14 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${backendUrl}/api/v1/:path*`,
+      },
+    ];
   },
 };
 
