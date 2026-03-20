@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { adminNav } from "@/config/navigation";
+import { siswaNav } from "@/config/navigation";
 import { useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/slices/auth";
 import { useLogoutMutation } from "@/api/public/auth";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import SharedHeader from "./shared-header";
 
-export default function AdminHeader() {
+export default function SiswaHeader() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -35,7 +35,7 @@ export default function AdminHeader() {
   return (
     <>
       <SharedHeader
-        navItems={adminNav}
+        navItems={siswaNav}
         actionLabel="Keluar"
         onActionClick={() => setShowLogoutDialog(true)}
       />

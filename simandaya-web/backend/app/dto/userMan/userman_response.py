@@ -19,7 +19,6 @@ class StudentProfileResponseDTO(BaseModel):
     jenis_kelamin: Optional[JenisKelamin] = None
     alamat: Optional[str] = None
     nama_wali: Optional[str] = None
-    nik: Optional[str] = None
     kelas_jurusan: Optional[str] = None
     tahun_masuk: Optional[int] = None
     status_siswa: StatusSiswa

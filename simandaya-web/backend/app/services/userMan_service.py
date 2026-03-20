@@ -83,6 +83,9 @@ class StudentUserManagementService:
         profile = await self.repo.find_student_by_id(siswa_id)
         self.policy.ensure_student_exists(profile, detail="Student not found")
 
+        # Delete profile first to avoid ORM nulling FK on parent delete.
+        await self.repo.delete_student_profile(profile)
+
         user = await self.repo.find_user_by_id(profile.user_id)
         if user:
             await self.repo.delete_user(user)
@@ -102,7 +105,6 @@ class StudentUserManagementService:
             jenis_kelamin=profile.jenis_kelamin,
             alamat=profile.alamat,
             nama_wali=profile.nama_wali,
-            nik=profile.nik,
             kelas_jurusan=profile.kelas_jurusan,
             tahun_masuk=profile.tahun_masuk,
             status_siswa=profile.status_siswa,
@@ -168,6 +170,9 @@ class TeacherUserManagementService:
     async def delete_teacher(self, guru_id: UUID) -> MessageResponseDTO:
         profile = await self.repo.find_teacher_by_id(guru_id)
         self.policy.ensure_teacher_exists(profile, detail="Teacher not found")
+
+        # Delete profile first to avoid ORM nulling FK on parent delete.
+        await self.repo.delete_teacher_profile(profile)
 
         user = await self.repo.find_user_by_id(profile.user_id)
         if user:

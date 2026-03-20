@@ -87,7 +87,7 @@ async def list_students(
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
     limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
     search: Optional[str] = Query(
-        default=None, description="Search across nis, nama, nik, kelas, kontak, tempat_lahir"
+        default=None, description="Search across nis, nama, kelas, kontak, tempat_lahir"
     ),
     service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> PaginatedStudentsResponse:

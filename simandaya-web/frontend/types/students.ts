@@ -10,7 +10,6 @@ export interface StudentProfile {
   jenis_kelamin: JenisKelamin | null;
   alamat: string | null;
   nama_wali: string | null;
-  nik: string | null;
   kelas_jurusan: string | null;
   tahun_masuk: number | null;
   status_siswa: StatusSiswa;
@@ -27,7 +26,6 @@ export interface PreRegisterStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
-  nik?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   kontak?: string;
@@ -46,7 +44,6 @@ export interface UpdateStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
-  nik?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   status_siswa?: StatusSiswa;

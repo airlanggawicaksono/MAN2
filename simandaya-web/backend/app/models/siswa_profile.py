@@ -95,7 +95,10 @@ class SiswaProfile(Base):
     )
 
     # Relationship
-    user: Mapped["User"] = relationship(back_populates="siswa_profile")
+    user: Mapped["User"] = relationship(
+        back_populates="siswa_profile",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:
         return f"SiswaProfile(nis={self.nis}, nama={self.nama_lengkap})"

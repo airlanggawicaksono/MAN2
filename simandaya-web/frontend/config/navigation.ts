@@ -23,31 +23,22 @@ export const roleRoutePrefix: Record<UserType, string> = {
   Siswa: "/siswa",
 };
 
-export const publicNav: NavItem[] = [
-  { label: "Beranda", href: "/" },
-  { label: "Struktur Organisasi", href: "/struktur-organisasi" },
+export const generalNav: NavItem[] = [
+  { label: "Beranda", href: "/general" },
+  { label: "Struktur Organisasi", href: "/general/struktur-organisasi" },
   {
     label: "Layanan",
     width: "w-[240px]",
     children: [
-      { label: "Layanan Akademik", href: "/layanan-akademik" },
-      { label: "Layanan Publik", href: "/layanan-publik" },
-      { label: "Layanan PTK", href: "/layanan-ptk" },
+      { label: "Layanan Akademik", href: "/general/layanan-akademik" },
+      { label: "Layanan Publik", href: "/general/layanan-publik" },
+      { label: "Layanan PTK", href: "/general/layanan-ptk" },
     ],
   },
-  { label: "Absensi", href: "/absensi" },
+  { label: "Absensi", href: "/general/absensi" },
 ];
 
 export const adminNav: NavItem[] = [
-  { label: "Beranda", href: "/" },
-  {
-    label: "Kesiswaan",
-    width: "w-[240px]",
-    children: [
-      { label: "Absensi Masuk Sekolah", href: "/admin/kesiswaan/absensi" },
-      { label: "Izin Kesiswaan", href: "/admin/kesiswaan/izin" },
-    ],
-  },
   {
     label: "Manajemen Data",
     width: "w-[280px]",
@@ -57,6 +48,15 @@ export const adminNav: NavItem[] = [
       { label: "Pengaturan Manajemen Konten", href: "/admin/manajemen/pengaturan-cms" },
     ],
   },
+  {
+    label: "Kesiswaan",
+    width: "w-[240px]",
+    children: [
+      { label: "Absensi Masuk Sekolah", href: "/admin/kesiswaan/absensi" },
+      { label: "Izin Kesiswaan", href: "/admin/kesiswaan/izin" },
+    ],
+  },
+
   {
     label: "Akademik",
     width: "w-[240px]",
@@ -69,14 +69,14 @@ export const adminNav: NavItem[] = [
 ];
 
 export const guruNav: NavItem[] = [
-  { label: "Dashboard", href: "/guru" },
+  { label: "Dasbor Guru", href: "/guru" },
   { label: "Jadwal Mengajar", href: "/guru/jadwal" },
   { label: "Penilaian Siswa", href: "/guru/penilaian" },
   { label: "Wali Kelas (Rapor)", href: "/guru/rapor" },
 ];
 
 export const siswaNav: NavItem[] = [
-  { label: "Dashboard", href: "/siswa" },
+  { label: "Dasbor Siswa", href: "/siswa" },
   { label: "Jadwal Pelajaran", href: "/siswa/jadwal" },
   { label: "Nilai Saya", href: "/siswa/nilai" },
   { label: "Rapor Digital", href: "/siswa/rapor" },
@@ -91,6 +91,6 @@ export function getNavForRole(role?: UserType): NavItem[] {
     case "Siswa":
       return siswaNav;
     default:
-      return publicNav;
+      return generalNav;
   }
 }

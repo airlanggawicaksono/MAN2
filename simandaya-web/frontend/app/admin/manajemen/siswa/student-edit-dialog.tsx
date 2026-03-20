@@ -47,7 +47,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
         jenis_kelamin: student.jenis_kelamin ?? undefined,
         alamat: student.alamat ?? undefined,
         nama_wali: student.nama_wali ?? undefined,
-        nik: student.nik ?? undefined,
         kelas_jurusan: student.kelas_jurusan ?? undefined,
         tahun_masuk: student.tahun_masuk ?? undefined,
         status_siswa: student.status_siswa,
@@ -108,13 +107,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Input
                 value={form.nama_lengkap || ""}
                 onChange={(e) => handleChange("nama_lengkap", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>NIK</Label>
-              <Input
-                value={form.nik || ""}
-                onChange={(e) => handleChange("nik", e.target.value)}
               />
             </div>
             <div className="grid gap-2">

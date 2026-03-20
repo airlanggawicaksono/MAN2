@@ -65,7 +65,10 @@ class GuruProfile(Base):
     )
 
     # Relationship
-    user: Mapped["User"] = relationship(back_populates="guru_profile")
+    user: Mapped["User"] = relationship(
+        back_populates="guru_profile",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:
         return f"GuruProfile(nip={self.nip}, nama={self.nama_lengkap})"

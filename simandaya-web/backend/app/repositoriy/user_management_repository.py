@@ -190,6 +190,12 @@ class UserManagementRepository:
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)
 
+    async def delete_student_profile(self, profile: SiswaProfile) -> None:
+        await self.db.delete(profile)
+
+    async def delete_teacher_profile(self, profile: GuruProfile) -> None:
+        await self.db.delete(profile)
+
     async def commit(self) -> None:
         await self.db.commit()
 
@@ -207,7 +213,6 @@ class UserManagementRepository:
         return or_(
             SiswaProfile.nis.ilike(pattern),
             SiswaProfile.nama_lengkap.ilike(pattern),
-            SiswaProfile.nik.ilike(pattern),
             SiswaProfile.kelas_jurusan.ilike(pattern),
             SiswaProfile.kontak.ilike(pattern),
             SiswaProfile.tempat_lahir.ilike(pattern),

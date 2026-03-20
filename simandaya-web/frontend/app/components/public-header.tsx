@@ -1,58 +1,37 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
-import { getNavForRole, isNavGroup, roleRoutePrefix } from "@/config/navigation";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getNavForRole } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
-import { useLogoutMutation, useLoginMutation } from "@/api/public/auth";
-import { UserType } from "@/types/auth";
+import { useLoginMutation, useLogoutMutation } from "@/api/public/auth";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
 import RegisterModal from "./register-modal";
-
-const triggerStyle = "text-[#8FC3DD] bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA] data-[active]:text-[#EAD79A]";
-const activeTriggerStyle = "text-[#EAD79A] font-semibold bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA]";
-const dropdownLinkStyle = "block select-none rounded-md p-3 text-sm leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground";
+import SharedHeader from "./shared-header";
 
 export default function PublicHeader() {
-  const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-  const [mounted, setMounted] = useState(false);
+  const navItems = getNavForRole(user?.user_type);
+
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
-  const [logoutApi] = useLogoutMutation();
-
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+
+  const [logoutApi] = useLogoutMutation();
   const [login, { isLoading: loginLoading }] = useLoginMutation();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const navItems = getNavForRole(user?.user_type);
 
   const handleLogout = async () => {
     try {
@@ -69,12 +48,15 @@ export default function PublicHeader() {
     setLoginError("");
 
     try {
-      const result = await login({ username: loginUsername, password: loginPassword }).unwrap();
+      const result = await login({
+        username: loginUsername,
+        password: loginPassword,
+      }).unwrap();
+
       dispatch(setCredentials({ token: result.access_token, user: result.user }));
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
-
       router.push("/");
     } catch (err: any) {
       setLoginError(err.data?.detail || "Login gagal. Silakan coba lagi.");
@@ -88,115 +70,14 @@ export default function PublicHeader() {
     setShowLoginDialog(true);
   };
 
-  const switchToRegister = () => {
-    setShowLoginDialog(false);
-    setShowRegisterDialog(true);
-  };
-
-  const switchToLogin = () => {
-    setShowRegisterDialog(false);
-    openLoginDialog();
-  };
-
   return (
     <>
-      <header className="bg-[#173B52] text-[#F3F1EA] px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Image
-            src="/man2.png"
-            alt="Logo"
-            width={60}
-            height={60}
-            priority
-          />
-          <div className="leading-tight">
-            <h1 className="text-xl font-semibold tracking-wide">
-              Madrasah Aliyah Negeri 2 Yogyakarta
-            </h1>
-            <p className="text-sm text-[#8FC3DD] italic">
-              Ukir prasasti dengan prestasi
-            </p>
-          </div>
-        </div>
+      <SharedHeader
+        navItems={navItems}
+        actionLabel={isAuthenticated ? "Keluar" : "Masuk"}
+        onActionClick={isAuthenticated ? () => setShowLogoutDialog(true) : openLoginDialog}
+      />
 
-        <div className="flex items-center gap-4">
-          {mounted && (
-            <>
-              <NavigationMenu>
-                <NavigationMenuList className="gap-1">
-                  {navItems.map((item) => {
-                    if (isNavGroup(item)) {
-                      const isActive = item.children.some(child => pathname === child.href);
-                      return (
-                        <NavigationMenuItem key={item.label}>
-                          <NavigationMenuTrigger className={isActive ? activeTriggerStyle : triggerStyle}>
-                            {item.label}
-                          </NavigationMenuTrigger>
-                          <NavigationMenuContent>
-                            <ul className={`${item.width ?? "w-[240px]"} p-2`}>
-                              {item.children.map((child) => (
-                                <li key={child.href}>
-                                  <NavigationMenuLink asChild>
-                                    {child.href.startsWith("http") ? (
-                                      <a
-                                        href={child.href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={dropdownLinkStyle}
-                                      >
-                                        {child.label}
-                                      </a>
-                                    ) : (
-                                      <Link href={child.href} className={dropdownLinkStyle}>
-                                        {child.label}
-                                      </Link>
-                                    )}
-                                  </NavigationMenuLink>
-                                </li>
-                              ))}
-                            </ul>
-                          </NavigationMenuContent>
-                        </NavigationMenuItem>
-                      );
-                    }
-
-                    const href = "href" in item ? item.href : "#";
-                    const isActive = pathname === href;
-                    return (
-                      <NavigationMenuItem key={href}>
-                        <NavigationMenuLink
-                          asChild
-                          className={navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)}
-                        >
-                          <Link href={href}>{item.label}</Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
-                    );
-                  })}
-                </NavigationMenuList>
-              </NavigationMenu>
-
-              {isAuthenticated ? (
-                <button
-                  onClick={() => setShowLogoutDialog(true)}
-                  className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
-                >
-                  Keluar
-                </button>
-              ) : (
-                <button
-                  onClick={openLoginDialog}
-                  className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
-                >
-                  Masuk
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </header>
-
-      {/* Login dialog */}
       <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
         <DialogContent
           onInteractOutside={(e: Event) => e.preventDefault()}
@@ -204,9 +85,7 @@ export default function PublicHeader() {
         >
           <DialogHeader>
             <DialogTitle>Masuk</DialogTitle>
-            <DialogDescription>
-              Masuk ke akun Simandaya Anda.
-            </DialogDescription>
+            <DialogDescription>Masuk ke akun Simandaya Anda.</DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleLogin}>
@@ -263,7 +142,10 @@ export default function PublicHeader() {
             Belum punya akun?{" "}
             <button
               type="button"
-              onClick={switchToRegister}
+              onClick={() => {
+                setShowLoginDialog(false);
+                setShowRegisterDialog(true);
+              }}
               className="text-primary font-medium hover:underline"
             >
               Daftar
@@ -272,21 +154,20 @@ export default function PublicHeader() {
         </DialogContent>
       </Dialog>
 
-      {/* Register dialog */}
       <RegisterModal
         open={showRegisterDialog}
         onOpenChange={setShowRegisterDialog}
-        onSwitchToLogin={switchToLogin}
+        onSwitchToLogin={() => {
+          setShowRegisterDialog(false);
+          openLoginDialog();
+        }}
       />
 
-      {/* Logout confirmation dialog */}
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Konfirmasi Keluar</DialogTitle>
-            <DialogDescription>
-              Apakah Anda ingin keluar dari Simandaya?
-            </DialogDescription>
+            <DialogDescription>Apakah Anda ingin keluar dari Simandaya?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <button

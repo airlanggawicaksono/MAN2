@@ -152,7 +152,6 @@ class RegistrationService:
             "jenis_kelamin",
             "alamat",
             "nama_wali",
-            "nik",
             "kelas_jurusan",
             "tahun_masuk",
             "kontak",
