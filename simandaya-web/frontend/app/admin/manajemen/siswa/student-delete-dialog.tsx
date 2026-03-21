@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
 import { useDeleteStudentMutation } from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
 
@@ -38,26 +30,25 @@ export function StudentDeleteDialog({ student, open, onClose }: StudentDeleteDia
       : undefined;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Hapus Siswa</DialogTitle>
-          <DialogDescription>
-            Apakah Anda yakin ingin menghapus siswa{" "}
-            <strong>{student?.nama_lengkap}</strong> (NIS: {student?.nis})?
-            Tindakan ini tidak dapat dibatalkan. Akun login siswa juga akan dihapus.
-          </DialogDescription>
-        </DialogHeader>
-        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
-            Batal
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
-            {isLoading ? "Menghapus..." : "Hapus"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleClose();
+      }}
+      title="Hapus Siswa"
+      description={
+        <>
+          Apakah Anda yakin ingin menghapus siswa{" "}
+          <strong>{student?.nama_lengkap}</strong> (NIS: {student?.nis})?
+          Tindakan ini tidak dapat dibatalkan. Akun login siswa juga akan dihapus.
+        </>
+      }
+      confirmLabel={isLoading ? "Menghapus..." : "Hapus"}
+      confirmVariant="destructive"
+      confirmDisabled={isLoading}
+      onConfirm={handleDelete}
+    >
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+    </ConfirmDialog>
   );
 }

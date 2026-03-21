@@ -6,6 +6,11 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.absensi.absensi_response import AbsensiResponseDTO, IzinKeluarResponseDTO
+from app.dto.absensi.attendance_settings_dto import (
+    AttendanceSettingsResponseDTO,
+    UpdateAttendanceSettingsDTO,
+)
+from app.dto.absensi.absensi_update_dto import UpdateAbsensiDTO
 from app.dto.absensi.bulk_absensi_dto import BulkAbsensiCreateDTO, BulkAbsensiResponseDTO
 from app.dto.absensi.public_response import PublicAbsensiDTO, PublicIzinKeluarDTO
 from app.models.absensi import Absensi
@@ -13,6 +18,7 @@ from app.models.izin_keluar import IzinKeluar
 from app.models.user import User
 from app.policy.absensi_policy import AbsensiPolicy
 from app.repositoriy.absensi_repository import AbsensiRepository
+from app.repositoriy.desktop_repository import DesktopRepository
 
 
 class AbsensiService:
@@ -29,6 +35,7 @@ class AbsensiService:
     ):
         self.repo = repo or AbsensiRepository(db)
         self.policy = policy
+        self.desktop_repo = DesktopRepository(db)
 
     async def _validate_siswa(self, user_id: UUID) -> User:
         user = await self.repo.find_user_by_id(user_id)
@@ -53,7 +60,7 @@ class AbsensiService:
             user_id=record.user_id,
             created_at=record.created_at,
             keterangan=record.keterangan,
-            waktu_kembali=record.waktu_kembali,
+            perkiraan_kembali=record.perkiraan_kembali,
         )
 
     async def list_absensi(self) -> list[AbsensiResponseDTO]:
@@ -69,6 +76,46 @@ class AbsensiService:
         record = await self.repo.find_absensi_by_id(absensi_id)
         self.policy.ensure_absensi_exists(record)
         return self._to_absensi_dto(record)
+
+    async def update_absensi(
+        self, absensi_id: UUID, request: UpdateAbsensiDTO, current_user: User
+    ) -> AbsensiResponseDTO:
+        try:
+            record = await self.repo.find_absensi_by_id(absensi_id)
+            self.policy.ensure_absensi_exists(record)
+
+            update_data = request.model_dump(exclude_unset=True)
+            self.policy.ensure_update_payload(update_data)
+
+            for field, value in update_data.items():
+                setattr(record, field, value)
+            record.marked_by = current_user.user_id
+
+            await self.repo.commit()
+            return self._to_absensi_dto(record)
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update attendance: {str(e)}",
+            )
+
+    async def delete_absensi(self, absensi_id: UUID) -> None:
+        try:
+            record = await self.repo.find_absensi_by_id(absensi_id)
+            self.policy.ensure_absensi_exists(record)
+            await self.repo.delete_absensi(record)
+            await self.repo.commit()
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete attendance: {str(e)}",
+            )
 
     async def list_izin_keluar(self) -> list[IzinKeluarResponseDTO]:
         records = await self.repo.list_all_izin_keluar()
@@ -104,7 +151,7 @@ class AbsensiService:
             kelas=profile.kelas_jurusan if profile else None,
             created_at=record.created_at,
             keterangan=record.keterangan,
-            waktu_kembali=record.waktu_kembali,
+            perkiraan_kembali=record.perkiraan_kembali,
         )
 
     async def list_absensi_public(
@@ -137,11 +184,7 @@ class AbsensiService:
         try:
             kelas = await self.repo.find_kelas_by_id(request.kelas_id)
             self.policy.ensure_kelas_exists(kelas, request.kelas_id)
-
-            is_teacher = await self.repo.is_guru_teaching_kelas(
-                current_user.user_id, request.kelas_id
-            )
-            self.policy.ensure_bulk_permission(current_user, kelas, is_teacher)
+            self.policy.ensure_bulk_permission(current_user)
 
             valid_student_ids = await self.repo.get_student_ids_in_kelas(request.kelas_id)
 
@@ -183,4 +226,25 @@ class AbsensiService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create bulk attendance: {str(e)}",
+            )
+
+    async def get_attendance_settings(self) -> AttendanceSettingsResponseDTO:
+        settings = await self.desktop_repo.get_or_create_desktop_settings()
+        await self.desktop_repo.commit()
+        return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+
+    async def update_attendance_settings(
+        self, request: UpdateAttendanceSettingsDTO, current_user: User
+    ) -> AttendanceSettingsResponseDTO:
+        try:
+            settings = await self.desktop_repo.get_or_create_desktop_settings()
+            settings.late_cutoff_time = request.late_cutoff_time
+            settings.updated_by = current_user.user_id
+            await self.desktop_repo.commit()
+            return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+        except Exception as e:
+            await self.desktop_repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update attendance settings: {str(e)}",
             )

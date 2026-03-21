@@ -13,8 +13,8 @@ from app.dto.penilaian.nilai_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/penilaian")
-teacher_router = APIRouter(tags=["Nilai - Teacher/Admin"])
-student_router = APIRouter(tags=["Nilai - Student"])
+teacher_router = APIRouter(tags=["Admin + Guru - Nilai"])
+student_router = APIRouter(tags=["Siswa - Nilai"])
 
 
 @teacher_router.post(
@@ -121,3 +121,4 @@ async def delete_nilai(
 
 router.include_router(teacher_router)
 router.include_router(student_router)
+

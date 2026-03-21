@@ -21,4 +21,4 @@ class PublicIzinKeluarDTO(BaseModel):
     kelas: Optional[str]
     created_at: datetime
     keterangan: str
-    waktu_kembali: Optional[datetime]
+    perkiraan_kembali: Optional[datetime]

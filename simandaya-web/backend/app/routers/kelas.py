@@ -18,9 +18,9 @@ from app.dto.akademik.kelas_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/akademik")
-admin_router = APIRouter(tags=["Kelas - Admin"])
-guru_router = APIRouter(tags=["Kelas - Guru"])
-student_router = APIRouter(tags=["Kelas - Student"])
+admin_router = APIRouter(tags=["Admin - Kelas"])
+guru_router = APIRouter(tags=["Guru - Kelas"])
+student_router = APIRouter(tags=["Siswa - Kelas"])
 
 
 # ── Kelas CRUD ───────────────────────────────────────────────────────────────
@@ -192,3 +192,4 @@ async def remove_siswa(
 router.include_router(admin_router)
 router.include_router(guru_router)
 router.include_router(student_router)
+

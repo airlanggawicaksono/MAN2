@@ -265,7 +265,7 @@ export default function AbsensiPage() {
                       <TableHead>Kelas</TableHead>
                       <TableHead>Waktu</TableHead>
                       <TableHead>Keterangan</TableHead>
-                      <TableHead>Kembali</TableHead>
+                      <TableHead>Perkiraan Kembali</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -278,10 +278,10 @@ export default function AbsensiPage() {
                         <TableCell>{formatTime(row.created_at)}</TableCell>
                         <TableCell>{row.keterangan}</TableCell>
                         <TableCell>
-                          {row.waktu_kembali ? (
-                            formatTime(row.waktu_kembali)
+                          {row.perkiraan_kembali ? (
+                            formatTime(row.perkiraan_kembali)
                           ) : (
-                            <Badge variant="outline">Belum</Badge>
+                            "-"
                           )}
                         </TableCell>
                       </TableRow>

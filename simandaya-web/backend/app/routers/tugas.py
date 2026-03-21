@@ -13,8 +13,8 @@ from app.dto.penilaian.tugas_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/penilaian")
-teacher_router = APIRouter(tags=["Tugas - Teacher/Admin"])
-student_router = APIRouter(tags=["Tugas - Student"])
+teacher_router = APIRouter(tags=["Admin + Guru - Tugas"])
+student_router = APIRouter(tags=["Siswa - Tugas"])
 
 
 @teacher_router.post(
@@ -138,3 +138,4 @@ async def update_my_submission(
 
 router.include_router(teacher_router)
 router.include_router(student_router)
+

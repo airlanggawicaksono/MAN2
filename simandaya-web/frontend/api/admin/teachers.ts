@@ -58,6 +58,15 @@ export const teachersApi = createApi({
       ],
     }),
 
+    updateMyTeacherProfile: builder.mutation<GuruProfile, UpdateGuruRequest>({
+      query: (body) => ({
+        url: "/me",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: [{ type: "Teacher", id: "LIST" }],
+    }),
+
     deleteTeacher: builder.mutation<MessageResponse, string>({
       query: (guruId) => ({ url: `/${guruId}`, method: "DELETE" }),
       invalidatesTags: (_result, _err, guruId) => [
@@ -78,6 +87,7 @@ export const {
   useGetTeacherQuery,
   usePreRegisterTeacherMutation,
   useUpdateTeacherMutation,
+  useUpdateMyTeacherProfileMutation,
   useDeleteTeacherMutation,
   useGetMyTeacherProfileQuery,
 } = teachersApi;

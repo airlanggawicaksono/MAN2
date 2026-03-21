@@ -15,6 +15,9 @@ class AttendanceEventDTO(BaseModel):
     reason: Optional[str] = Field(
         None, description="Required when event_type is 'izin'"
     )
+    perkiraan_kembali: Optional[datetime] = Field(
+        None, description="Optional estimated return time for izin event"
+    )
 
 
 class BulkAttendanceSyncDTO(BaseModel):

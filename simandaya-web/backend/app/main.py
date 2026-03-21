@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config.database import init_db, close_db
+from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.routers import (
     auth, users, absensi,
     tahun_ajaran, semester, kalender, mapel, slot_waktu,
@@ -35,8 +36,40 @@ app = FastAPI(
     title="Simandaya API",
     description="Backend API for Simandaya Web Application with username/password authentication",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Public - Authentication"},
+        {"name": "Public - Registration"},
+        {"name": "Public - Users"},
+        {"name": "Public - Absensi"},
+        {"name": "Admin - Absensi"},
+        {"name": "Admin - Users (Structural)"},
+        {"name": "Admin - Kalender Akademik"},
+        {"name": "Admin - Mata Pelajaran"},
+        {"name": "Admin - Slot Waktu"},
+        {"name": "Admin - Kurikulum"},
+        {"name": "Admin - Kelas"},
+        {"name": "Admin - Jadwal"},
+        {"name": "Admin - Desktop Device"},
+        {"name": "Admin + Guru + Siswa - Tahun Ajaran"},
+        {"name": "Admin + Guru + Siswa - Semester"},
+        {"name": "Admin + Guru - Users"},
+        {"name": "Admin + Siswa - Users"},
+        {"name": "Admin + Guru - Tugas"},
+        {"name": "Admin + Guru - Nilai"},
+        {"name": "Admin + Guru - Rapor"},
+        {"name": "Siswa - Kelas"},
+        {"name": "Siswa - Jadwal"},
+        {"name": "Siswa - Tugas"},
+        {"name": "Siswa - Nilai"},
+        {"name": "Siswa - Rapor"},
+        {"name": "Guru - Kelas"},
+        {"name": "Guru - Jadwal"},
+        {"name": "Root"},
+        {"name": "Health"},
+    ],
 )
+register_desktop_pubsub(app)
 
 # Configure CORS
 app.add_middleware(

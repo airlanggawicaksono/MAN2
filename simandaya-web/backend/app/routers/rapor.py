@@ -14,8 +14,8 @@ from app.dto.rapor.rapor_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/rapor")
-teacher_router = APIRouter(tags=["Rapor - Teacher/Admin"])
-student_router = APIRouter(tags=["Rapor - Student"])
+teacher_router = APIRouter(tags=["Admin + Guru - Rapor"])
+student_router = APIRouter(tags=["Siswa - Rapor"])
 
 
 # ── Rapor Management ────────────────────────────────────────────────────────
@@ -187,3 +187,4 @@ async def list_rapor_bobot(
 
 router.include_router(teacher_router)
 router.include_router(student_router)
+

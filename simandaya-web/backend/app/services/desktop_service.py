@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, time
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,11 +15,15 @@ from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.policy.desktop_policy import DesktopPolicy
 from app.repositoriy.desktop_repository import DesktopRepository
+from app.pubsub.desktop_pubsub import (
+    publish_attendance_synced,
+    publish_students_snapshot,
+)
 
 
 class DesktopService:
-    DEFAULT_LATE_CUTOFF_TIME = time(7, 15)
     WIB = timezone(timedelta(hours=7))
+    DEFAULT_LATE_CUTOFF_TIME = time(7, 15)
 
     def __init__(
         self,
@@ -35,16 +39,34 @@ class DesktopService:
 
     async def list_students(self) -> list[StudentSyncDTO]:
         try:
-            rows = await self.repo.list_active_students()
-            return [
+            student_rows = await self.repo.list_active_students()
+            admin_rows = await self.repo.list_active_administrators()
+
+            students = [
                 StudentSyncDTO(
                     user_id=row.user_id,
                     nama_lengkap=row.nama_lengkap,
                     nis=row.nis,
                     kelas_jurusan=row.kelas_jurusan,
+                    user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
                 )
-                for row in rows
+                for row in student_rows
             ]
+
+            administrators = [
+                StudentSyncDTO(
+                    user_id=row.user_id,
+                    nama_lengkap=row.username,
+                    nis=None,
+                    kelas_jurusan=None,
+                    user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
+                )
+                for row in admin_rows
+            ]
+
+            payload = [*students, *administrators]
+            publish_students_snapshot([item.model_dump(mode="json") for item in payload])
+            return payload
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -68,6 +90,14 @@ class DesktopService:
                     )
                 )
         await self.repo.commit()
+        publish_attendance_synced(
+            {
+                "total": len(request.events),
+                "ok": sum(1 for r in results if r.status == "ok"),
+                "error": sum(1 for r in results if r.status != "ok"),
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         return BulkAttendanceResponseDTO(results=results)
 
     def _normalize_event_time(self, event: AttendanceEventDTO) -> AttendanceEventDTO:
@@ -107,7 +137,12 @@ class DesktopService:
         today = event.device_time.date()
 
         existing = await self.repo.find_absensi_by_user_and_date(event.user_id, today)
-        attendance_status = self._get_attendance_status(event.device_time.time())
+        cutoff = await self._get_late_cutoff_time()
+        attendance_status = (
+            StatusAbsensi.terlambat
+            if event.device_time.time() > cutoff
+            else StatusAbsensi.hadir
+        )
 
         if existing:
             existing.time_in = event.device_time
@@ -125,10 +160,11 @@ class DesktopService:
         await self.repo.flush()
         return self._ok_ack(event.record_id)
 
-    def _get_attendance_status(self, device_time: time) -> StatusAbsensi:
-        if device_time > self.DEFAULT_LATE_CUTOFF_TIME:
-            return StatusAbsensi.terlambat
-        return StatusAbsensi.hadir
+    async def _get_late_cutoff_time(self) -> time:
+        settings = await self.repo.get_desktop_settings()
+        if settings and settings.late_cutoff_time:
+            return settings.late_cutoff_time
+        return self.DEFAULT_LATE_CUTOFF_TIME
 
     async def _handle_absen_keluar(self, event: AttendanceEventDTO) -> AttendanceAckDTO:
         today = event.device_time.date()
@@ -162,12 +198,14 @@ class DesktopService:
         if existing:
             existing.keterangan = event.reason
             existing.created_at = event.device_time
+            existing.perkiraan_kembali = event.perkiraan_kembali
         else:
             await self.repo.add_izin(
                 IzinKeluar(
                     user_id=event.user_id,
                     keterangan=event.reason,
                     created_at=event.device_time,
+                    perkiraan_kembali=event.perkiraan_kembali,
                 )
             )
 

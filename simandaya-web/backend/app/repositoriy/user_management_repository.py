@@ -187,6 +187,25 @@ class UserManagementRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_active_structural_assignments(self) -> list[GuruStructuralAssignment]:
+        result = await self.db.execute(
+            select(GuruStructuralAssignment).where(GuruStructuralAssignment.is_active.is_(True))
+        )
+        return list(result.scalars().all())
+
+    async def find_active_structural_assignment_by_role_id(
+        self, role_id: UUID
+    ) -> GuruStructuralAssignment | None:
+        result = await self.db.execute(
+            select(GuruStructuralAssignment)
+            .options(selectinload(GuruStructuralAssignment.role))
+            .where(
+                GuruStructuralAssignment.role_id == role_id,
+                GuruStructuralAssignment.is_active.is_(True),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)
 

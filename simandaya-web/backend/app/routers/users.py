@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
@@ -37,10 +37,10 @@ from app.dto.struktural.assignment_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/users")
-student_router = APIRouter(prefix="/students", tags=["User Management - Students"])
-teacher_router = APIRouter(prefix="/teachers", tags=["User Management - Teachers"])
-teacher_misc_router = APIRouter(tags=["User Management - Teachers"])
-public_router = APIRouter(tags=["User Management - Public"])
+student_router = APIRouter(prefix="/students", tags=["Admin + Siswa - Users"])
+teacher_router = APIRouter(prefix="/teachers", tags=["Admin + Guru - Users"])
+teacher_misc_router = APIRouter(tags=["Admin - Users (Structural)"])
+public_router = APIRouter(tags=["Public - Users"])
 
 
 def get_student_user_service(
@@ -121,6 +121,31 @@ async def get_student(
 
 
 @student_router.patch(
+    "/me",
+    response_model=StudentProfileResponseDTO,
+    summary="Update My Student Profile",
+    description="Partial update own student profile (Student only).",
+)
+async def update_my_student_profile(
+    request: UpdateStudentRequestDTO,
+    current_user: User = Depends(require_role(UserType.siswa)),
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> StudentProfileResponseDTO:
+    # Student self-service can only update non-sensitive fields.
+    payload = request.model_dump(exclude_unset=True)
+    for blocked_field in ("nis", "tahun_masuk", "status_siswa"):
+        payload.pop(blocked_field, None)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No editable fields provided",
+        )
+
+    me = await service.get_student_by_user_id(current_user.user_id)
+    return await service.update_student(me.siswa_id, UpdateStudentRequestDTO(**payload))
+
+
+@student_router.patch(
     "/{siswa_id}",
     response_model=StudentProfileResponseDTO,
     summary="Update Student",
@@ -194,6 +219,31 @@ async def get_teacher(
     service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> GuruProfileResponseDTO:
     return await service.get_teacher(guru_id)
+
+
+@teacher_router.patch(
+    "/me",
+    response_model=GuruProfileResponseDTO,
+    summary="Update My Teacher Profile",
+    description="Partial update own teacher profile (Teacher only).",
+)
+async def update_my_teacher_profile(
+    request: UpdateGuruRequestDTO,
+    current_user: User = Depends(require_role(UserType.guru)),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruProfileResponseDTO:
+    # Teacher self-service can only update non-sensitive fields.
+    payload = request.model_dump(exclude_unset=True)
+    for blocked_field in ("nip", "tahun_masuk", "status_guru"):
+        payload.pop(blocked_field, None)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No editable fields provided",
+        )
+
+    me = await service.get_teacher_by_user_id(current_user.user_id)
+    return await service.update_teacher(me.guru_id, UpdateGuruRequestDTO(**payload))
 
 
 @teacher_router.patch(
@@ -272,9 +322,15 @@ async def pre_register_teacher(
 )
 async def list_structural_role_catalog(
     include_inactive: bool = Query(default=False),
+    available_only: bool = Query(default=False),
+    for_user_id: UUID | None = Query(default=None),
     service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> list[StructuralRoleRefDTO]:
-    return await service.list_structural_role_catalog(include_inactive=include_inactive)
+    return await service.list_structural_role_catalog(
+        include_inactive=include_inactive,
+        available_only=available_only,
+        for_user_id=for_user_id,
+    )
 
 
 @teacher_misc_router.post(
@@ -325,3 +381,4 @@ router.include_router(public_router)
 router.include_router(student_router)
 router.include_router(teacher_router)
 router.include_router(teacher_misc_router)
+

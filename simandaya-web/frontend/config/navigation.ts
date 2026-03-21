@@ -39,6 +39,7 @@ export const generalNav: NavItem[] = [
 ];
 
 export const adminNav: NavItem[] = [
+  { label: "Dasbor Admin", href: "/admin" },
   {
     label: "Manajemen Data",
     width: "w-[280px]",

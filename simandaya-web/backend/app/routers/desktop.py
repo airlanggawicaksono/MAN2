@@ -12,7 +12,7 @@ from app.dto.desktop.desktop_response import (
 
 router = APIRouter(
     prefix="/api/desktop",
-    tags=["Desktop"],
+    tags=["Admin - Desktop Device"],
 )
 
 
@@ -57,4 +57,5 @@ async def ping(
 ) -> PingResponseDTO:
     service = DesktopService(db)
     return await service.ping()
+
 

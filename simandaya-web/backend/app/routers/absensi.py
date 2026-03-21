@@ -11,6 +11,12 @@ from app.services.absensi_service import AbsensiService
 from app.dto.absensi.absensi_response import (
     AbsensiResponseDTO,
     IzinKeluarResponseDTO,
+    MessageResponseDTO,
+)
+from app.dto.absensi.absensi_update_dto import UpdateAbsensiDTO
+from app.dto.absensi.attendance_settings_dto import (
+    AttendanceSettingsResponseDTO,
+    UpdateAttendanceSettingsDTO,
 )
 from app.dto.absensi.public_response import (
     PublicAbsensiDTO,
@@ -23,7 +29,7 @@ from app.dto.absensi.bulk_absensi_dto import (
 
 router = APIRouter(
     prefix="/api/v1/absensi",
-    tags=["Absensi"]
+    tags=["Admin - Absensi"]
 )
 
 
@@ -74,15 +80,79 @@ async def get_absensi(
     return await service.get_absensi(absensi_id)
 
 
+@router.patch(
+    "/attendance/{absensi_id}",
+    response_model=AbsensiResponseDTO,
+    summary="Update Attendance Record",
+    description="Update a single attendance record (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def update_absensi(
+    absensi_id: UUID,
+    request: UpdateAbsensiDTO,
+    current_user: User = Depends(require_role(UserType.admin)),
+    db: AsyncSession = Depends(get_db),
+) -> AbsensiResponseDTO:
+    service = AbsensiService(db)
+    return await service.update_absensi(absensi_id, request, current_user)
+
+
+@router.delete(
+    "/attendance/{absensi_id}",
+    response_model=MessageResponseDTO,
+    summary="Delete Attendance Record",
+    description="Delete a single attendance record (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def delete_absensi(
+    absensi_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseDTO:
+    service = AbsensiService(db)
+    await service.delete_absensi(absensi_id)
+    return MessageResponseDTO(message="Attendance deleted successfully")
+
+
+@router.get(
+    "/settings",
+    response_model=AttendanceSettingsResponseDTO,
+    summary="Get Attendance Settings",
+    description="Get attendance settings such as late cutoff time (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def get_attendance_settings(
+    db: AsyncSession = Depends(get_db),
+) -> AttendanceSettingsResponseDTO:
+    service = AbsensiService(db)
+    return await service.get_attendance_settings()
+
+
+@router.patch(
+    "/settings",
+    response_model=AttendanceSettingsResponseDTO,
+    summary="Update Attendance Settings",
+    description="Update attendance settings such as late cutoff time (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def update_attendance_settings(
+    request: UpdateAttendanceSettingsDTO,
+    current_user: User = Depends(require_role(UserType.admin)),
+    db: AsyncSession = Depends(get_db),
+) -> AttendanceSettingsResponseDTO:
+    service = AbsensiService(db)
+    return await service.update_attendance_settings(request, current_user)
+
+
 @router.post(
     "/attendance/bulk",
     response_model=BulkAbsensiResponseDTO,
     summary="Bulk Mark Attendance",
-    description="Mark attendance for an entire class at once (Guru/Admin).",
+    description="Mark attendance for an entire class at once (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))]
 )
 async def bulk_create_absensi(
     request: BulkAbsensiCreateDTO,
-    current_user: User = Depends(require_role(UserType.guru, UserType.admin)),
+    current_user: User = Depends(require_role(UserType.admin)),
     db: AsyncSession = Depends(get_db),
 ) -> BulkAbsensiResponseDTO:
     service = AbsensiService(db)
@@ -141,6 +211,7 @@ async def get_izin_keluar(
 
 @router.get(
     "/public/attendance",
+    tags=["Public - Absensi"],
     response_model=list[PublicAbsensiDTO],
     summary="Public Attendance List",
     description="List attendance records with student names. No auth required.",
@@ -160,6 +231,7 @@ async def list_absensi_public(
 
 @router.get(
     "/public/izin-keluar",
+    tags=["Public - Absensi"],
     response_model=list[PublicIzinKeluarDTO],
     summary="Public Izin Keluar List",
     description="List izin keluar records with student names. No auth required.",
@@ -175,3 +247,4 @@ async def list_izin_keluar_public(
     return await service.list_izin_keluar_public(
         tanggal=tanggal, search=search, skip=skip, limit=limit
     )
+

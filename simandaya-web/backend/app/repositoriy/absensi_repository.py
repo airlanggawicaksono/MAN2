@@ -54,6 +54,9 @@ class AbsensiRepository:
     async def add_absensi(self, record: Absensi) -> None:
         self.db.add(record)
 
+    async def delete_absensi(self, record: Absensi) -> None:
+        await self.db.delete(record)
+
     async def list_all_izin_keluar(self) -> list[IzinKeluar]:
         result = await self.db.execute(select(IzinKeluar))
         return list(result.scalars().all())

@@ -9,6 +9,7 @@ class StudentSyncDTO(BaseModel):
     nama_lengkap: str = Field(..., description="Student full name")
     nis: str | None = Field(None, description="Student NIS")
     kelas_jurusan: str | None = Field(None, description="Class and major")
+    user_type: str = Field(..., description="Functional user type from user table")
 
     model_config = {"from_attributes": True}
 

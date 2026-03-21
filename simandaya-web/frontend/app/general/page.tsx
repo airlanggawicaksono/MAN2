@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { CarouselSlide } from "@/types/cms";
-
-// ── Static data ──────────────────────────────────────────────────────
+import { HomeImageCarousel } from "@/app/components/home-image-carousel";
+import { HomeSectionHeader } from "@/app/components/home-section-header";
 
 const layananCards = [
   {
@@ -53,96 +53,12 @@ const layananCards = [
   },
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
 function extractYouTubeId(url: string): string | null {
   const match = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
   );
   return match?.[1] ?? null;
 }
-
-// ── Section Header ──────────────────────────────────────────────────
-
-function SectionHeader({
-  icon: Icon,
-  title,
-}: {
-  icon: React.ElementType;
-  title: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="h-5 w-5" />
-      </div>
-      <h2 className="text-xl font-bold md:text-2xl">{title}</h2>
-    </div>
-  );
-}
-
-// ── Image Carousel (reusable for Flyer & Media Center) ──────────────
-
-function ImageCarousel({
-  items,
-  cardClassName = "",
-  imageClassName = "max-h-[360px]",
-}: {
-  items: CarouselSlide[];
-  cardClassName?: string;
-  imageClassName?: string;
-}) {
-  if (items.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
-        <p className="text-muted-foreground">Belum ada konten</p>
-      </div>
-    );
-  }
-
-  return (
-    <Carousel opts={{ loop: true }} className="w-full">
-      <CarouselContent>
-        {items.map((item) => {
-          const content = (
-            <Card className={`border-none overflow-hidden ${cardClassName}`}>
-              <CardContent className="flex flex-col p-0">
-                {item.image_url && (
-                  <img
-                    src={item.image_url}
-                    alt={item.title || ""}
-                    className={`w-full object-cover ${imageClassName}`}
-                  />
-                )}
-                {item.title && (
-                  <div className="p-4">
-                    <p className="font-semibold text-sm">{item.title}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-
-          return (
-            <CarouselItem key={item.id}>
-              {item.link_url ? (
-                <Link href={item.link_url} className="block">
-                  {content}
-                </Link>
-              ) : (
-                content
-              )}
-            </CarouselItem>
-          );
-        })}
-      </CarouselContent>
-      <CarouselPrevious className="left-2" />
-      <CarouselNext className="right-2" />
-    </Carousel>
-  );
-}
-
-// ── Main Page ───────────────────────────────────────────────────────
 
 export default function IndexPage() {
   const [slides, setSlides] = useState<CarouselSlide[]>([]);
@@ -152,7 +68,6 @@ export default function IndexPage() {
   const [lokasiItems, setLokasiItems] = useState<CarouselSlide[]>([]);
   const [videoTitles, setVideoTitles] = useState<Record<string, string>>({});
 
-  // Fetch carousel slides from data.json (hero)
   useEffect(() => {
     fetch("/data.json")
       .then((res) => (res.ok ? res.json() : []))
@@ -166,38 +81,28 @@ export default function IndexPage() {
       .catch(() => {});
   }, []);
 
-  // Fetch flyer, media, video from API
   useEffect(() => {
     fetch("/api/cms/slides?type=flyer")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) =>
-        setFlyerItems(data.filter((s) => s.is_active)),
-      )
+      .then((data: CarouselSlide[]) => setFlyerItems(data.filter((s) => s.is_active)))
       .catch(() => {});
 
     fetch("/api/cms/slides?type=media")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) =>
-        setMediaItems(data.filter((s) => s.is_active)),
-      )
+      .then((data: CarouselSlide[]) => setMediaItems(data.filter((s) => s.is_active)))
       .catch(() => {});
 
     fetch("/api/cms/slides?type=video")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) =>
-        setVideoItems(data.filter((s) => s.is_active)),
-      )
+      .then((data: CarouselSlide[]) => setVideoItems(data.filter((s) => s.is_active)))
       .catch(() => {});
 
     fetch("/api/cms/slides?type=lokasi")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) =>
-        setLokasiItems(data.filter((s) => s.is_active)),
-      )
+      .then((data: CarouselSlide[]) => setLokasiItems(data.filter((s) => s.is_active)))
       .catch(() => {});
   }, []);
 
-  // Fetch YouTube titles via oEmbed (no API key needed)
   useEffect(() => {
     videoItems.forEach((video) => {
       if (!video.link_url) return;
@@ -220,7 +125,6 @@ export default function IndexPage() {
 
   return (
     <main className="flex flex-col gap-12 px-4 py-8 md:px-8 lg:px-16">
-      {/* ── Hero ─────────────────────────────────────────────────── */}
       {slides.length > 0 && (
         <Carousel opts={{ loop: true }} className="w-full">
           <CarouselContent>
@@ -270,7 +174,6 @@ export default function IndexPage() {
         </Carousel>
       )}
 
-      {/* ── Layanan Cards ────────────────────────────────────────── */}
       <div className="grid gap-6 md:grid-cols-3">
         {layananCards.map((item) => {
           const Icon = item.icon;
@@ -296,10 +199,7 @@ export default function IndexPage() {
           );
 
           if (!item.href) return card;
-
-          const isExternal = item.href.startsWith("http");
-
-          if (isExternal) {
+          if (item.href.startsWith("http")) {
             return (
               <a
                 key={item.title}
@@ -321,25 +221,22 @@ export default function IndexPage() {
         })}
       </div>
 
-      {/* ── Flyer MAN 2 ─────────────────────────────────────────── */}
       <section>
-        <SectionHeader icon={ImageIcon} title="Flyer MAN 2" />
-        <ImageCarousel items={flyerItems} imageClassName="max-h-[400px]" />
+        <HomeSectionHeader icon={ImageIcon} title="Flyer MAN 2" />
+        <HomeImageCarousel items={flyerItems} imageClassName="max-h-[400px]" />
       </section>
 
-      {/* ── Media Center ─────────────────────────────────────────── */}
       <section>
-        <SectionHeader icon={Play} title="Media Center" />
-        <ImageCarousel
+        <HomeSectionHeader icon={Play} title="Media Center" />
+        <HomeImageCarousel
           items={mediaItems}
           imageClassName="max-h-[260px]"
           cardClassName="shadow-sm"
         />
       </section>
 
-      {/* ── Video ────────────────────────────────────────────────── */}
       <section>
-        <SectionHeader icon={Video} title="Video" />
+        <HomeSectionHeader icon={Video} title="Video" />
         <div className="grid gap-6 md:grid-cols-2">
           {videoItems.map((video) => {
             if (!video.link_url) return null;
@@ -377,9 +274,8 @@ export default function IndexPage() {
         </div>
       </section>
 
-      {/* ── Lokasi ───────────────────────────────────────────────── */}
       <section>
-        <SectionHeader icon={MapPin} title="Lokasi" />
+        <HomeSectionHeader icon={MapPin} title="Lokasi" />
         {lokasiItems.length > 0 ? (
           lokasiItems.map((loc) => (
             <Card key={loc.id} className="overflow-hidden">

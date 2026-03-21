@@ -35,7 +35,6 @@ export type StructuralRole =
   | "Tim Adiwiyata"
   | "Publikasi dan Informasi"
   | "Multimedia dan Studio"
-  | "Guru"
   | "Staf Tata Usaha"
   | "Pustakawan"
   | "Laboran"

@@ -210,9 +210,33 @@ class TeacherUserManagementService:
         )
 
     async def list_structural_role_catalog(
-        self, include_inactive: bool = False
+        self,
+        include_inactive: bool = False,
+        available_only: bool = False,
+        for_user_id: UUID | None = None,
     ) -> list[StructuralRoleRefDTO]:
         roles = await self.repo.list_structural_role_refs(include_inactive=include_inactive)
+
+        # Legacy cleanup: structural "Guru" should not appear in selectable structural positions.
+        roles = [
+            role
+            for role in roles
+            if role.code.lower() != "guru" and role.name.lower() != "guru"
+        ]
+
+        if available_only:
+            active_assignments = await self.repo.list_active_structural_assignments()
+            taken_role_ids = {
+                assignment.role_id
+                for assignment in active_assignments
+                if assignment.user_id != for_user_id
+            }
+
+            roles = [
+                role
+                for role in roles
+                if role.role_id not in taken_role_ids
+            ]
         return [self._to_structural_role_ref_dto(r) for r in roles]
 
     async def assign_structural_role(
@@ -235,6 +259,14 @@ class TeacherUserManagementService:
             await self.repo.add_structural_role_ref(role)
             await self.repo.commit()
             await self.repo.refresh(role)
+
+        allow_multiple_holders = role.code.lower() == "guru" or role.name.lower() == "guru"
+        if not allow_multiple_holders:
+            existing_active_assignment = await self.repo.find_active_structural_assignment_by_role_id(
+                role.role_id
+            )
+            if existing_active_assignment and existing_active_assignment.user_id != request.user_id:
+                self.policy.ensure_structural_role_not_taken(existing_active_assignment, role.name)
 
         assignment = GuruStructuralAssignment(
             user_id=request.user_id,

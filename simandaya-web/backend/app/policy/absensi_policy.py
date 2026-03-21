@@ -45,15 +45,11 @@ class AbsensiPolicy:
             )
 
     @staticmethod
-    def ensure_bulk_permission(current_user, kelas, is_teacher: bool) -> None:
-        if current_user.user_type == UserType.admin:
-            return
-
-        is_wali = kelas.wali_kelas_id == current_user.user_id
-        if not is_wali and not is_teacher:
+    def ensure_bulk_permission(current_user) -> None:
+        if current_user.user_type != UserType.admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to mark attendance for this class",
+                detail="Only admin can perform bulk attendance marking",
             )
 
     @staticmethod
@@ -62,4 +58,12 @@ class AbsensiPolicy:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Student {student_user_id} is not in this class",
+            )
+
+    @staticmethod
+    def ensure_update_payload(update_data: dict) -> None:
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update",
             )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import UserType
 from app.models.absensi import Absensi
+from app.models.desktop_settings import DesktopSettings
 from app.models.izin_keluar import IzinKeluar
 from app.models.siswa_profile import SiswaProfile
 from app.models.user import User
@@ -19,6 +20,7 @@ class DesktopRepository:
         result = await self.db.execute(
             select(
                 User.user_id,
+                User.user_type,
                 SiswaProfile.nama_lengkap,
                 SiswaProfile.nis,
                 SiswaProfile.kelas_jurusan,
@@ -31,6 +33,21 @@ class DesktopRepository:
                 )
             )
             .order_by(SiswaProfile.nama_lengkap)
+        )
+        return result.all()
+
+    async def list_active_administrators(self):
+        result = await self.db.execute(
+            select(
+                User.user_id,
+                User.user_type,
+                User.username,
+            ).where(
+                and_(
+                    User.user_type == UserType.admin,
+                    User.is_active.is_(True),
+                )
+            )
         )
         return result.all()
 
@@ -68,6 +85,21 @@ class DesktopRepository:
 
     async def add_izin(self, izin: IzinKeluar) -> None:
         self.db.add(izin)
+
+    async def get_desktop_settings(self) -> DesktopSettings | None:
+        result = await self.db.execute(
+            select(DesktopSettings).where(DesktopSettings.id == 1)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_or_create_desktop_settings(self) -> DesktopSettings:
+        settings = await self.get_desktop_settings()
+        if settings:
+            return settings
+        settings = DesktopSettings(id=1, late_cutoff_time=time(7, 15))
+        self.db.add(settings)
+        await self.db.flush()
+        return settings
 
     async def flush(self) -> None:
         await self.db.flush()

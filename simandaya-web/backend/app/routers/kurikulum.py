@@ -15,7 +15,7 @@ from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Kurikulum"],
+    tags=["Admin - Kurikulum"],
 )
 
 
@@ -105,3 +105,4 @@ async def delete_kurikulum_mapel(
 ) -> MessageResponseDTO:
     service = KurikulumService(db)
     return await service.delete_kurikulum_mapel(kurikulum_mapel_id)
+

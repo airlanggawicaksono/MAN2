@@ -27,7 +27,7 @@ export default function CivitasAkademikPage() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 300);
 
-  const { data, isLoading, error } = useListTeachersQuery({
+  const { data, isLoading, error, refetch } = useListTeachersQuery({
     skip,
     limit: LIMIT,
     search: debouncedSearch || undefined,
@@ -142,6 +142,9 @@ export default function CivitasAkademikPage() {
         teacher={editTarget}
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
+        onSaved={() => {
+          void refetch();
+        }}
       />
 
       <TeacherDeleteDialog

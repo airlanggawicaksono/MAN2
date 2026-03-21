@@ -14,7 +14,7 @@ from app.dto.auth.auth_response import (
 
 router = APIRouter(
     prefix="/api/v1/auth",
-    tags=["Authentication"]
+    tags=["Public - Authentication"]
 )
 
 

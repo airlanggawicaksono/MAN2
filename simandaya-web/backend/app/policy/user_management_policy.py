@@ -58,3 +58,11 @@ class UserManagementPolicy:
     def ensure_assignment_exists(assignment, detail: str = "Assignment not found") -> None:
         if not assignment:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    @staticmethod
+    def ensure_structural_role_not_taken(assignment, role_name: str) -> None:
+        if assignment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Jabatan '{role_name}' sudah diisi guru lain",
+            )

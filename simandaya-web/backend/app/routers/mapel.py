@@ -12,7 +12,7 @@ from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Mata Pelajaran"]
+    tags=["Admin - Mata Pelajaran"]
 )
 
 
@@ -85,3 +85,4 @@ async def delete_mapel(
 ) -> MessageResponseDTO:
     service = AkademikService(db)
     return await service.delete_mapel(mapel_id)
+

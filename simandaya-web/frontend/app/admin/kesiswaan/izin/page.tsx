@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calendar, Clock, LogOut, Filter } from "lucide-react";
+import { Search, Calendar, Clock, LogOut } from "lucide-react";
 
 export default function AdminIzinKesiswaanPage() {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
@@ -18,7 +18,7 @@ export default function AdminIzinKesiswaanPage() {
   });
 
   return (
-    <div className="w-full space-y-8 p-4 md:p-8 bg-slate-50/50 min-h-screen">
+    <div className="space-y-6 p-8">
       {/* Header */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-1">
@@ -26,7 +26,7 @@ export default function AdminIzinKesiswaanPage() {
             <LogOut className="w-6 h-6 text-orange-600" />
             Log Izin Keluar Siswa
           </h1>
-          <p className="text-sm text-slate-500">Monitoring data izin keluar/masuk siswa real-time</p>
+          <p className="text-sm text-slate-500">Monitoring data izin siswa.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch gap-3">
@@ -71,7 +71,7 @@ export default function AdminIzinKesiswaanPage() {
                 <TableHead className="font-bold text-slate-700">Nama Siswa</TableHead>
                 <TableHead className="font-bold text-slate-700">Kelas</TableHead>
                 <TableHead className="font-bold text-slate-700">Keterangan</TableHead>
-                <TableHead className="font-bold text-slate-700 text-center">Status Kembali</TableHead>
+                <TableHead className="font-bold text-slate-700 text-center">Perkiraan Kembali</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -106,16 +106,11 @@ export default function AdminIzinKesiswaanPage() {
                       {izin.keterangan}
                     </TableCell>
                     <TableCell className="text-center">
-                      {izin.waktu_kembali ? (
-                        <div className="flex flex-col items-center">
-                          <Badge className="bg-green-50 text-green-700 border-green-100">Sudah Kembali</Badge>
-                          <span className="text-[10px] text-slate-400 mt-1">
-                            {new Date(izin.waktu_kembali).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      ) : (
-                        <Badge className="bg-red-50 text-red-700 border-red-100">Belum Kembali</Badge>
-                      )}
+                      {izin.perkiraan_kembali ? (
+                        <Badge className="bg-blue-50 text-blue-700 border-blue-100">
+                          {new Date(izin.perkiraan_kembali).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
+                        </Badge>
+                      ) : "-"}
                     </TableCell>
                   </TableRow>
                 ))

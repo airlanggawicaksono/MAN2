@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getNavForRole } from "@/config/navigation";
+import { getNavForRole, roleRoutePrefix } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
 import { useLoginMutation, useLogoutMutation } from "@/api/public/auth";
@@ -10,18 +10,24 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "./confirm-dialog";
 import RegisterModal from "./register-modal";
 import SharedHeader from "./shared-header";
 
-export default function PublicHeader() {
+export default function AppHeader() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-  const navItems = getNavForRole(user?.user_type);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const navItems = mounted ? getNavForRole(user?.user_type) : getNavForRole(undefined);
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -39,7 +45,7 @@ export default function PublicHeader() {
     } finally {
       dispatch(logout());
       setShowLogoutDialog(false);
-      router.push("/");
+      router.push("/general");
     }
   };
 
@@ -57,7 +63,7 @@ export default function PublicHeader() {
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
-      router.push("/");
+      router.push(roleRoutePrefix[result.user.user_type] ?? "/general");
     } catch (err: any) {
       setLoginError(err.data?.detail || "Login gagal. Silakan coba lagi.");
     }
@@ -70,12 +76,16 @@ export default function PublicHeader() {
     setShowLoginDialog(true);
   };
 
+  const actionLabel = mounted && isAuthenticated ? "Keluar" : "Masuk";
+  const onActionClick =
+    mounted && isAuthenticated ? () => setShowLogoutDialog(true) : openLoginDialog;
+
   return (
     <>
       <SharedHeader
         navItems={navItems}
-        actionLabel={isAuthenticated ? "Keluar" : "Masuk"}
-        onActionClick={isAuthenticated ? () => setShowLogoutDialog(true) : openLoginDialog}
+        actionLabel={actionLabel}
+        onActionClick={onActionClick}
       />
 
       <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
@@ -163,28 +173,14 @@ export default function PublicHeader() {
         }}
       />
 
-      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Keluar</DialogTitle>
-            <DialogDescription>Apakah Anda ingin keluar dari Simandaya?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <button
-              onClick={() => setShowLogoutDialog(false)}
-              className="px-4 py-2 rounded-md border border-input text-sm hover:bg-muted transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              Ya, Keluar
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        title="Konfirmasi Keluar"
+        description="Apakah Anda ingin keluar dari Simandaya?"
+        confirmLabel="Ya, Keluar"
+        onConfirm={handleLogout}
+      />
     </>
   );
 }

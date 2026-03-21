@@ -12,7 +12,7 @@ from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Tahun Ajaran"]
+    tags=["Admin + Guru + Siswa - Tahun Ajaran"]
 )
 
 
@@ -85,3 +85,4 @@ async def delete_tahun_ajaran(
 ) -> MessageResponseDTO:
     service = AkademikService(db)
     return await service.delete_tahun_ajaran(tahun_ajaran_id)
+

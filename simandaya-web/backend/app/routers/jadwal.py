@@ -16,9 +16,9 @@ from app.dto.akademik.jadwal_dto import (
 )
 
 router = APIRouter(prefix="/api/v1/akademik")
-admin_router = APIRouter(tags=["Jadwal - Admin"])
-guru_router = APIRouter(tags=["Jadwal - Guru"])
-student_router = APIRouter(tags=["Jadwal - Student"])
+admin_router = APIRouter(tags=["Admin - Jadwal"])
+guru_router = APIRouter(tags=["Guru - Jadwal"])
+student_router = APIRouter(tags=["Siswa - Jadwal"])
 
 
 # ── Guru Mapel (Teacher Assignment) ─────────────────────────────────────────
@@ -217,3 +217,4 @@ async def delete_jadwal(
 router.include_router(admin_router)
 router.include_router(guru_router)
 router.include_router(student_router)
+

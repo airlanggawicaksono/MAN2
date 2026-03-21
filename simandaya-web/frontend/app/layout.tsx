@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { StoreProvider } from "./StoreProvider";
 import "./styles/globals.css";
-import RoleHeader from "./components/role-header";
+import AppHeader from "./components/app-header";
 import Footer from "./components/footer";
 import AuthGuard from "./components/auth-guard";
+import RouteChangeOverlay from "./components/route-change-overlay";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,8 @@ export default function RootLayout({ children }: Props) {
       <html lang="en" className={inter.className}>
         <body className="flex min-h-screen flex-col">
           <AuthGuard>
-            <RoleHeader />
+            <RouteChangeOverlay />
+            <AppHeader />
             <div className="flex-1">{children}</div>
             <Footer />
           </AuthGuard>
