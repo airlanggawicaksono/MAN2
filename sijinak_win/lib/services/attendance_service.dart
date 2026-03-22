@@ -6,7 +6,7 @@ import 'hikvision_service.dart';
 /// Listens to the shared HikvisionService event stream and records
 /// attendance (tap in / tap out) for known cards.
 class AttendanceService {
-  final AppDatabase db;
+  final AttendanceStorePort db;
   final HikvisionService hikService;
 
   StreamSubscription? _sub;

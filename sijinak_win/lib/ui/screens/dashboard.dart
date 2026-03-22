@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
+import '../../services/app_pubsub.dart';
+import '../../services/izin_payload.dart';
 import 'settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -16,20 +18,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    AppPubSub.subscribe(
+      key: AppPubSubTopics.globalSynced,
+      context: this,
+      handler: (_, __) => _refreshLocalViews(),
+    );
+    AppPubSub.subscribe(
+      key: AppPubSubTopics.studentSynced,
+      context: this,
+      handler: (_, __) => _refreshLocalViews(),
+    );
     _autoSync();
+  }
+
+  @override
+  void dispose() {
+    AppPubSub.unsubscribe(context: this);
+    super.dispose();
   }
 
   Future<void> _autoSync() async {
     if (_initialSyncDone) return;
     _initialSyncDone = true;
-    final config = ref.read(configProvider).valueOrNull;
+    final config = ref.read(configProvider).asData?.value;
     if (config != null && config.isServerConfigured) {
       await ref.read(globalSyncProvider.notifier).syncAll();
     }
   }
 
   Future<void> _refreshAll() async {
-    final config = ref.read(configProvider).valueOrNull;
+    final config = ref.read(configProvider).asData?.value;
     if (config != null && config.isServerConfigured) {
       await ref.read(globalSyncProvider.notifier).syncAll();
     } else {
@@ -39,8 +57,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  void _refreshLocalViews() {
+    ref.invalidate(allStudentsProvider);
+    ref.invalidate(recentRecordsProvider);
+    ref.invalidate(pendingSyncCountProvider);
+  }
+
   String _studentName(String cardNo) {
-    final students = ref.read(allStudentsProvider).valueOrNull ?? [];
+    final students = ref.read(allStudentsProvider).asData?.value ?? [];
     final student = students.where((s) => s.cardNo == cardNo).firstOrNull;
     return student?.nama ?? cardNo;
   }
@@ -90,21 +114,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : IconButton(
-                          icon: const Icon(Icons.sync),
-                          onPressed: _refreshAll,
-                          tooltip: 'Simplex Sync (Full)',
-                        ),
+                      : const SizedBox.shrink(),
                   loading: () => const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  error: (_, __) => IconButton(
-                    icon: const Icon(Icons.sync_problem),
-                    onPressed: _refreshAll,
-                    tooltip: 'Retry sync',
-                  ),
+                  error: (_, __) =>
+                      const Icon(Icons.sync_problem, color: Colors.red),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings),
@@ -126,7 +143,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _buildStatusCard(
                   context,
                   icon: Icons.router,
-                  label: 'Reader',
+                  label: 'Hikvision Reader',
                   value:
                       configAsync.whenOrNull(
                         data: (c) =>
@@ -210,9 +227,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onRetry: _refreshAll,
                     );
                   }
-                  if (s.lastAttendanceSynced != null && s.lastAttendanceSynced! > 0) {
+                  if (s.lastAttendanceSynced != null &&
+                      s.lastAttendanceSynced! > 0) {
                     return _SyncBanner(
-                      message: 'Successfully synced ${s.lastAttendanceSynced} records to server.',
+                      message:
+                          'Successfully synced ${s.lastAttendanceSynced} records to server.',
                       color: Colors.green,
                       icon: Icons.check_circle_outline,
                     );
@@ -221,7 +240,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
               ) ??
               const SizedBox.shrink(),
-
 
           // ── Recent Events ───────────────────────────────────────
           Padding(
@@ -310,7 +328,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           subtitle: Text(
                             '${_eventLabel(record.eventType)} · $timeStr'
-                            '${record.reason != null ? ' · ${record.reason}' : ''}',
+                            '${record.reason != null ? ' · ${decodeIzinReasonPayload(record.reason).reason ?? record.reason}' : ''}',
                           ),
                           trailing: Icon(
                             record.publishedAt != null
@@ -451,10 +469,7 @@ class _SyncBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
           borderRadius: BorderRadius.circular(8),
@@ -462,11 +477,7 @@ class _SyncBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 18,
-            ),
+            Icon(icon, color: color, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -479,10 +490,7 @@ class _SyncBanner extends StatelessWidget {
               ),
             ),
             if (onRetry != null)
-              TextButton(
-                onPressed: onRetry,
-                child: const Text('Retry'),
-              ),
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

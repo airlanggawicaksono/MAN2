@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.guru_profile import GuruProfile
 from app.models.guru_structural_assignment import GuruStructuralAssignment
+from app.models.kelas import Kelas
 from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
@@ -205,6 +206,17 @@ class UserManagementRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def find_kelas_by_id(self, kelas_id: UUID) -> Kelas | None:
+        result = await self.db.execute(
+            select(Kelas).where(Kelas.kelas_id == kelas_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def clear_wali_kelas_for_user(self, user_id: UUID) -> None:
+        await self.db.execute(
+            update(Kelas).where(Kelas.wali_kelas_id == user_id).values(wali_kelas_id=None)
+        )
 
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)

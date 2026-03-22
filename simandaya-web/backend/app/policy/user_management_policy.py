@@ -66,3 +66,24 @@ class UserManagementPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Jabatan '{role_name}' sudah diisi guru lain",
             )
+
+    @staticmethod
+    def ensure_kelas_exists(kelas, detail: str = "Kelas not found") -> None:
+        if not kelas:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    @staticmethod
+    def ensure_kelas_wali_not_taken(kelas, user_id) -> None:
+        if kelas and kelas.wali_kelas_id and kelas.wali_kelas_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kelas tersebut sudah memiliki wali kelas lain",
+            )
+
+    @staticmethod
+    def ensure_kelas_id_only_for_wali_kelas(is_wali_kelas: bool, kelas_id) -> None:
+        if kelas_id is not None and not is_wali_kelas:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="kelas_id hanya boleh diisi untuk jabatan Wali Kelas",
+            )

@@ -23,6 +23,7 @@ export interface GuruStructuralAssignment {
 export interface AssignStructuralRoleRequest {
   user_id: string;
   structural_role: StructuralRole;
+  kelas_id?: string | null;
   tahun_ajaran_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;

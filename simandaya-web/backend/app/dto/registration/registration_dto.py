@@ -63,7 +63,7 @@ class PreRegisterStudentDTO(BaseModel):
     alamat: Optional[str] = Field(default=None, min_length=1, max_length=500)
     nama_wali: Optional[str] = Field(default=None, min_length=2, max_length=225)
     kelas_jurusan: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    tahun_masuk: Optional[int] = Field(default=None, ge=2000, le=2100)
+    tahun_masuk: Optional[int] = Field(default=None, ge=1900, le=2100)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
 
@@ -76,7 +76,7 @@ class PreRegisterTeacherDTO(BaseModel):
     jenis_kelamin: Optional[JenisKelamin] = None
     alamat: Optional[str] = Field(default=None, min_length=1, max_length=500)
     nik: Optional[str] = Field(default=None, min_length=1, max_length=20)
-    tahun_masuk: Optional[int] = Field(default=None, ge=2000, le=2100)
+    tahun_masuk: Optional[int] = Field(default=None, ge=1900, le=2100)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
     mata_pelajaran: Optional[str] = Field(default=None, max_length=100)

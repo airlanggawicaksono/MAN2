@@ -12,7 +12,8 @@ import '../data/hikvision/hik_event.dart';
 /// 2. On reconnect, polls AcsEvent to catch missed events during the gap
 /// 3. Emits all events through a unified stream
 class HikvisionService {
-  IsapiClient? _client;
+  final HikvisionDevicePort Function(AppConfig config) _clientFactory;
+  HikvisionDevicePort? _client;
   AlertStream? _alertStream;
   EventPoller? _poller;
   StreamSubscription? _statusSub;
@@ -27,6 +28,15 @@ class HikvisionService {
   AlertStreamStatus _currentStatus = AlertStreamStatus.disconnected;
   AlertStreamStatus get currentStatus => _currentStatus;
 
+  HikvisionService({
+    HikvisionDevicePort Function(AppConfig config)? clientFactory,
+  }) : _clientFactory = clientFactory ??
+            ((config) => IsapiClient(
+                  baseUrl: config.hikvisionBaseUrl,
+                  username: config.hikvisionUser,
+                  password: config.hikvisionPassword,
+                ));
+
   /// The highest serialNo seen.
   int get lastSerialNo => _alertStream?.lastSerialNo ?? 0;
 
@@ -38,11 +48,7 @@ class HikvisionService {
 
     if (!config.isHikvisionConfigured) return;
 
-    _client = IsapiClient(
-      baseUrl: config.hikvisionBaseUrl,
-      username: config.hikvisionUser,
-      password: config.hikvisionPassword,
-    );
+    _client = _clientFactory(config);
 
     _alertStream = AlertStream(client: _client!);
     _poller = EventPoller(client: _client!);
@@ -103,12 +109,16 @@ class HikvisionService {
   }
 
   /// Test connection to device. Returns device info on success.
-  static Future<DeviceInfo> testConnection(AppConfig config) async {
-    final client = IsapiClient(
-      baseUrl: config.hikvisionBaseUrl,
-      username: config.hikvisionUser,
-      password: config.hikvisionPassword,
-    );
-    return client.testConnection();
+  static Future<DeviceInfo> testConnection(
+    AppConfig config, {
+    HikvisionDevicePort Function(AppConfig config)? clientFactory,
+  }) async {
+    final client = (clientFactory ??
+        (cfg) => IsapiClient(
+              baseUrl: cfg.hikvisionBaseUrl,
+              username: cfg.hikvisionUser,
+              password: cfg.hikvisionPassword,
+            ))(config);
+    return client.testConnection(timeout: const Duration(seconds: 3));
   }
 }

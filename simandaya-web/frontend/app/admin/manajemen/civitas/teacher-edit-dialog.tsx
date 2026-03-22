@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +19,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateTeacherMutation } from "@/api/admin/teachers";
+import { useListTeachersQuery, useUpdateTeacherMutation } from "@/api/admin/teachers";
 import {
   useAssignStructuralRoleMutation,
   useDeactivateStructuralAssignmentMutation,
-  useGetStructuralRolesQuery,
 } from "@/api/admin/userman";
 import type { GuruProfile, UpdateGuruRequest } from "@/types/teachers";
 import type {
@@ -30,6 +30,10 @@ import type {
   StatusGuru,
   StructuralRole,
 } from "@/types/enums";
+import { STRUCTURAL_ROLE_OPTIONS } from "@/types/enums";
+import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useListKelasQuery } from "@/api/shared/akademik";
 
 interface TeacherEditDialogProps {
   teacher: GuruProfile | null;
@@ -37,6 +41,8 @@ interface TeacherEditDialogProps {
   onClose: () => void;
   onSaved?: () => void;
 }
+
+const MULTI_ASSIGNABLE_ROLES = new Set<string>(["Wali Kelas"]);
 
 export function TeacherEditDialog({
   teacher,
@@ -46,6 +52,9 @@ export function TeacherEditDialog({
 }: TeacherEditDialogProps) {
   const [form, setForm] = useState<UpdateGuruRequest>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const [selectedWaliKelasId, setSelectedWaliKelasId] = useState<string>("");
+  const [roleSearch, setRoleSearch] = useState("");
+  const [roleOpen, setRoleOpen] = useState(false);
   const [tahunMasukDate, setTahunMasukDate] = useState<string>("");
   const [
     updateTeacher,
@@ -59,14 +68,11 @@ export function TeacherEditDialog({
     deactivateStructuralAssignment,
     { isLoading: isDeactivating, error: deactivateError, reset: resetDeactivateError },
   ] = useDeactivateStructuralAssignmentMutation();
-  const { data: structuralRoles = [] } = useGetStructuralRolesQuery(
-    teacher
-      ? {
-          availableOnly: true,
-          forUserId: teacher.user_id,
-        }
-      : undefined,
-  );
+  const { data: teachersData } = useListTeachersQuery({
+    skip: 0,
+    limit: 1000,
+  });
+  const { data: kelasList = [] } = useListKelasQuery();
 
   const NO_ROLE = "__NONE__";
 
@@ -95,10 +101,74 @@ export function TeacherEditDialog({
       setTahunMasukDate(
         teacher.tahun_masuk ? `${teacher.tahun_masuk.toString().padStart(4, "0")}-01-01` : "",
       );
-      const activeRole = teacher.structural_assignments.find((assignment) => assignment.is_active);
-      setSelectedRole(activeRole?.structural_role ?? NO_ROLE);
+      const activeRole = teacher.structural_assignments.find(
+        (assignment) => assignment.is_active,
+      );
+      setSelectedRole(
+        activeRole?.structural_role ?? activeRole?.role_name ?? NO_ROLE,
+      );
+      const currentWaliKelas = kelasList.find((kelas) => kelas.wali_kelas_id === teacher.user_id);
+      setSelectedWaliKelasId(currentWaliKelas?.kelas_id ?? "");
+      setRoleSearch("");
     }
-  }, [teacher]);
+  }, [teacher, kelasList]);
+
+  const lcsLength = (a: string, b: string): number => {
+    const n = a.length;
+    const m = b.length;
+    if (!n || !m) return 0;
+    const dp = Array.from({ length: n + 1 }, () => Array<number>(m + 1).fill(0));
+    for (let i = 1; i <= n; i += 1) {
+      for (let j = 1; j <= m; j += 1) {
+        if (a[i - 1] === b[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    return dp[n][m];
+  };
+
+  const takenRoleNames = useMemo(() => {
+    if (!teacher || !teachersData?.items?.length) return new Set<string>();
+    const taken = new Set<string>();
+    for (const teacherItem of teachersData.items) {
+      if (teacherItem.user_id === teacher.user_id) continue;
+      const activeRoles = teacherItem.structural_assignments
+        .filter((assignment) => assignment.is_active)
+        .map((assignment) => assignment.structural_role ?? assignment.role_name)
+        .filter((role): role is string => Boolean(role));
+      for (const roleName of activeRoles) {
+        if (roleName && !MULTI_ASSIGNABLE_ROLES.has(roleName)) taken.add(roleName);
+      }
+    }
+    return taken;
+  }, [teachersData?.items, teacher]);
+
+  const selectableStructuralRoles = useMemo(() => {
+    return STRUCTURAL_ROLE_OPTIONS.filter(
+      (roleName) => !takenRoleNames.has(roleName) || roleName === selectedRole,
+    );
+  }, [takenRoleNames, selectedRole]);
+
+  const filteredStructuralRoles = useMemo(() => {
+    const query = roleSearch.trim().toLowerCase();
+    if (!query) return selectableStructuralRoles;
+    const scored = selectableStructuralRoles
+      .map((roleName) => {
+        const text = roleName.toLowerCase();
+        const score = lcsLength(query, text);
+        return { roleName, score, textIncludes: text.includes(query) };
+      })
+      .filter((item) => item.score > 0 || item.textIncludes)
+      .sort((a, b) => {
+        if (a.textIncludes !== b.textIncludes) return a.textIncludes ? -1 : 1;
+        if (a.score !== b.score) return b.score - a.score;
+        return a.roleName.localeCompare(b.roleName);
+      });
+    return scored.map((item) => item.roleName);
+  }, [selectableStructuralRoles, roleSearch]);
 
   const handleChange = (
     field: keyof UpdateGuruRequest,
@@ -132,8 +202,12 @@ export function TeacherEditDialog({
     const activeAssignments = teacher.structural_assignments.filter(
       (assignment) => assignment.is_active,
     );
+    const activeCurrentAssignment = activeAssignments.find(
+      (assignment) => assignment.structural_role || assignment.role_name,
+    );
     const activeRole =
-      activeAssignments.find((assignment) => assignment.structural_role)?.structural_role ??
+      activeCurrentAssignment?.structural_role ??
+      activeCurrentAssignment?.role_name ??
       NO_ROLE;
 
     if (selectedRole !== activeRole) {
@@ -142,6 +216,10 @@ export function TeacherEditDialog({
         const assignResult = await assignStructuralRole({
           user_id: teacher.user_id,
           structural_role: selectedRole as StructuralRole,
+          kelas_id:
+            selectedRole === "Wali Kelas" && selectedWaliKelasId
+              ? selectedWaliKelasId
+              : null,
           is_active: true,
         });
         if ("error" in assignResult) return;
@@ -258,31 +336,101 @@ export function TeacherEditDialog({
             </div>
             <div className="grid gap-2">
               <Label>Jabatan Struktural</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={(val) => {
-                  setSelectedRole(val);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_ROLE}>Tidak ada jabatan</SelectItem>
-                  {structuralRoles.map((role) => (
-                    <SelectItem key={role.role_id} value={role.name}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                  {!structuralRoles.some((role) => role.name === selectedRole) &&
-                    selectedRole !== NO_ROLE && (
-                    <SelectItem key={selectedRole} value={selectedRole}>
-                      {selectedRole}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={roleOpen} onOpenChange={setRoleOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={roleOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedRole === NO_ROLE || !selectedRole
+                      ? "Pilih jabatan struktural"
+                      : selectedRole}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                  <Input
+                    placeholder="Cari jabatan..."
+                    value={roleSearch}
+                    onChange={(e) => setRoleSearch(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="mb-2"
+                  />
+                  <div className="max-h-60 overflow-auto">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setSelectedRole(NO_ROLE);
+                        setSelectedWaliKelasId("");
+                        setRoleOpen(false);
+                      }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", selectedRole === NO_ROLE ? "opacity-100" : "opacity-0")} />
+                      Tidak ada jabatan
+                    </Button>
+                    {filteredStructuralRoles.map((roleName) => (
+                      <Button
+                        key={roleName}
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          setSelectedRole(roleName);
+                          if (roleName !== "Wali Kelas") {
+                            setSelectedWaliKelasId("");
+                          }
+                          setRoleOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedRole === roleName ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {roleName}
+                      </Button>
+                    ))}
+                    {filteredStructuralRoles.length === 0 && (
+                      <p className="px-2 py-1 text-sm text-muted-foreground">Tidak ada hasil</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+            {selectedRole === "Wali Kelas" && (
+              <div className="grid gap-2">
+                <Label>Kelas Wali (Opsional)</Label>
+                <Select
+                  value={selectedWaliKelasId || "__NONE__"}
+                  onValueChange={(val) => {
+                    setSelectedWaliKelasId(val === "__NONE__" ? "" : val);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih kelas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__NONE__">Tidak ditentukan</SelectItem>
+                    {kelasList
+                      .filter(
+                        (kelas) =>
+                          !kelas.wali_kelas_id || kelas.wali_kelas_id === teacher?.user_id,
+                      )
+                      .map((kelas) => (
+                        <SelectItem key={kelas.kelas_id} value={kelas.kelas_id}>
+                          {kelas.nama_kelas}
+                          {kelas.jurusan ? ` - ${kelas.jurusan}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label>Jabatan Fungsional (Mata Pelajaran)</Label>
               <Input

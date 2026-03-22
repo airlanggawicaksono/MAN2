@@ -17,7 +17,7 @@ class ServerService {
   /// Test server connection with the given URL and API key.
   static Future<ServerTestResult> testConnection(String url, String apiKey) async {
     try {
-      final api = ApiClient(baseUrl: url, apiKey: apiKey);
+      final BackendApiPort api = ApiClient(baseUrl: url, apiKey: apiKey);
       await api.testConnection();
       return const ServerTestResult(success: true, message: 'Connected to server');
     } catch (e) {

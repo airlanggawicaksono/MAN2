@@ -2,11 +2,16 @@ import 'dart:convert';
 import '../config/app_config.dart';
 import '../data/local/database.dart';
 import '../data/remote/api_client.dart';
+import 'izin_payload.dart';
 
 class SyncService {
-  final AppDatabase db;
-  
-  SyncService(this.db);
+  final SyncStorePort db;
+  final BackendApiPort Function(AppConfig config) _apiFactory;
+
+  SyncService(
+    this.db, {
+    BackendApiPort Function(AppConfig config)? apiFactory,
+  }) : _apiFactory = apiFactory ?? ((config) => ApiClient.fromConfig(config));
 
   /// Manually sync all unpublished records via HTTP POST.
   /// Used for the "Simplex" contract and offline catch-up.
@@ -14,20 +19,22 @@ class SyncService {
     final pending = await db.getUnpublishedRecords();
     if (pending.isEmpty) return 0;
 
-    final api = ApiClient.fromConfig(config);
+    final api = _apiFactory(config);
     final events = <Map<String, dynamic>>[];
     
     // Prepare events
     for (final record in pending) {
       final student = await db.getStudentByCard(record.cardNo);
       if (student == null) continue;
+      final izinPayload = decodeIzinReasonPayload(record.reason);
 
       events.add({
         'record_id': record.id,
         'user_id': student.userId,
         'event_type': record.eventType,
         'device_time': DateTime.fromMillisecondsSinceEpoch(record.deviceTime * 1000).toIso8601String(),
-        'reason': record.reason,
+        'reason': izinPayload.reason ?? record.reason,
+        'perkiraan_kembali': izinPayload.perkiraanKembali?.toIso8601String(),
       });
     }
 

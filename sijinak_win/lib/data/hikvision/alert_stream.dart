@@ -7,7 +7,7 @@ import 'hik_event.dart';
 /// Listens to Hikvision alertStream (long-lived multipart/mixed GET).
 /// Parses RFID tap events and emits them as [HikEvent]s.
 class AlertStream {
-  final IsapiClient client;
+  final HikvisionDevicePort client;
   final Duration retryDelay;
 
   final _controller = StreamController<HikEvent>.broadcast();

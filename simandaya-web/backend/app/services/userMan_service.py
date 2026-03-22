@@ -191,7 +191,11 @@ class TeacherUserManagementService:
             assignments = await self.repo.list_teacher_structural_assignments(
                 p.user_id, active_only=True
             )
-            role_names = [a.role.name for a in assignments if a.role]
+            role_names = [
+                a.role.name
+                for a in assignments
+                if a.role and a.role.code.lower() != "guru" and a.role.name.lower() != "guru"
+            ]
             items.append(
                 PublicCivitasResponseDTO(
                     nama=p.nama_lengkap,
@@ -260,7 +264,10 @@ class TeacherUserManagementService:
             await self.repo.commit()
             await self.repo.refresh(role)
 
-        allow_multiple_holders = role.code.lower() == "guru" or role.name.lower() == "guru"
+        is_wali_kelas = role.code.lower() == "wali_kelas" or role.name.lower() == "wali kelas"
+        self.policy.ensure_kelas_id_only_for_wali_kelas(is_wali_kelas, request.kelas_id)
+
+        allow_multiple_holders = is_wali_kelas
         if not allow_multiple_holders:
             existing_active_assignment = await self.repo.find_active_structural_assignment_by_role_id(
                 role.role_id
@@ -277,6 +284,15 @@ class TeacherUserManagementService:
             is_active=request.is_active,
         )
         await self.repo.add_structural_assignment(assignment)
+
+        if is_wali_kelas and request.kelas_id:
+            kelas = await self.repo.find_kelas_by_id(request.kelas_id)
+            self.policy.ensure_kelas_exists(kelas, detail="Kelas not found")
+            self.policy.ensure_kelas_wali_not_taken(kelas, request.user_id)
+            # One teacher should only own one wali-kelas class at a time.
+            await self.repo.clear_wali_kelas_for_user(request.user_id)
+            kelas.wali_kelas_id = request.user_id
+
         await self.repo.commit()
         await self.repo.refresh(assignment)
 
@@ -295,6 +311,11 @@ class TeacherUserManagementService:
     async def deactivate_structural_assignment(self, assignment_id: UUID) -> MessageResponseDTO:
         assignment = await self.repo.find_teacher_structural_assignment_by_id(assignment_id)
         self.policy.ensure_assignment_exists(assignment)
+        if assignment.role and (
+            assignment.role.code.lower() == "wali_kelas"
+            or assignment.role.name.lower() == "wali kelas"
+        ):
+            await self.repo.clear_wali_kelas_for_user(assignment.user_id)
         assignment.is_active = False
         await self.repo.commit()
         return MessageResponseDTO(message="Structural assignment deactivated")
@@ -303,6 +324,11 @@ class TeacherUserManagementService:
         assignments = await self.repo.list_teacher_structural_assignments(
             profile.user_id, active_only=False
         )
+        assignments = [
+            a
+            for a in assignments
+            if not a.role or (a.role.code.lower() != "guru" and a.role.name.lower() != "guru")
+        ]
         return GuruProfileResponseDTO(
             guru_id=profile.guru_id,
             user_id=profile.user_id,

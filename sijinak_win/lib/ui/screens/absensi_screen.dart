@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:webview_windows/webview_windows.dart';
 import '../../providers/providers.dart';
+import '../../services/izin_payload.dart';
 
 class AbsensiScreen extends ConsumerStatefulWidget {
   const AbsensiScreen({super.key});
@@ -11,76 +11,98 @@ class AbsensiScreen extends ConsumerStatefulWidget {
 }
 
 class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
-  final _controller = WebviewController();
-  bool _ready = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _initWebView();
-  }
-
-  Future<void> _initWebView() async {
-    try {
-      await _controller.initialize();
-
-      final config = ref.read(configProvider).valueOrNull;
-      final baseUrl = config?.frontendUrl ?? 'http://localhost:4923';
-      await _controller.loadUrl('$baseUrl/absensi');
-
-      if (mounted) setState(() => _ready = true);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final recentRecords = ref.watch(recentRecordsProvider);
+    final pendingCount = ref.watch(pendingSyncCountProvider);
 
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: colors.error),
-            const SizedBox(height: 12),
-            Text('WebView failed to load',
-                style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(_error!,
-                style:
-                    theme.textTheme.bodySmall?.copyWith(color: colors.outline)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () {
-                setState(() => _error = null);
-                _initWebView();
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Absensi Monitor',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'WebView dihapus. Monitor data absensi langsung dari data lokal perangkat.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 16),
+          pendingCount.when(
+            data: (count) => Card(
+              child: ListTile(
+                leading: const Icon(Icons.sync_problem_outlined),
+                title: const Text('Pending Sync'),
+                subtitle: Text('$count record belum terkirim ke backend'),
+              ),
             ),
-          ],
-        ),
-      );
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('Failed to load pending count: $e'),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: recentRecords.when(
+              data: (rows) {
+                if (rows.isEmpty) {
+                  return const Center(child: Text('Belum ada record absensi.'));
+                }
+                return Card(
+                  child: ListView.separated(
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      final dt = DateTime.fromMillisecondsSinceEpoch(
+                        row.deviceTime * 1000,
+                      );
+                      final students = ref.read(allStudentsProvider).asData?.value ?? [];
+                      final student = students.where((s) => s.cardNo == row.cardNo).firstOrNull;
+                      final displayName = student?.nama ?? 'Unknown';
+                      return ListTile(
+                        leading: const Icon(Icons.badge_outlined),
+                        title: Text('$displayName - ${row.cardNo}'),
+                        subtitle: Text(_formatRecordSubtitle(row.eventType, dt, row.reason)),
+                        trailing: row.publishedAt == null
+                            ? const Icon(Icons.cloud_off, color: Colors.orange)
+                            : const Icon(Icons.cloud_done, color: Colors.green),
+                      );
+                    },
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Failed to load records: $e')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime24(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final s = dt.second.toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  String _formatRecordSubtitle(String eventType, DateTime dt, String? reasonRaw) {
+    final timeOut = _formatTime24(dt);
+    if (eventType != 'izin') {
+      return '$eventType | $timeOut';
     }
 
-    if (!_ready) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Webview(_controller);
+    final izin = decodeIzinReasonPayload(reasonRaw);
+    final kembali = izin.perkiraanKembali == null
+        ? '-'
+        : '${izin.perkiraanKembali!.hour.toString().padLeft(2, '0')}:${izin.perkiraanKembali!.minute.toString().padLeft(2, '0')}';
+    final alasan = izin.reason?.trim();
+    final alasanText = (alasan == null || alasan.isEmpty) ? '-' : alasan;
+    return 'Izin\nKeluar: $timeOut\nPerkiraan kembali: $kembali\nAlasan: $alasanText';
   }
 }

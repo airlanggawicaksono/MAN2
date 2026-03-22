@@ -17,6 +17,7 @@ class StructuralRoleRefDTO(BaseModel):
 class AssignStructuralRoleDTO(BaseModel):
     user_id: UUID
     structural_role: StructuralRole
+    kelas_id: UUID | None = None
     tahun_ajaran_id: UUID | None = None
     start_date: date | None = None
     end_date: date | None = None

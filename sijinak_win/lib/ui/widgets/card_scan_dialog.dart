@@ -67,82 +67,118 @@ class _CardScanDialogState extends ConsumerState<CardScanDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
-    if (_manualMode) {
-      return AlertDialog(
-        title: const Text('Input Kartu Manual'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _manualCtrl,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Nomor Kartu',
-                hintText: 'Contoh: 12345678',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (v) {
-                final val = v.trim();
-                if (val.isNotEmpty) Navigator.of(context).pop(val);
-              },
-            ),
-          ],
+    Widget buildActions(List<Widget> children) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: children,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final val = _manualCtrl.text.trim();
-              if (val.isNotEmpty) Navigator.of(context).pop(val);
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
       );
     }
 
-    return AlertDialog(
-      title: const Text('Assign Kartu'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _connected ? Icons.contactless : Icons.sensors,
-            size: 64,
-            color: _connected ? colors.primary : colors.outline,
+    if (_manualMode) {
+      return Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Text('Input Kartu Manual', style: theme.textTheme.titleLarge),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: TextField(
+                  controller: _manualCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nomor Kartu',
+                    hintText: 'Contoh: 12345678',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (v) {
+                    final val = v.trim();
+                    if (val.isNotEmpty) Navigator.of(context).pop(val);
+                  },
+                ),
+              ),
+              buildActions([
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null),
+                  child: const Text('Batal'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    final val = _manualCtrl.text.trim();
+                    if (val.isNotEmpty) Navigator.of(context).pop(val);
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ]),
+            ],
           ),
-          const SizedBox(height: 16),
-          if (!_connected)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          const SizedBox(height: 8),
-          Text(
-            _connected
-                ? 'Tap kartu pada reader...'
-                : 'Menghubungkan ke reader...',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: _switchToManual,
-            icon: const Icon(Icons.keyboard, size: 18),
-            label: const Text('Input manual'),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Batal'),
         ),
-      ],
+      );
+    }
+
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text('Assign Kartu', style: theme.textTheme.titleLarge),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _connected ? Icons.contactless : Icons.sensors,
+                    size: 64,
+                    color: _connected ? colors.primary : colors.outline,
+                  ),
+                  const SizedBox(height: 16),
+                  if (!_connected)
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _connected
+                        ? 'Tap kartu pada reader...'
+                        : 'Menghubungkan ke reader...',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _switchToManual,
+                    icon: const Icon(Icons.keyboard, size: 18),
+                    label: const Text('Input manual'),
+                  ),
+                ],
+              ),
+            ),
+            buildActions([
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(null),
+                child: const Text('Batal'),
+              ),
+            ]),
+          ],
+        ),
+      ),
     );
   }
 }

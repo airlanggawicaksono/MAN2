@@ -2,7 +2,30 @@ import 'dart:io';
 import 'dart:convert';
 import 'hik_event.dart';
 
-class IsapiClient {
+abstract class HikvisionDevicePort {
+  Future<String> get(
+    String path, {
+    Duration connectionTimeout = const Duration(seconds: 10),
+  });
+  Future<String> postJson(String path, Map<String, dynamic> body);
+  Future<(HttpClientResponse, HttpClient)> getStream(String path);
+  Future<String> putJson(String path, Map<String, dynamic> body);
+  Future<void> upsertPerson({
+    required String employeeNo,
+    required String name,
+  });
+  Future<void> upsertCard({
+    required String cardNo,
+    required String employeeNo,
+  });
+  Future<void> deleteCard({required String cardNo});
+  Future<void> deletePerson({required String employeeNo});
+  Future<DeviceInfo> testConnection({
+    Duration timeout = const Duration(seconds: 3),
+  });
+}
+
+class IsapiClient implements HikvisionDevicePort {
   final String baseUrl;
   final String username;
   final String password;
@@ -13,9 +36,12 @@ class IsapiClient {
     required this.password,
   });
 
-  HttpClient _createClient({Duration idleTimeout = const Duration(seconds: 15)}) {
+  HttpClient _createClient({
+    Duration idleTimeout = const Duration(seconds: 15),
+    Duration connectionTimeout = const Duration(seconds: 10),
+  }) {
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 10);
+    client.connectionTimeout = connectionTimeout;
     client.idleTimeout = idleTimeout;
     client.authenticate = (Uri url, String scheme, String? realm) async {
       client.addCredentials(
@@ -29,8 +55,12 @@ class IsapiClient {
   }
 
   /// GET request, returns response body as string.
-  Future<String> get(String path) async {
-    final client = _createClient();
+  @override
+  Future<String> get(
+    String path, {
+    Duration connectionTimeout = const Duration(seconds: 10),
+  }) async {
+    final client = _createClient(connectionTimeout: connectionTimeout);
     try {
       final request = await client.getUrl(Uri.parse('$baseUrl$path'));
       final response = await request.close();
@@ -48,6 +78,7 @@ class IsapiClient {
   }
 
   /// POST with JSON body using curl (same digest auth issue as PUT).
+  @override
   Future<String> postJson(String path, Map<String, dynamic> body) async {
     final url = '$baseUrl$path';
     final jsonBody = jsonEncode(body);
@@ -90,6 +121,7 @@ class IsapiClient {
 
   /// Opens a long-lived GET stream (for alertStream).
   /// Caller is responsible for closing the returned [HttpClient].
+  @override
   Future<(HttpClientResponse, HttpClient)> getStream(String path) async {
     final client = _createClient(idleTimeout: const Duration(hours: 24));
     final request = await client.getUrl(Uri.parse('$baseUrl$path'));
@@ -119,6 +151,7 @@ class IsapiClient {
 
   /// PUT request with JSON body using curl (dart HttpClient has issues with
   /// digest auth + PUT body — connection closes before retry completes).
+  @override
   Future<String> putJson(String path, Map<String, dynamic> body) async {
     final url = '$baseUrl$path';
     final jsonBody = jsonEncode(body);
@@ -167,6 +200,7 @@ class IsapiClient {
   /// Create or update a person on the Hikvision device.
   /// Strips hyphens from employeeNo (Hikvision max 32 chars, UUID is 36).
   /// POST Record to create, if already exists PUT SetUp to update.
+  @override
   Future<void> upsertPerson({
     required String employeeNo,
     required String name,
@@ -202,6 +236,7 @@ class IsapiClient {
 
   /// Assign a card to a person on the Hikvision device.
   /// If card already exists (from old system), delete it first then re-add.
+  @override
   Future<void> upsertCard({
     required String cardNo,
     required String employeeNo,
@@ -233,6 +268,7 @@ class IsapiClient {
   }
 
   /// Delete a card from the device.
+  @override
   Future<void> deleteCard({required String cardNo}) async {
     await putJson('/ISAPI/AccessControl/CardInfo/Delete?format=json', {
       'CardInfoDelCond': {
@@ -241,9 +277,28 @@ class IsapiClient {
     });
   }
 
+  /// Delete a person from the device.
+  @override
+  Future<void> deletePerson({required String employeeNo}) async {
+    final hikId = employeeNo.replaceAll('-', '');
+    await putJson('/ISAPI/AccessControl/UserInfo/Delete?format=json', {
+      'UserInfoDelCond': {
+        'EmployeeNoList': [
+          {'employeeNo': hikId},
+        ],
+      },
+    });
+  }
+
   /// Test connection by fetching device info.
-  Future<DeviceInfo> testConnection() async {
-    final body = await get('/ISAPI/System/deviceInfo');
+  @override
+  Future<DeviceInfo> testConnection({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final body = await get(
+      '/ISAPI/System/deviceInfo',
+      connectionTimeout: timeout,
+    );
     return DeviceInfo(
       deviceName: _extractXml(body, 'deviceName') ?? 'Unknown',
       model: _extractXml(body, 'model') ?? 'Unknown',
