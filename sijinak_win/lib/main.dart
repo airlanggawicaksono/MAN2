@@ -51,11 +51,11 @@ void main() async {
     await windowManager.focus();
   });
 
-  runApp(const ProviderScope(child: SimandayaApp()));
+  runApp(const ProviderScope(child: SijinakApp()));
 }
 
-class SimandayaApp extends StatelessWidget {
-  const SimandayaApp({super.key});
+class SijinakApp extends StatelessWidget {
+  const SijinakApp({super.key});
 
   @override
   Widget build(BuildContext context) {
