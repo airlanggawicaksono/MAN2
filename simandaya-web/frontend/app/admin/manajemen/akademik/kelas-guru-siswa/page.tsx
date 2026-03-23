@@ -1,26 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus, Users, ArrowUpDown } from "lucide-react";
-import {
-  useListTahunAjaranQuery,
-  useListKelasByTahunAjaranQuery,
-  useCreateKelasMutation,
-  useUpdateKelasMutation,
-  useDeleteKelasMutation,
-  useListSiswaInKelasQuery,
-  useAssignSiswaToKelasMutation,
-  useRemoveSiswaFromKelasMutation,
-  usePromoteStudentsMutation,
-  useListGuruMapelQuery,
-  useCreateGuruMapelMutation,
-  useDeleteGuruMapelMutation,
-  useListMapelQuery,
-  useListKategoriKelasQuery,
-  useCreateKategoriKelasMutation,
-} from "@/api/shared/akademik";
-import { useListTeachersQuery } from "@/api/admin/teachers";
-import { useListStudentsQuery } from "@/api/admin/students";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,12 +29,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { KelasResponse } from "@/types/akademik/kelas";
-import type { GuruMapelResponse } from "@/types/akademik/jadwal";
 import { SelectionAssignDialog } from "@/app/components/admin/selection-assign-dialog";
-import { useDebounce } from "@/hooks/useDebounce";
+import {
+  KelasCard,
+  ManageKelasStudents,
+} from "@/app/components/admin/kelas-management-cards";
+import { useKelasGuruSiswaController } from "./use-kelas-guru-siswa-controller";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
-import { getApiErrorMessage } from "@/lib/api-error";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const TINGKAT_OPTIONS = ["X", "XI", "XII"];
 
@@ -65,341 +47,70 @@ type KelasGuruSiswaPageProps = {
 export default function KelasGuruSiswaPage({
   embedded = false,
 }: KelasGuruSiswaPageProps) {
-  const [kelasSearch, setKelasSearch] = useState("");
-  const [siswaSearch, setSiswaSearch] = useState("");
-  const debouncedSiswaSearch = useDebounce(siswaSearch, 350);
-
-  const { data: tahunAjarans } = useListTahunAjaranQuery();
-  const [selectedTA, setSelectedTA] = useState("");
   const {
-    data: classes,
-    isLoading: loadingKelas,
-  } = useListKelasByTahunAjaranQuery(selectedTA, { skip: !selectedTA });
-  const { data: guruMapels } = useListGuruMapelQuery();
-  const { data: teachers } = useListTeachersQuery({ skip: 0, limit: 100 });
-  const { data: mapels } = useListMapelQuery();
-  const { data: kategoriKelas = [] } = useListKategoriKelasQuery();
-  const { data: allStudents } = useListStudentsQuery({
-    skip: 0,
-    limit: 100,
-    search: debouncedSiswaSearch || undefined,
-  });
-
-  // Mutations
-  const [createKelas] = useCreateKelasMutation();
-  const [updateKelas] = useUpdateKelasMutation();
-  const [deleteKelas] = useDeleteKelasMutation();
-  const [assignSiswa] = useAssignSiswaToKelasMutation();
-  const [removeSiswa] = useRemoveSiswaFromKelasMutation();
-  const [promoteStudents] = usePromoteStudentsMutation();
-  const [createGuruMapel] = useCreateGuruMapelMutation();
-  const [deleteGuruMapel] = useDeleteGuruMapelMutation();
-  const [createKategoriKelas] = useCreateKategoriKelasMutation();
-
-  // UI state
-  const [
-    deleteKelasTarget,
-    setDeleteKelasTarget,
-  ] = useState<KelasResponse | null>(null);
-  const [manageKelas, setManageKelas] = useState<KelasResponse | null>(null);
-  const [addSiswaKelasId, setAddSiswaKelasId] = useState<string | null>(null);
-  const {
-    data: addClassStudents = [],
-    isFetching: isFetchingAddClassStudents,
-  } = useListSiswaInKelasQuery(addSiswaKelasId ?? "", {
-    skip: !addSiswaKelasId,
-  });
-  const [
-    selectionInitializedForKelasId,
-    setSelectionInitializedForKelasId,
-  ] = useState<string | null>(null);
-  const [initialSelectedSiswaIds, setInitialSelectedSiswaIds] = useState<
-    string[]
-  >([]);
-  const [selectedSiswaIds, setSelectedSiswaIds] = useState<string[]>([]);
-  const [removeSiswaTarget, setRemoveSiswaTarget] = useState<{
-    kelasId: string;
-    userId: string;
-    nama: string;
-  } | null>(null);
-  const [promoteDialog, setPromoteDialog] = useState(false);
-  const [promoteFrom, setPromoteFrom] = useState("");
-  const [promoteResult, setPromoteResult] = useState<string | null>(null);
-  const [
-    deleteGMTarget,
-    setDeleteGMTarget,
-  ] = useState<GuruMapelResponse | null>(null);
-  const [editKelasForm, setEditKelasForm] = useState({
-    tingkat: "X",
-    kategoriKelasId: "",
-    nomor: "1",
-    waliKelasId: "null",
-  });
-
-  // Kelas form state
-  const [kelasForm, setKelasForm] = useState({
-    tingkat: "X",
-    kategoriKelasId: "",
-    nomor: "1",
-    waliKelasId: "null",
-  });
-  const [kategoriForm, setKategoriForm] = useState({ kode: "", nama: "" });
-
-  // Guru mapel form state
-  const [gmForm, setGmForm] = useState({
-    user_id: "",
-    mapel_id: "",
-    kelas_id: "",
-  });
-
-  const taName = tahunAjarans?.find((t) => t.tahun_ajaran_id === selectedTA)
-    ?.nama;
-  const hasTahunAjaran = (tahunAjarans?.length ?? 0) > 0;
-
-  useEffect(() => {
-    if (!tahunAjarans?.length) return;
-    if (
-      selectedTA &&
-      tahunAjarans.some((ta) => ta.tahun_ajaran_id === selectedTA)
-    )
-      return;
-
-    const active = tahunAjarans.find((ta) => ta.is_active);
-    setSelectedTA(active?.tahun_ajaran_id ?? tahunAjarans[0].tahun_ajaran_id);
-  }, [tahunAjarans, selectedTA]);
-
-  // Filter guru mapel by selected TA's classes
-  const kelasIds = new Set(classes?.map((c) => c.kelas_id) || []);
-  const filteredGM =
-    guruMapels?.filter((gm) => kelasIds.has(gm.kelas_id)) || [];
-  const filteredStudents = allStudents?.items || [];
-  const addTargetClass = useMemo(
-    () => classes?.find((kelas) => kelas.kelas_id === addSiswaKelasId) ?? null,
-    [addSiswaKelasId, classes],
-  );
-  const addCandidateStudents = useMemo(
-    () => filteredStudents,
-    [filteredStudents],
-  );
-  const siswaAssignedOtherClassIds = useMemo(() => {
-    if (!addSiswaKelasId || !addTargetClass) return new Set<string>();
-    const blocked = new Set<string>();
-    for (const siswa of addCandidateStudents as any[]) {
-      const kelasNama = (siswa.kelas_nama ?? siswa.kelas_jurusan ?? "").trim();
-      if (kelasNama && kelasNama !== addTargetClass.nama_kelas) {
-        blocked.add(siswa.user_id);
-      }
-    }
-    return blocked;
-  }, [addSiswaKelasId, addCandidateStudents, addTargetClass]);
-  const filteredClasses = (classes || []).filter((kelas) => {
-    const q = kelasSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      kelas.nama_kelas.toLowerCase().includes(q) ||
-      (kelas.wali_kelas_nama || "").toLowerCase().includes(q) ||
-      (kelas.kategori_kelas_nama || "").toLowerCase().includes(q)
-    );
-  });
-  const takenWaliKelasIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const kelas of classes || []) {
-      if (kelas.wali_kelas_id) ids.add(kelas.wali_kelas_id);
-    }
-    return ids;
-  }, [classes]);
-  const createWaliKelasOptions = useMemo(
-    () =>
-      (teachers?.items || []).filter((teacher) => !takenWaliKelasIds.has(teacher.user_id)),
-    [teachers?.items, takenWaliKelasIds],
-  );
-  const editWaliKelasOptions = useMemo(() => {
-    const currentWaliId = manageKelas?.wali_kelas_id ?? null;
-    return (teachers?.items || []).filter(
-      (teacher) =>
-        teacher.user_id === currentWaliId || !takenWaliKelasIds.has(teacher.user_id),
-    );
-  }, [manageKelas?.wali_kelas_id, teachers?.items, takenWaliKelasIds]);
-  const activeKategori = kategoriKelas.filter((item) => item.is_active);
-  const hasSelectionChanges = useMemo(() => {
-    const initialSet = new Set(initialSelectedSiswaIds);
-    const selectedSet = new Set(selectedSiswaIds);
-    if (initialSet.size !== selectedSet.size) return true;
-    for (const id of initialSet) {
-      if (!selectedSet.has(id)) return true;
-    }
-    return false;
-  }, [initialSelectedSiswaIds, selectedSiswaIds]);
-
-  useEffect(() => {
-    if (!kelasForm.kategoriKelasId && activeKategori.length > 0) {
-      setKelasForm((prev) => ({
-        ...prev,
-        kategoriKelasId: activeKategori[0].kategori_kelas_id,
-      }));
-    }
-  }, [activeKategori, kelasForm.kategoriKelasId]);
-
-  useEffect(() => {
-    if (kelasForm.waliKelasId === "null") return;
-    if (createWaliKelasOptions.some((teacher) => teacher.user_id === kelasForm.waliKelasId))
-      return;
-    setKelasForm((prev) => ({ ...prev, waliKelasId: "null" }));
-  }, [createWaliKelasOptions, kelasForm.waliKelasId]);
-
-  const handleCreateKelas = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTA || !kelasForm.kategoriKelasId) return;
-    const kategori = kategoriKelas.find(
-      (item) => item.kategori_kelas_id === kelasForm.kategoriKelasId,
-    );
-    const namaKelas = `${kelasForm.tingkat} ${kategori?.kode || "KAT"} ${
-      kelasForm.nomor
-    }`;
-    try {
-      await createKelas({
-        tahun_ajaran_id: selectedTA,
-        nama_kelas: namaKelas,
-        tingkat: kelasForm.tingkat,
-        kategori_kelas_id: kelasForm.kategoriKelasId,
-        wali_kelas_id:
-          kelasForm.waliKelasId === "null" ? undefined : kelasForm.waliKelasId,
-      }).unwrap();
-      setKelasForm((prev) => ({
-        ...prev,
-        nomor: String(parseInt(prev.nomor) + 1),
-      }));
-      notifySuccess("Kelas berhasil ditambahkan.");
-    } catch (error) {
-      const detail = (getApiErrorMessage(error) || "").toLowerCase();
-      if (detail.includes("already exists") || detail.includes("sudah ada")) {
-        notifyError("Nomor kelas sudah terbuat.");
-      } else {
-        notifyError("Gagal menambahkan kelas.");
-      }
-    }
-  };
-
-  const handleCreateGM = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gmForm.user_id || !gmForm.mapel_id || !gmForm.kelas_id || !selectedTA)
-      return;
-    try {
-      await createGuruMapel({
-        user_id: gmForm.user_id,
-        mapel_id: gmForm.mapel_id,
-        kelas_id: gmForm.kelas_id,
-        tahun_ajaran_id: selectedTA,
-      }).unwrap();
-      setGmForm({ user_id: "", mapel_id: "", kelas_id: "" });
-      notifySuccess("Penugasan guru mapel berhasil ditambahkan.");
-    } catch {
-      notifyError("Gagal menambahkan penugasan guru mapel.");
-    }
-  };
-
-  const handlePromote = async () => {
-    if (!promoteFrom || !selectedTA) return;
-    try {
-      const result = await promoteStudents({
-        from_tahun_ajaran_id: promoteFrom,
-        to_tahun_ajaran_id: selectedTA,
-      }).unwrap();
-      setPromoteResult(result.message);
-      notifySuccess(result.message);
-    } catch {
-      notifyError("Gagal melakukan promosi siswa.");
-    }
-    setPromoteDialog(false);
-  };
-
-  useEffect(() => {
-    if (!manageKelas) return;
-    const numberMatch = manageKelas.nama_kelas.match(/(\d+)\s*$/);
-    setEditKelasForm({
-      tingkat: manageKelas.tingkat || "X",
-      kategoriKelasId: manageKelas.kategori_kelas_id || "",
-      nomor: numberMatch?.[1] || "1",
-      waliKelasId: manageKelas.wali_kelas_id || "null",
-    });
-  }, [manageKelas]);
-
-  useEffect(() => {
-    if (!addSiswaKelasId) return;
-    if (isFetchingAddClassStudents) return;
-    if (selectionInitializedForKelasId === addSiswaKelasId) return;
-    const existingIds = Array.from(
-      new Set(addClassStudents.map((siswa) => siswa.user_id)),
-    );
-    setInitialSelectedSiswaIds(existingIds);
-    setSelectedSiswaIds(existingIds);
-    setSelectionInitializedForKelasId(addSiswaKelasId);
-  }, [
+    addCandidateStudents,
     addSiswaKelasId,
-    addClassStudents,
-    isFetchingAddClassStudents,
-    selectionInitializedForKelasId,
-  ]);
-
-  const handleSaveKelasEdit = async () => {
-    try {
-      if (!manageKelas || !editKelasForm.kategoriKelasId) return;
-      const kategori = kategoriKelas.find(
-        (k) => k.kategori_kelas_id === editKelasForm.kategoriKelasId,
-      );
-      const namaKelas = `${editKelasForm.tingkat} ${kategori?.kode || "KAT"} ${
-        editKelasForm.nomor
-      }`;
-      const body = {
-        nama_kelas: namaKelas,
-        tingkat: editKelasForm.tingkat,
-        kategori_kelas_id: editKelasForm.kategoriKelasId,
-        wali_kelas_id:
-          editKelasForm.waliKelasId === "null" ? null : editKelasForm.waliKelasId,
-      };
-
-      const updated = await updateKelas({
-        id: manageKelas.kelas_id,
-        body,
-      }).unwrap();
-      setManageKelas(updated);
-      notifySuccess("Perubahan kelas berhasil disimpan.");
-    } catch (error) {
-      const detail = (getApiErrorMessage(error) || "").toLowerCase();
-      if (detail.includes("already exists") || detail.includes("sudah ada")) {
-        notifyError("Nomor kelas sudah terbuat.");
-      } else {
-        notifyError("Gagal menyimpan perubahan kelas.");
-      }
-    }
-  };
-
-  const closeAddSiswaDialog = () => {
-    setAddSiswaKelasId(null);
-    setSelectionInitializedForKelasId(null);
-    setInitialSelectedSiswaIds([]);
-    setSiswaSearch("");
-    setSelectedSiswaIds([]);
-  };
-
-  const applyRosterChanges = async (
-    kelasId: string,
-    toAdd: string[],
-    toRemove: string[],
-  ) => {
-    try {
-      for (const userId of toAdd) {
-        await assignSiswa({ kelasId, userId }).unwrap();
-      }
-      for (const userId of toRemove) {
-        await removeSiswa({ kelasId, userId }).unwrap();
-      }
-      closeAddSiswaDialog();
-      notifySuccess("Perubahan siswa kelas berhasil disimpan.");
-    } catch {
-      notifyError("Gagal menyimpan perubahan siswa kelas.");
-    }
-  };
+    allStudents,
+    applyRosterChanges,
+    classes,
+    closeAddSiswaDialog,
+    createKategoriKelas,
+    createWaliKelasOptions,
+    deleteGMTarget,
+    deleteGuruMapel,
+    deleteKelas,
+    deleteKelasTarget,
+    editKelasForm,
+    editWaliKelasOptions,
+    filteredClasses,
+    filteredGM,
+    filteredStudents,
+    gmForm,
+    handleCreateGM,
+    handleCreateKelas,
+    handlePromote,
+    handleSaveKelasEdit,
+    hasSelectionChanges,
+    hasTahunAjaran,
+    initialSelectedSiswaIds,
+    kategoriForm,
+    kategoriKelas,
+    kelasForm,
+    kelasSearch,
+    loadingKelas,
+    manageKelas,
+    mapels,
+    promoteDialog,
+    promoteFrom,
+    promoteResult,
+    removeSiswa,
+    removeSiswaTarget,
+    selectedSiswaIds,
+    selectedTA,
+    setAddSiswaKelasId,
+    setDeleteGMTarget,
+    setDeleteKelasTarget,
+    setEditKelasForm,
+    setGmForm,
+    setInitialSelectedSiswaIds,
+    setKategoriForm,
+    setKelasForm,
+    setKelasSearch,
+    setManageKelas,
+    setPromoteDialog,
+    setPromoteFrom,
+    setRemoveSiswaTarget,
+    setSelectedSiswaIds,
+    setSelectedTA,
+    setSelectionInitializedForKelasId,
+    setSiswaSearch,
+    siswaAssignedOtherClassIds,
+    siswaSearch,
+    taName,
+    tahunAjarans,
+    teachers,
+    activeKategori,
+  } = useKelasGuruSiswaController();
 
   return (
     <div className={embedded ? "space-y-8" : "space-y-8 p-8"}>
@@ -429,22 +140,19 @@ export default function KelasGuruSiswaPage({
 
       {/* ── Tahun Ajaran Selector ─────────────────────────────────────────── */}
       <div className="flex items-center gap-4">
-        <Select
+        <SearchableSelect
           value={selectedTA}
-          onValueChange={setSelectedTA}
+          onValueChange={(v) => setSelectedTA(v)}
+          options={(tahunAjarans || []).map((ta) => ({
+            value: ta.tahun_ajaran_id,
+            label: `${ta.nama}${ta.is_active ? " (Aktif)" : ""}`,
+          }))}
+          placeholder="Pilih Tahun Ajaran"
+          searchPlaceholder="Cari tahun ajaran..."
+          emptyText="Tahun ajaran tidak ditemukan."
+          className="w-[280px]"
           disabled={!hasTahunAjaran}
-        >
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Pilih Tahun Ajaran" />
-          </SelectTrigger>
-          <SelectContent>
-            {tahunAjarans?.map((ta) => (
-              <SelectItem key={ta.tahun_ajaran_id} value={ta.tahun_ajaran_id}>
-                {ta.nama} {ta.is_active ? "(Aktif)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         {taName && <Badge variant="outline">Tahun Ajaran: {taName}</Badge>}
       </div>
 
@@ -522,24 +230,23 @@ export default function KelasGuruSiswaPage({
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs">Wali Kelas</Label>
-                <Select
+                <SearchableSelect
                   value={kelasForm.waliKelasId}
                   onValueChange={(v) =>
                     setKelasForm((p) => ({ ...p, waliKelasId: v }))
                   }
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="null">—</SelectItem>
-                    {createWaliKelasOptions.map((t) => (
-                      <SelectItem key={t.user_id} value={t.user_id}>
-                        {t.nama_lengkap}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={[
+                    { value: "null", label: "-" },
+                    ...createWaliKelasOptions.map((t) => ({
+                      value: t.user_id,
+                      label: t.nama_lengkap,
+                    })),
+                  ]}
+                  placeholder="Pilih Wali Kelas"
+                  searchPlaceholder="Cari guru wali kelas..."
+                  emptyText="Guru tidak ditemukan."
+                  className="w-[200px]"
+                />
               </div>
               <Button
                 type="submit"
@@ -677,63 +384,55 @@ export default function KelasGuruSiswaPage({
             >
               <div className="grid gap-1">
                 <Label className="text-xs">Guru</Label>
-                <Select
+                <SearchableSelect
                   value={gmForm.user_id}
                   onValueChange={(v) =>
                     setGmForm((p) => ({ ...p, user_id: v }))
                   }
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Pilih Guru" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers?.items.map((t) => (
-                      <SelectItem key={t.user_id} value={t.user_id}>
-                        {t.nama_lengkap}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={(teachers?.items || []).map((t) => ({
+                    value: t.user_id,
+                    label: t.nama_lengkap || t.username || t.user_id,
+                  }))}
+                  placeholder="Pilih Guru"
+                  searchPlaceholder="Cari guru..."
+                  emptyText="Guru tidak ditemukan."
+                  className="w-[200px]"
+                />
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs">Mata Pelajaran</Label>
-                <Select
+                <SearchableSelect
                   value={gmForm.mapel_id}
                   onValueChange={(v) =>
                     setGmForm((p) => ({ ...p, mapel_id: v }))
                   }
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Pilih Mapel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mapels?.map((m) => (
-                      <SelectItem key={m.mapel_id} value={m.mapel_id}>
-                        {m.nama_mapel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={(mapels || []).map((m) => ({
+                    value: m.mapel_id,
+                    label: `${m.nama_mapel}${m.kode_mapel ? ` (${m.kode_mapel})` : ""}`,
+                    keywords: `${m.nama_mapel || ""} ${m.kode_mapel || ""}`,
+                  }))}
+                  placeholder="Pilih Mapel"
+                  searchPlaceholder="Cari mapel atau kode..."
+                  emptyText="Mapel tidak ditemukan."
+                  className="w-[200px]"
+                />
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs">Kelas</Label>
-                <Select
+                <SearchableSelect
                   value={gmForm.kelas_id}
                   onValueChange={(v) =>
                     setGmForm((p) => ({ ...p, kelas_id: v }))
                   }
-                >
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="Pilih Kelas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes?.map((c) => (
-                      <SelectItem key={c.kelas_id} value={c.kelas_id}>
-                        {c.nama_kelas}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={(classes || []).map((c) => ({
+                    value: c.kelas_id,
+                    label: c.nama_kelas,
+                  }))}
+                  placeholder="Pilih Kelas"
+                  searchPlaceholder="Cari kelas..."
+                  emptyText="Kelas tidak ditemukan."
+                  className="w-[160px]"
+                />
               </div>
               <Button
                 type="submit"
@@ -872,24 +571,22 @@ export default function KelasGuruSiswaPage({
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Wali Kelas</Label>
-                  <Select
+                  <SearchableSelect
                     value={editKelasForm.waliKelasId}
                     onValueChange={(v) =>
                       setEditKelasForm((p) => ({ ...p, waliKelasId: v }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">-</SelectItem>
-                      {editWaliKelasOptions.map((t) => (
-                        <SelectItem key={t.user_id} value={t.user_id}>
-                          {t.nama_lengkap}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={[
+                      { value: "null", label: "-" },
+                      ...editWaliKelasOptions.map((t) => ({
+                        value: t.user_id,
+                        label: t.nama_lengkap,
+                      })),
+                    ]}
+                    placeholder="Pilih Wali Kelas"
+                    searchPlaceholder="Cari guru wali kelas..."
+                    emptyText="Guru tidak ditemukan."
+                  />
                 </div>
               </div>
 
@@ -1085,23 +782,19 @@ export default function KelasGuruSiswaPage({
                 Pilih tahun ajaran asal untuk mempromosikan siswa ke{" "}
                 <strong>{taName}</strong>.
               </span>
-              <Select value={promoteFrom} onValueChange={setPromoteFrom}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tahun ajaran asal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tahunAjarans
-                    ?.filter((ta) => ta.tahun_ajaran_id !== selectedTA)
-                    .map((ta) => (
-                      <SelectItem
-                        key={ta.tahun_ajaran_id}
-                        value={ta.tahun_ajaran_id}
-                      >
-                        {ta.nama}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={promoteFrom}
+                onValueChange={(v) => setPromoteFrom(v)}
+                options={(tahunAjarans || [])
+                  .filter((ta) => ta.tahun_ajaran_id !== selectedTA)
+                  .map((ta) => ({
+                    value: ta.tahun_ajaran_id,
+                    label: ta.nama,
+                  }))}
+                placeholder="Tahun ajaran asal"
+                searchPlaceholder="Cari tahun ajaran asal..."
+                emptyText="Tahun ajaran tidak ditemukan."
+              />
               <span className="block text-xs">
                 X{"->"}XI, XI{"->"}XII. Siswa XII dianggap lulus dan tidak dipindahkan.
               </span>
@@ -1156,6 +849,7 @@ export default function KelasGuruSiswaPage({
 
 // ── Kelas Card with expandable student list ─────────────────────────────────
 
+/* legacy in-file components moved to app/components/admin/kelas-management-cards.tsx
 function KelasCard({
   kelas,
   onDelete,
@@ -1165,7 +859,7 @@ function KelasCard({
   onDelete: () => void;
   onManage: () => void;
 }) {
-  const { data: students, isLoading } = useListSiswaInKelasQuery(
+  const { data: students = [], isLoading } = useListSiswaInKelasQuery(
     kelas.kelas_id,
   );
   const total = students?.length || 0;
@@ -1223,12 +917,12 @@ function KelasCard({
           {isLoading && (
             <p className="text-xs text-muted-foreground">Memuat...</p>
           )}
-          {students && students.length === 0 && (
+          {students.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">
               Belum ada siswa.
             </p>
           )}
-          {students && students.length > 0 && (
+          {students.length > 0 && (
             <div className="space-y-1">
               {students.map((sk, i) => (
                 <div
@@ -1275,7 +969,7 @@ function ManageKelasStudents({
   onAdd: () => void;
   onRemove: (userId: string, nama: string) => void;
 }) {
-  const { data: students, isLoading } = useListSiswaInKelasQuery(
+  const { data: students = [], isLoading } = useListSiswaInKelasQuery(
     kelas.kelas_id,
   );
 
@@ -1295,7 +989,7 @@ function ManageKelasStudents({
         <p className="text-xs text-muted-foreground">Memuat siswa...</p>
       ) : null}
 
-      {students && students.length > 0 ? (
+      {students.length > 0 ? (
         <div className="max-h-[360px] space-y-1 overflow-y-auto rounded border p-2">
           {students.map((sk, i) => (
             <div
@@ -1326,7 +1020,7 @@ function ManageKelasStudents({
         </div>
       ) : null}
 
-      {students && students.length === 0 ? (
+      {students.length === 0 ? (
         <p className="py-4 text-center text-xs text-muted-foreground">
           Belum ada siswa di kelas ini.
         </p>
@@ -1334,3 +1028,4 @@ function ManageKelasStudents({
     </div>
   );
 }
+*/
