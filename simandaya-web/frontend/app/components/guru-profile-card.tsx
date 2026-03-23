@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DateInputId } from "@/components/ui/date-input-id";
 import {
   Select,
   SelectContent,
@@ -18,25 +19,8 @@ import {
 } from "@/api/admin/teachers";
 import type { UpdateGuruRequest } from "@/types/teachers";
 import type { JenisKelamin } from "@/types/enums";
-
-function toInputDate(value?: string | null): string {
-  if (!value) return "";
-  if (value.includes("-")) return value;
-  if (value.includes("/")) {
-    const [day, month, year] = value.split("/");
-    if (!day || !month || !year) return "";
-    return `${year}-${month}-${day}`;
-  }
-  return "";
-}
-
-function toApiDate(value?: string): string | undefined {
-  if (!value) return undefined;
-  if (!value.includes("-")) return value;
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}/${month}/${year}`;
-}
+import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export function GuruProfileCard() {
   const { data: profile } = useGetMyTeacherProfileQuery();
@@ -48,7 +32,7 @@ export function GuruProfileCard() {
     if (!profile) return;
     setForm({
       nama_lengkap: profile.nama_lengkap ?? undefined,
-      dob: toInputDate(profile.dob),
+      dob: normalizeDateToIso(profile.dob),
       tempat_lahir: profile.tempat_lahir ?? undefined,
       jenis_kelamin: profile.jenis_kelamin ?? undefined,
       alamat: profile.alamat ?? undefined,
@@ -60,15 +44,7 @@ export function GuruProfileCard() {
     });
   }, [profile]);
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => {
-          const d = (error.data as { detail?: unknown })?.detail;
-          if (typeof d === "string") return d;
-          if (Array.isArray(d)) return d.map((e: any) => e.msg).join(", ");
-          return undefined;
-        })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   const handleChange = (field: keyof UpdateGuruRequest, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value || undefined }));
@@ -80,7 +56,7 @@ export function GuruProfileCard() {
 
     const payload: UpdateGuruRequest = {
       ...form,
-      dob: toApiDate(form.dob),
+      dob: formatIsoToApiDmy(form.dob),
     };
 
     const result = await updateMyProfile(payload);
@@ -114,11 +90,7 @@ export function GuruProfileCard() {
           </div>
           <div className="grid gap-2">
             <Label>Tanggal Lahir</Label>
-            <Input
-              type="date"
-              value={form.dob ?? ""}
-              onChange={(e) => handleChange("dob", e.target.value)}
-            />
+            <DateInputId value={form.dob ?? ""} onValueChange={(value) => handleChange("dob", value)} />
           </div>
           <div className="grid gap-2">
             <Label>Jenis Kelamin</Label>

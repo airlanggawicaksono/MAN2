@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { jadwalColumns } from "./jadwal-columns";
 import { JadwalForm } from "./jadwal-form";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 export default function ManajemenJadwalPage() {
   const { data: semesters } = useListSemestersQuery();
@@ -69,7 +70,12 @@ export default function ManajemenJadwalPage() {
 
   const handleDelete = async () => {
     if (deleteTarget) {
-      await deleteJadwal(deleteTarget.jadwal_id);
+      try {
+        await deleteJadwal(deleteTarget.jadwal_id).unwrap();
+        notifySuccess("Jadwal berhasil dihapus.");
+      } catch {
+        notifyError("Gagal menghapus jadwal.");
+      }
       setDeleteTarget(null);
     }
   };
@@ -133,7 +139,7 @@ export default function ManajemenJadwalPage() {
             <AlertDialogTitle>Hapus Entri Jadwal?</AlertDialogTitle>
             <AlertDialogDescription>
               Tindakan ini tidak dapat dibatalkan. Jadwal untuk{" "}
-              <strong>{deleteTarget?.mapel_nama}</strong> pada hari{" "}
+              <strong>{deleteTarget?.mapel?.nama_mapel ?? "-"}</strong> pada hari{" "}
               <strong>{deleteTarget?.hari}</strong> jam{" "}
               <strong>{deleteTarget?.jam_mulai}</strong> akan dihapus.
             </AlertDialogDescription>

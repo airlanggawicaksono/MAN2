@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/select";
 import { useCreateMapelMutation } from "@/api/shared/akademik";
 import type { CreateMapelRequest } from "@/types/akademik/mapel";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 const INITIAL_STATE: CreateMapelRequest = {
   nama_mapel: "",
   kode_mapel: "",
   kelompok: "Wajib",
-  jam_per_minggu: 2,
 };
 
 export function MapelForm() {
@@ -39,25 +40,19 @@ export function MapelForm() {
     if ("data" in result && result.data) {
       setSuccessMessage("Mata pelajaran berhasil ditambahkan.");
       setForm({ ...INITIAL_STATE });
+      notifySuccess("Mata pelajaran berhasil ditambahkan.");
+    } else {
+      notifyError("Gagal menambahkan mata pelajaran.");
     }
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (error.data as { detail?: unknown })?.detail
-      : undefined;
-
-  const errorText = typeof errorMessage === "string"
-    ? errorMessage
-    : Array.isArray(errorMessage)
-      ? errorMessage.map((e: any) => e.msg).join(", ")
-      : errorMessage ? JSON.stringify(errorMessage) : undefined;
+  const errorText = getApiErrorMessage(error);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 rounded-lg border p-6">
       <h2 className="text-lg font-semibold">Tambah Mata Pelajaran Baru</h2>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="kode_mapel">Kode Mapel *</Label>
           <Input
@@ -95,18 +90,6 @@ export function MapelForm() {
           </Select>
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="jam_per_minggu">Jam/Minggu *</Label>
-          <Input
-            id="jam_per_minggu"
-            type="number"
-            min={1}
-            max={20}
-            required
-            value={form.jam_per_minggu}
-            onChange={(e) => handleChange("jam_per_minggu", parseInt(e.target.value) || 1)}
-          />
-        </div>
       </div>
 
       {errorText && <p className="text-sm text-destructive">{errorText}</p>}

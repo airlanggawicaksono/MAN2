@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Calendar, ClipboardCheck, GraduationCap, User } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { DashboardActionCard } from "@/app/components/dashboard-action-card";
@@ -35,12 +36,17 @@ const actions = [
 
 export default function GuruDashboard() {
   const user = useAppSelector((s) => s.auth.user);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   return (
     <div className="space-y-8 p-8">
       <DashboardHeader
         icon={User}
-        title={`Selamat Datang, ${user?.username ?? ""}`}
+        title={hydrated && user?.username ? `Selamat Datang, ${user.username}` : "Selamat Datang"}
         subtitle="Panel dashboard Guru / Tenaga Pendidik MAN 2 Yogyakarta."
       />
 

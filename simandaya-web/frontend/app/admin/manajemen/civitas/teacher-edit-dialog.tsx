@@ -23,6 +23,7 @@ import { useListTeachersQuery, useUpdateTeacherMutation } from "@/api/admin/teac
 import {
   useAssignStructuralRoleMutation,
   useDeactivateStructuralAssignmentMutation,
+  useGetStructuralRolesQuery,
 } from "@/api/admin/userman";
 import type { GuruProfile, UpdateGuruRequest } from "@/types/teachers";
 import type {
@@ -30,10 +31,47 @@ import type {
   StatusGuru,
   StructuralRole,
 } from "@/types/enums";
-import { STRUCTURAL_ROLE_OPTIONS } from "@/types/enums";
+import { ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS } from "@/types/enums";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useListKelasQuery } from "@/api/shared/akademik";
+import { DateInputId } from "@/components/ui/date-input-id";
+import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
+import { getApiErrorMessage } from "@/lib/api-error";
+
+const NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES = new Set<string>([
+  "Tim IT",
+  "Pengembang Madrasah",
+  "Kepala Laboratorium Terpadu",
+  "Wali Kelas",
+  "Bimbingan Konseling",
+  "Satuan Pendidikan Ramah Anak",
+  "Tim Pendidikan Karakter",
+  "Tim Penjaminan Karakter",
+  "Pembina Ekstrakurikuler",
+  "Laboratorium Komputer",
+  "Publikasi dan Informasi",
+  "Multimedia dan Studio",
+  "Tim Adiwiyata",
+  "Satgas Anti Narkoba",
+  "OSIS",
+  "MPK",
+  "PIKR",
+  "KIR",
+  "Robotik",
+  "Koord. OSN/KSN",
+  "Koord. OSN/KSM",
+  "PMR dan UKS",
+  "Olahraga",
+  "Seni",
+  "Pecinta Alam",
+  "Corps Mubaligh",
+  "Pramuka",
+  "Staf Tata Usaha",
+  "Pustakawan",
+  "Laboran",
+  "Petugas UKS",
+  "Guru",
+]);
 
 interface TeacherEditDialogProps {
   teacher: GuruProfile | null;
@@ -41,8 +79,6 @@ interface TeacherEditDialogProps {
   onClose: () => void;
   onSaved?: () => void;
 }
-
-const MULTI_ASSIGNABLE_ROLES = new Set<string>(["Wali Kelas"]);
 
 export function TeacherEditDialog({
   teacher,
@@ -52,9 +88,9 @@ export function TeacherEditDialog({
 }: TeacherEditDialogProps) {
   const [form, setForm] = useState<UpdateGuruRequest>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
-  const [selectedWaliKelasId, setSelectedWaliKelasId] = useState<string>("");
   const [roleSearch, setRoleSearch] = useState("");
   const [roleOpen, setRoleOpen] = useState(false);
+  const [roleGuardError, setRoleGuardError] = useState<string | null>(null);
   const [tahunMasukDate, setTahunMasukDate] = useState<string>("");
   const [
     updateTeacher,
@@ -70,19 +106,26 @@ export function TeacherEditDialog({
   ] = useDeactivateStructuralAssignmentMutation();
   const { data: teachersData } = useListTeachersQuery({
     skip: 0,
-    limit: 1000,
+    limit: 100,
   });
-  const { data: kelasList = [] } = useListKelasQuery();
+  const {
+    data: structuralRoles = [],
+    refetch: refetchStructuralRoles,
+  } = useGetStructuralRolesQuery(
+    teacher
+      ? {
+          includeInactive: false,
+          availableOnly: true,
+          forUserId: teacher.user_id,
+        }
+      : undefined,
+  );
 
   const NO_ROLE = "__NONE__";
 
   useEffect(() => {
     if (teacher) {
-      let dobIso = teacher.dob ?? "";
-      if (dobIso && dobIso.includes("/")) {
-        const [day, month, year] = dobIso.split("/");
-        dobIso = `${year}-${month}-${day}`;
-      }
+      const dobIso = normalizeDateToIso(teacher.dob);
       setForm({
         nip: teacher.nip ?? undefined,
         nama_lengkap: teacher.nama_lengkap,
@@ -104,14 +147,14 @@ export function TeacherEditDialog({
       const activeRole = teacher.structural_assignments.find(
         (assignment) => assignment.is_active,
       );
+      const activeRoleName =
+        activeRole?.structural_role ?? activeRole?.role_name ?? NO_ROLE;
       setSelectedRole(
-        activeRole?.structural_role ?? activeRole?.role_name ?? NO_ROLE,
+        activeRoleName === "Wali Kelas" ? NO_ROLE : activeRoleName,
       );
-      const currentWaliKelas = kelasList.find((kelas) => kelas.wali_kelas_id === teacher.user_id);
-      setSelectedWaliKelasId(currentWaliKelas?.kelas_id ?? "");
       setRoleSearch("");
     }
-  }, [teacher, kelasList]);
+  }, [teacher]);
 
   const lcsLength = (a: string, b: string): number => {
     const n = a.length;
@@ -140,17 +183,25 @@ export function TeacherEditDialog({
         .map((assignment) => assignment.structural_role ?? assignment.role_name)
         .filter((role): role is string => Boolean(role));
       for (const roleName of activeRoles) {
-        if (roleName && !MULTI_ASSIGNABLE_ROLES.has(roleName)) taken.add(roleName);
+        taken.add(roleName);
       }
     }
     return taken;
   }, [teachersData?.items, teacher]);
 
   const selectableStructuralRoles = useMemo(() => {
-    return STRUCTURAL_ROLE_OPTIONS.filter(
-      (roleName) => !takenRoleNames.has(roleName) || roleName === selectedRole,
-    );
-  }, [takenRoleNames, selectedRole]);
+    const apiNames = structuralRoles.map((role) => role.name).filter(Boolean);
+    // Prefer backend catalog as source of truth; fallback to local options if catalog is empty.
+    const backendFirst = apiNames.length > 0 ? apiNames : [...ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS];
+    const merged = Array.from(new Set<string>(backendFirst));
+    if (selectedRole && selectedRole !== NO_ROLE && !merged.includes(selectedRole)) {
+      merged.push(selectedRole);
+    }
+    return merged
+      .filter((roleName) => !NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES.has(roleName))
+      .filter((roleName) => !takenRoleNames.has(roleName) || roleName === selectedRole)
+      .sort((a, b) => a.localeCompare(b));
+  }, [structuralRoles, selectedRole, takenRoleNames]);
 
   const filteredStructuralRoles = useMemo(() => {
     const query = roleSearch.trim().toLowerCase();
@@ -170,6 +221,11 @@ export function TeacherEditDialog({
     return scored.map((item) => item.roleName);
   }, [selectableStructuralRoles, roleSearch]);
 
+  const visibleStructuralRoles = useMemo(() => {
+    if (!selectedRole || selectedRole === NO_ROLE) return filteredStructuralRoles;
+    return filteredStructuralRoles.filter((roleName) => roleName !== selectedRole);
+  }, [filteredStructuralRoles, selectedRole]);
+
   const handleChange = (
     field: keyof UpdateGuruRequest,
     value: string | number | null,
@@ -178,9 +234,7 @@ export function TeacherEditDialog({
   };
 
   const formatDateForApi = (isoDate: string | undefined): string => {
-    if (!isoDate || !isoDate.includes("-")) return isoDate ?? "";
-    const [year, month, day] = isoDate.split("-");
-    return `${day}/${month}/${year}`;
+    return formatIsoToApiDmy(isoDate) ?? "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,6 +243,7 @@ export function TeacherEditDialog({
     reset();
     resetAssignError();
     resetDeactivateError();
+    setRoleGuardError(null);
     const payload = { ...form };
     if (payload.dob) payload.dob = formatDateForApi(payload.dob);
     if (!payload.tahun_masuk) delete payload.tahun_masuk;
@@ -213,13 +268,25 @@ export function TeacherEditDialog({
     if (selectedRole !== activeRole) {
       let newAssignmentId: string | null = null;
       if (selectedRole !== NO_ROLE) {
+        if (NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES.has(selectedRole)) {
+          setRoleGuardError(
+            "Jabatan tersebut tidak dapat di-assign. Pilih jabatan struktural yang assignable.",
+          );
+          return;
+        }
+        // Re-check right before submit to avoid stale options in long-open dialog.
+        const latest = await refetchStructuralRoles();
+        const latestNames = (latest.data ?? structuralRoles).map((role) => role.name);
+        if (!latestNames.includes(selectedRole)) {
+          setRoleGuardError(
+            "Jabatan sudah dipakai/berubah oleh user lain. Silakan pilih ulang jabatan.",
+          );
+          return;
+        }
         const assignResult = await assignStructuralRole({
           user_id: teacher.user_id,
           structural_role: selectedRole as StructuralRole,
-          kelas_id:
-            selectedRole === "Wali Kelas" && selectedWaliKelasId
-              ? selectedWaliKelasId
-              : null,
+          kelas_id: null,
           is_active: true,
         });
         if ("error" in assignResult) return;
@@ -241,21 +308,13 @@ export function TeacherEditDialog({
     reset();
     resetAssignError();
     resetDeactivateError();
+    setRoleGuardError(null);
     onClose();
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
-  const assignErrorMessage =
-    assignError && "data" in assignError
-      ? (() => { const d = (assignError.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
-  const deactivateErrorMessage =
-    deactivateError && "data" in deactivateError
-      ? (() => { const d = (deactivateError.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
+  const assignErrorMessage = getApiErrorMessage(assignError);
+  const deactivateErrorMessage = getApiErrorMessage(deactivateError);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -271,6 +330,9 @@ export function TeacherEditDialog({
         )}
         {deactivateErrorMessage && (
           <p className="text-sm text-destructive">{deactivateErrorMessage}</p>
+        )}
+        {roleGuardError && (
+          <p className="text-sm text-destructive">{roleGuardError}</p>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -304,10 +366,9 @@ export function TeacherEditDialog({
             </div>
             <div className="grid gap-2">
               <Label>Tanggal Lahir</Label>
-              <Input
-                type="date"
+              <DateInputId
                 value={form.dob || ""}
-                onChange={(e) => handleChange("dob", e.target.value)}
+                onValueChange={(value) => handleChange("dob", value)}
               />
             </div>
             <div className="grid gap-2">
@@ -350,7 +411,10 @@ export function TeacherEditDialog({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-2"
+                  align="start"
+                >
                   <Input
                     placeholder="Cari jabatan..."
                     value={roleSearch}
@@ -358,21 +422,25 @@ export function TeacherEditDialog({
                     onKeyDown={(e) => e.stopPropagation()}
                     className="mb-2"
                   />
-                  <div className="max-h-60 overflow-auto">
+                  <div
+                    className="h-64 overflow-y-auto overscroll-contain pr-1"
+                    onWheel={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
                     <Button
                       type="button"
                       variant="ghost"
                       className="w-full justify-start"
                       onClick={() => {
                         setSelectedRole(NO_ROLE);
-                        setSelectedWaliKelasId("");
                         setRoleOpen(false);
                       }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", selectedRole === NO_ROLE ? "opacity-100" : "opacity-0")} />
                       Tidak ada jabatan
                     </Button>
-                    {filteredStructuralRoles.map((roleName) => (
+                    {visibleStructuralRoles.map((roleName) => (
                       <Button
                         key={roleName}
                         type="button"
@@ -380,9 +448,6 @@ export function TeacherEditDialog({
                         className="w-full justify-start"
                         onClick={() => {
                           setSelectedRole(roleName);
-                          if (roleName !== "Wali Kelas") {
-                            setSelectedWaliKelasId("");
-                          }
                           setRoleOpen(false);
                         }}
                       >
@@ -395,42 +460,13 @@ export function TeacherEditDialog({
                         {roleName}
                       </Button>
                     ))}
-                    {filteredStructuralRoles.length === 0 && (
+                    {visibleStructuralRoles.length === 0 && (
                       <p className="px-2 py-1 text-sm text-muted-foreground">Tidak ada hasil</p>
                     )}
                   </div>
                 </PopoverContent>
               </Popover>
             </div>
-            {selectedRole === "Wali Kelas" && (
-              <div className="grid gap-2">
-                <Label>Kelas Wali (Opsional)</Label>
-                <Select
-                  value={selectedWaliKelasId || "__NONE__"}
-                  onValueChange={(val) => {
-                    setSelectedWaliKelasId(val === "__NONE__" ? "" : val);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih kelas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__NONE__">Tidak ditentukan</SelectItem>
-                    {kelasList
-                      .filter(
-                        (kelas) =>
-                          !kelas.wali_kelas_id || kelas.wali_kelas_id === teacher?.user_id,
-                      )
-                      .map((kelas) => (
-                        <SelectItem key={kelas.kelas_id} value={kelas.kelas_id}>
-                          {kelas.nama_kelas}
-                          {kelas.jurusan ? ` - ${kelas.jurusan}` : ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="grid gap-2">
               <Label>Jabatan Fungsional (Mata Pelajaran)</Label>
               <Input
@@ -449,11 +485,9 @@ export function TeacherEditDialog({
             </div>
             <div className="grid gap-2">
               <Label>Tahun Masuk</Label>
-              <Input
-                type="date"
+              <DateInputId
                 value={tahunMasukDate}
-                onChange={(e) => {
-                  const value = e.target.value;
+                onValueChange={(value) => {
                   setTahunMasukDate(value);
                   if (!value) {
                     setForm((prev) => {

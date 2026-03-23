@@ -15,6 +15,9 @@ export const usermanApi = createApi({
   reducerPath: "usermanApi",
   baseQuery: createBaseQuery("/users"),
   tagTypes: ["User", "StructuralRole", "StructuralAssignment"],
+  keepUnusedDataFor: 120,
+  refetchOnFocus: false,
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     listPublicCivitas: builder.query<PaginatedPublicCivitasResponse, ListPublicCivitasParams | void>({
       query: (params) => {

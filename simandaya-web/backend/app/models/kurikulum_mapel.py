@@ -13,7 +13,13 @@ from app.enums import TingkatKelas
 class KurikulumMapel(Base):
     __tablename__ = "kurikulum_mapel"
     __table_args__ = (
-        UniqueConstraint("mapel_id", "tingkat", "tahun_ajaran_id", name="uq_kurikulum_mapel"),
+        UniqueConstraint(
+            "mapel_id",
+            "tingkat",
+            "tahun_ajaran_id",
+            "kategori_kelas_id",
+            name="uq_kurikulum_mapel",
+        ),
     )
 
     kurikulum_mapel_id: Mapped[UUID] = mapped_column(
@@ -33,6 +39,11 @@ class KurikulumMapel(Base):
         SQLAlchemyEnum(TingkatKelas, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
+    kategori_kelas_id: Mapped[UUID] = mapped_column(
+        SQLAlchemyUUID(as_uuid=True),
+        ForeignKey("kategori_kelas.kategori_kelas_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     is_wajib: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     jam_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -40,6 +51,7 @@ class KurikulumMapel(Base):
     # Relationships
     mapel = relationship("MataPelajaran", lazy="selectin")
     tahun_ajaran = relationship("TahunAjaran", lazy="selectin")
+    kategori_kelas = relationship("KategoriKelas", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"KurikulumMapel(mapel={self.mapel_id}, tingkat={self.tingkat}, ta={self.tahun_ajaran_id})"

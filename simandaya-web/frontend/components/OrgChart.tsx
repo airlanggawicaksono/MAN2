@@ -26,7 +26,9 @@ const OrgNode = ({ data }: NodeProps) => {
     <div className="px-6 py-5 shadow-xl rounded-2xl bg-white border-2 border-slate-200 min-w-[300px] text-center transition-all hover:border-blue-500 hover:shadow-2xl">
       <Handle type="target" position={Position.Top} className="w-3 h-3 bg-slate-400" />
       <div className="flex flex-col gap-2">
-        {data.names && (data.names as string[]).length > 0 ? (
+        {!data.assignable ? (
+          <div className="h-7" />
+        ) : data.names && (data.names as string[]).length > 0 ? (
           (data.names as string[]).map((name, idx) => (
             <div key={idx} className="font-extrabold text-slate-900 text-lg md:text-xl leading-tight">
               {name}
@@ -141,6 +143,36 @@ const COORDINATION_LINES = [
   { source: "BK", target: "TPK" },
 ];
 
+const NON_ASSIGNABLE_ROLES = new Set<string>([
+  "Tim IT",
+  "Pengembang Madrasah",
+  "Kepala Laboratorium Terpadu",
+  "Wali Kelas",
+  "Bimbingan Konseling",
+  "Satuan Pendidikan Ramah Anak",
+  "Tim Pendidikan Karakter",
+  "Tim Penjaminan Karakter",
+  "Pembina Ekstrakurikuler",
+  "Laboratorium Komputer",
+  "Publikasi dan Informasi",
+  "Multimedia dan Studio",
+  "Tim Adiwiyata",
+  "Satgas Anti Narkoba",
+  "OSIS",
+  "MPK",
+  "PIKR",
+  "KIR",
+  "Robotik",
+  "Koord. OSN/KSN",
+  "Koord. OSN/KSM",
+  "PMR dan UKS",
+  "Olahraga",
+  "Seni",
+  "Pecinta Alam",
+  "Corps Mubaligh",
+  "Pramuka",
+]);
+
 export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const roleGroups: Record<string, string[]> = {};
@@ -156,7 +188,8 @@ export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
       type: 'org',
       data: { 
         role: h.role, 
-        names: roleGroups[h.role] || [] 
+        names: roleGroups[h.role] || [],
+        assignable: !NON_ASSIGNABLE_ROLES.has(h.role),
       },
       position: { x: 0, y: 0 },
     }));

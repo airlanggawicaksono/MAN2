@@ -6,7 +6,11 @@ from app.dependencies import require_role
 from app.enums import UserType
 from app.services.akademik_service import AkademikService
 from app.dto.akademik.tahun_ajaran_dto import (
-    CreateTahunAjaranDTO, UpdateTahunAjaranDTO, TahunAjaranResponseDTO,
+    CopyTahunAjaranStructureDTO,
+    CopyTahunAjaranStructureResponseDTO,
+    CreateTahunAjaranDTO,
+    TahunAjaranResponseDTO,
+    UpdateTahunAjaranDTO,
 )
 from app.dto.akademik.kelas_dto import MessageResponseDTO
 
@@ -29,6 +33,21 @@ async def create_tahun_ajaran(
 ) -> TahunAjaranResponseDTO:
     service = AkademikService(db)
     return await service.create_tahun_ajaran(request)
+
+
+@router.post(
+    "/tahun-ajaran/copy-structure",
+    response_model=CopyTahunAjaranStructureResponseDTO,
+    status_code=201,
+    summary="Create Academic Year by Copying Structure",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def copy_tahun_ajaran_structure(
+    request: CopyTahunAjaranStructureDTO,
+    db: AsyncSession = Depends(get_db),
+) -> CopyTahunAjaranStructureResponseDTO:
+    service = AkademikService(db)
+    return await service.copy_tahun_ajaran_structure(request)
 
 
 @router.get(

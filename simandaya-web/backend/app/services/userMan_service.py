@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.struktural.assignment_dto import (
@@ -28,6 +29,44 @@ from app.enums import StructuralRole
 from app.policy.user_management_policy import UserManagementPolicy
 from app.repositoriy.user_management_repository import UserManagementRepository
 
+NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
+    # Team-level positions are currently display-only in struktur organisasi.
+    "tim_it",
+    "pengembang_madrasah",
+    "kepala_laboratorium_terpadu",
+    "bimbingan_konseling",
+    "satuan_pendidikan_ramah_anak",
+    "tim_pendidikan_karakter",
+    "tim_penjaminan_karakter",
+    "pembina_ekstrakurikuler",
+    "laboratorium_komputer",
+    "publikasi_informasi",
+    "multimedia_studio",
+    "tim_adiwiyata",
+    # Student-organization or extracurricular placeholders are display-only for now.
+    "satgas_anti_narkoba",
+    "pembina_osis",
+    "pembina_mpk",
+    "pembina_pikr",
+    "pembina_kir",
+    "pembina_robotik",
+    "koordinator_osn_ksn",
+    "koordinator_osn_ksm",
+    "pembina_pmr_uks",
+    "pembina_olahraga",
+    "pembina_seni",
+    "pembina_pecinta_alam",
+    "pembina_corps_mubaligh",
+    "pembina_pramuka",
+    # Wali kelas should be handled by kelas assignment only.
+    "wali_kelas",
+    # General operational roles should stay informational in org chart (not structural assignments).
+    "staf_tata_usaha",
+    "pustakawan",
+    "laboran",
+    "petugas_uks",
+}
+
 
 class StudentUserManagementService:
     def __init__(self, repo: UserManagementRepository, policy: type[UserManagementPolicy]):
@@ -39,8 +78,11 @@ class StudentUserManagementService:
     ) -> PaginatedStudentsResponse:
         total = await self.repo.count_students(search=search)
         profiles = await self.repo.list_students(skip=skip, limit=limit, search=search)
+        items: list[StudentProfileResponseDTO] = []
+        for profile in profiles:
+            items.append(await self._to_student_dto(profile))
         return PaginatedStudentsResponse(
-            items=[self._to_student_dto(p) for p in profiles],
+            items=items,
             total=total,
             skip=skip,
             limit=limit,
@@ -49,12 +91,12 @@ class StudentUserManagementService:
     async def get_student(self, siswa_id: UUID) -> StudentProfileResponseDTO:
         profile = await self.repo.find_student_by_id_with_user(siswa_id)
         self.policy.ensure_student_exists(profile, detail="Student not found")
-        return self._to_student_dto(profile)
+        return await self._to_student_dto(profile)
 
     async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
         profile = await self.repo.find_student_by_user_id_with_user(user_id)
         self.policy.ensure_student_exists(profile, detail="Student profile not found")
-        return self._to_student_dto(profile)
+        return await self._to_student_dto(profile)
 
     async def update_student(
         self, siswa_id: UUID, request: UpdateStudentRequestDTO
@@ -77,7 +119,7 @@ class StudentUserManagementService:
 
         profile_with_user = await self.repo.find_student_by_id_with_user(siswa_id)
         self.policy.ensure_student_exists(profile_with_user, detail="Student not found")
-        return self._to_student_dto(profile_with_user)
+        return await self._to_student_dto(profile_with_user)
 
     async def delete_student(self, siswa_id: UUID) -> MessageResponseDTO:
         profile = await self.repo.find_student_by_id(siswa_id)
@@ -93,8 +135,8 @@ class StudentUserManagementService:
         await self.repo.commit()
         return MessageResponseDTO(message="Student deleted successfully")
 
-    @staticmethod
-    def _to_student_dto(profile: SiswaProfile) -> StudentProfileResponseDTO:
+    async def _to_student_dto(self, profile: SiswaProfile) -> StudentProfileResponseDTO:
+        kelas_nama = await self.repo.find_active_kelas_name_for_user(profile.user_id)
         return StudentProfileResponseDTO(
             siswa_id=profile.siswa_id,
             user_id=profile.user_id,
@@ -105,7 +147,8 @@ class StudentUserManagementService:
             jenis_kelamin=profile.jenis_kelamin,
             alamat=profile.alamat,
             nama_wali=profile.nama_wali,
-            kelas_jurusan=profile.kelas_jurusan,
+            kelas_jurusan=kelas_nama or profile.kelas_jurusan,
+            kelas_nama=kelas_nama,
             tahun_masuk=profile.tahun_masuk,
             status_siswa=profile.status_siswa,
             kontak=profile.kontak,
@@ -191,11 +234,15 @@ class TeacherUserManagementService:
             assignments = await self.repo.list_teacher_structural_assignments(
                 p.user_id, active_only=True
             )
-            role_names = [
+            role_names_raw = [
                 a.role.name
                 for a in assignments
-                if a.role and a.role.code.lower() != "guru" and a.role.name.lower() != "guru"
+                if a.role
+                and a.role.code.lower() not in {"guru", "wali_kelas"}
+                and a.role.name.lower() not in {"guru", "wali kelas"}
             ]
+            # Keep order stable while removing duplicates from legacy/duplicate assignments.
+            role_names = list(dict.fromkeys(role_names_raw))
             items.append(
                 PublicCivitasResponseDTO(
                     nama=p.nama_lengkap,
@@ -225,7 +272,9 @@ class TeacherUserManagementService:
         roles = [
             role
             for role in roles
-            if role.code.lower() != "guru" and role.name.lower() != "guru"
+            if role.code.lower() not in {"guru", "wali_kelas"}
+            and role.name.lower() not in {"guru", "wali kelas"}
+            and role.code.lower() not in NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES
         ]
 
         if available_only:
@@ -265,15 +314,43 @@ class TeacherUserManagementService:
             await self.repo.refresh(role)
 
         is_wali_kelas = role.code.lower() == "wali_kelas" or role.name.lower() == "wali kelas"
-        self.policy.ensure_kelas_id_only_for_wali_kelas(is_wali_kelas, request.kelas_id)
-
-        allow_multiple_holders = is_wali_kelas
-        if not allow_multiple_holders:
-            existing_active_assignment = await self.repo.find_active_structural_assignment_by_role_id(
-                role.role_id
+        if is_wali_kelas:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Jabatan struktural 'Wali Kelas' dinonaktifkan. Atur wali kelas langsung dari menu Kelas.",
             )
-            if existing_active_assignment and existing_active_assignment.user_id != request.user_id:
+        if role.code.lower() in NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Jabatan ini saat ini hanya untuk bagan struktur organisasi "
+                    "dan belum bisa di-assign ke guru."
+                ),
+            )
+        self.policy.ensure_kelas_id_only_for_wali_kelas(False, request.kelas_id)
+
+        allow_multiple_holders = False
+        existing_active_assignment = await self.repo.find_active_structural_assignment_by_role_id(
+            role.role_id
+        )
+        if not allow_multiple_holders and existing_active_assignment:
+            if existing_active_assignment.user_id != request.user_id:
                 self.policy.ensure_structural_role_not_taken(existing_active_assignment, role.name)
+            else:
+                # Idempotent behavior: same user + same active role should not create duplicate rows.
+                assignment = await self.repo.find_teacher_structural_assignment_by_id(
+                    existing_active_assignment.assignment_id
+                )
+                self.policy.ensure_assignment_exists(assignment)
+                return self._to_structural_assignment_dto(assignment)
+
+        # Enforce single active structural role per teacher:
+        # assigning a new role automatically deactivates existing active roles.
+        current_active_assignments = await self.repo.list_teacher_structural_assignments(
+            user_id=request.user_id, active_only=True
+        )
+        for active_assignment in current_active_assignments:
+            active_assignment.is_active = False
 
         assignment = GuruStructuralAssignment(
             user_id=request.user_id,
@@ -284,14 +361,6 @@ class TeacherUserManagementService:
             is_active=request.is_active,
         )
         await self.repo.add_structural_assignment(assignment)
-
-        if is_wali_kelas and request.kelas_id:
-            kelas = await self.repo.find_kelas_by_id(request.kelas_id)
-            self.policy.ensure_kelas_exists(kelas, detail="Kelas not found")
-            self.policy.ensure_kelas_wali_not_taken(kelas, request.user_id)
-            # One teacher should only own one wali-kelas class at a time.
-            await self.repo.clear_wali_kelas_for_user(request.user_id)
-            kelas.wali_kelas_id = request.user_id
 
         await self.repo.commit()
         await self.repo.refresh(assignment)
@@ -311,11 +380,6 @@ class TeacherUserManagementService:
     async def deactivate_structural_assignment(self, assignment_id: UUID) -> MessageResponseDTO:
         assignment = await self.repo.find_teacher_structural_assignment_by_id(assignment_id)
         self.policy.ensure_assignment_exists(assignment)
-        if assignment.role and (
-            assignment.role.code.lower() == "wali_kelas"
-            or assignment.role.name.lower() == "wali kelas"
-        ):
-            await self.repo.clear_wali_kelas_for_user(assignment.user_id)
         assignment.is_active = False
         await self.repo.commit()
         return MessageResponseDTO(message="Structural assignment deactivated")
@@ -327,7 +391,11 @@ class TeacherUserManagementService:
         assignments = [
             a
             for a in assignments
-            if not a.role or (a.role.code.lower() != "guru" and a.role.name.lower() != "guru")
+            if not a.role
+            or (
+                a.role.code.lower() not in {"guru", "wali_kelas"}
+                and a.role.name.lower() not in {"guru", "wali kelas"}
+            )
         ]
         return GuruProfileResponseDTO(
             guru_id=profile.guru_id,

@@ -18,10 +18,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { TahunAjaranForm, SemesterForm } from "./periode-forms";
 import { TahunAjaranResponse, SemesterResponse } from "@/types/akademik/periode";
+import { formatIsoToIdDate } from "@/lib/date-id";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 export default function ManajemenPeriodePage() {
   const { data: tahunAjarans, isLoading: loadingTA } = useListTahunAjaranQuery();
@@ -37,27 +39,45 @@ export default function ManajemenPeriodePage() {
   const [taToActivate, setTaToActivate] = useState<TahunAjaranResponse | null>(null);
   const [semToActivate, setSemToActivate] = useState<SemesterResponse | null>(null);
 
+  const tahunAjaranNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ta of tahunAjarans || []) {
+      map.set(ta.tahun_ajaran_id, ta.nama);
+    }
+    return map;
+  }, [tahunAjarans]);
+
   const handleActivateTA = async () => {
     if (!taToActivate) return;
-    // Deactivate all others, activate selected
-    for (const ta of tahunAjarans || []) {
-      if (ta.tahun_ajaran_id === taToActivate.tahun_ajaran_id) {
-        await updateTA({ id: ta.tahun_ajaran_id, body: { is_active: true } });
-      } else if (ta.is_active) {
-        await updateTA({ id: ta.tahun_ajaran_id, body: { is_active: false } });
+    try {
+      // Deactivate all others, activate selected
+      for (const ta of tahunAjarans || []) {
+        if (ta.tahun_ajaran_id === taToActivate.tahun_ajaran_id) {
+          await updateTA({ id: ta.tahun_ajaran_id, body: { is_active: true } }).unwrap();
+        } else if (ta.is_active) {
+          await updateTA({ id: ta.tahun_ajaran_id, body: { is_active: false } }).unwrap();
+        }
       }
+      notifySuccess("Tahun ajaran aktif berhasil diperbarui.");
+    } catch {
+      notifyError("Gagal mengubah tahun ajaran aktif.");
     }
     setTaToActivate(null);
   };
 
   const handleActivateSem = async () => {
     if (!semToActivate) return;
-    for (const sem of semesters || []) {
-      if (sem.semester_id === semToActivate.semester_id) {
-        await updateSem({ id: sem.semester_id, body: { is_active: true } });
-      } else if (sem.is_active) {
-        await updateSem({ id: sem.semester_id, body: { is_active: false } });
+    try {
+      for (const sem of semesters || []) {
+        if (sem.semester_id === semToActivate.semester_id) {
+          await updateSem({ id: sem.semester_id, body: { is_active: true } }).unwrap();
+        } else if (sem.is_active) {
+          await updateSem({ id: sem.semester_id, body: { is_active: false } }).unwrap();
+        }
       }
+      notifySuccess("Semester aktif berhasil diperbarui.");
+    } catch {
+      notifyError("Gagal mengubah semester aktif.");
     }
     setSemToActivate(null);
   };
@@ -131,6 +151,24 @@ export default function ManajemenPeriodePage() {
     {
       accessorKey: "tipe",
       header: "Semester",
+    },
+    {
+      accessorKey: "tahun_ajaran_id",
+      header: "Tahun Ajaran",
+      cell: ({ row }) => {
+        const sem = row.original;
+        return tahunAjaranNameById.get(sem.tahun_ajaran_id) ?? sem.tahun_ajaran_id;
+      },
+    },
+    {
+      accessorKey: "tanggal_mulai",
+      header: "Tanggal Mulai",
+      cell: ({ row }) => formatIsoToIdDate(row.original.tanggal_mulai) || "-",
+    },
+    {
+      accessorKey: "tanggal_selesai",
+      header: "Tanggal Selesai",
+      cell: ({ row }) => formatIsoToIdDate(row.original.tanggal_selesai) || "-",
     },
     {
       id: "actions",
@@ -240,7 +278,12 @@ export default function ManajemenPeriodePage() {
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={async () => {
-                if (taToDelete) await deleteTA(taToDelete.tahun_ajaran_id);
+                try {
+                  if (taToDelete) await deleteTA(taToDelete.tahun_ajaran_id).unwrap();
+                  notifySuccess("Tahun ajaran berhasil dihapus.");
+                } catch {
+                  notifyError("Gagal menghapus tahun ajaran.");
+                }
                 setTaToDelete(null);
               }}
             >
@@ -278,7 +321,12 @@ export default function ManajemenPeriodePage() {
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={async () => {
-                if (semToDelete) await deleteSem(semToDelete.semester_id);
+                try {
+                  if (semToDelete) await deleteSem(semToDelete.semester_id).unwrap();
+                  notifySuccess("Semester berhasil dihapus.");
+                } catch {
+                  notifyError("Gagal menghapus semester.");
+                }
                 setSemToDelete(null);
               }}
             >

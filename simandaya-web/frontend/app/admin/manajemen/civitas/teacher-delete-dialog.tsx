@@ -3,6 +3,7 @@
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
 import { useDeleteTeacherMutation } from "@/api/admin/teachers";
 import type { GuruProfile } from "@/types/teachers";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface TeacherDeleteDialogProps {
   teacher: GuruProfile | null;
@@ -24,10 +25,7 @@ export function TeacherDeleteDialog({ teacher, open, onClose }: TeacherDeleteDia
     onClose();
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   return (
     <ConfirmDialog

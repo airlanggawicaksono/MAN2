@@ -19,6 +19,8 @@ import {
 import { mapelColumns } from "./mapel-columns";
 import { MapelForm } from "./mapel-form";
 import { MapelEditDialog } from "./mapel-edit-dialog";
+import { MapelImportDialog } from "./mapel-import-dialog";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 export default function ManajemenMapelPage() {
   const { data: mapels, isLoading, error } = useListMapelQuery();
@@ -59,13 +61,22 @@ export default function ManajemenMapelPage() {
 
   const handleDelete = async () => {
     if (deleteTarget) {
-      await deleteMapel(deleteTarget.mapel_id);
+      try {
+        await deleteMapel(deleteTarget.mapel_id).unwrap();
+        notifySuccess("Mata pelajaran berhasil dihapus.");
+      } catch {
+        notifyError("Gagal menghapus mata pelajaran.");
+      }
       setDeleteTarget(null);
     }
   };
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Manajemen Mata Pelajaran</h1>
+        <MapelImportDialog existingMapels={mapels ?? []} />
+      </div>
 
       <MapelForm />
 

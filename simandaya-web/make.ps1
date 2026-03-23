@@ -43,7 +43,8 @@ Simandaya Web (Windows)
 Dev  (.env):
   .\make.ps1 dev-up         Start all services in background
   .\make.ps1 dev-down       Stop all services
-  .\make.ps1 dev-reset-seed Reset volumes, restart dev, and run all seeds
+  .\make.ps1 dev-reset-seed Reset volumes, restart dev, and seed admins
+  .\make.ps1 dev-nuke-seed  Down + prune Docker cache + remove volumes + seed admins
   .\make.ps1 dev-backend    Start backend only (background)
   .\make.ps1 dev-frontend   Start frontend only (background)
 
@@ -61,7 +62,6 @@ Database:
 
 Scripts:
   .\make.ps1 seed-admins              Seed admin accounts (admin1-3)
-  .\make.ps1 seed-absensi             Seed attendance + izin keluar data
   .\make.ps1 import-students FILE=x   Import students from xlsx
 
 Other:
@@ -102,9 +102,19 @@ Ports:
         Start-Sleep -Seconds 10
         Write-Host "Seeding admins..."
         Invoke-Dev "exec backend python scripts/seed_admins.py"
-        Write-Host "Seeding absensi..."
-        Invoke-Dev "exec backend python scripts/seed_absensi.py"
-        Write-Host "Reset and Seed complete!"
+        Write-Host "Reset and admin seed complete!"
+    }
+    "dev-nuke-seed" {
+        Write-Host "Nuking dev Docker state and seeding admins..."
+        Invoke-Dev "down -v --remove-orphans"
+        docker builder prune -af | Out-Host
+        docker system prune -af --volumes | Out-Host
+        Invoke-Dev "up -d"
+        Write-Host "Waiting for services to initialize (12s)..."
+        Start-Sleep -Seconds 12
+        Write-Host "Seeding admins..."
+        Invoke-Dev "exec backend python scripts/seed_admins.py"
+        Write-Host "Nuke + admin seed complete!"
     }
     "dev-backend"  { Invoke-Dev "up -d backend" }
     "dev-frontend" { Invoke-Dev "up -d frontend" }
@@ -148,7 +158,6 @@ Ports:
 
     # ── Scripts ───────────────────────────────────────────────────────────
     "seed-admins"  { Invoke-Dev "exec backend python scripts/seed_admins.py" }
-    "seed-absensi" { Invoke-Dev "exec backend python scripts/seed_absensi.py" }
     "import-students" {
         if (!$FILE) {
             Write-Host 'Usage: .\make.ps1 import-students "path/to/file.xlsx"'

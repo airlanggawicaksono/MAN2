@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   BookOpenCheck,
   CalendarDays,
@@ -72,6 +73,11 @@ const quickActions = [
 
 export default function AdminDashboardPage() {
   const user = useAppSelector((s) => s.auth.user);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const { data: students } = useListStudentsQuery({ skip: 0, limit: 1 });
   const { data: teachers } = useListTeachersQuery({ skip: 0, limit: 1 });
@@ -113,7 +119,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-8 p-8">
       <DashboardHeader
         icon={LayoutDashboard}
-        title={`Dasbor Admin, ${user?.username ?? ""}`}
+        title={hydrated && user?.username ? `Dasbor Admin, ${user.username}` : "Dasbor Admin"}
         subtitle="Ringkasan sistem dan akses cepat pengelolaan SIMANDAYA."
       />
 

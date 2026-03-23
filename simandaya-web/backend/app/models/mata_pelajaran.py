@@ -1,7 +1,7 @@
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import (
-    String, Integer, Boolean, Enum as SQLAlchemyEnum,
+    String, Boolean, Enum as SQLAlchemyEnum,
     UUID as SQLAlchemyUUID
 )
 from app.config.database import Base
@@ -20,7 +20,6 @@ class MataPelajaran(Base):
         SQLAlchemyEnum(KelompokMapel, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
-    jam_per_minggu: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     def __repr__(self) -> str:

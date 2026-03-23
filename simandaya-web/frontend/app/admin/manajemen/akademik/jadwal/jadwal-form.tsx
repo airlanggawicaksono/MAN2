@@ -18,6 +18,8 @@ import {
   useListGuruMapelQuery
 } from "@/api/shared/akademik";
 import type { CreateJadwalRequest } from "@/types/akademik/jadwal";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 const HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
@@ -63,13 +65,13 @@ export function JadwalForm() {
     const result = await createJadwal(form as CreateJadwalRequest);
     if ("data" in result && result.data) {
       setSuccessMessage("Jadwal berhasil ditambahkan.");
+      notifySuccess("Jadwal berhasil ditambahkan.");
+    } else {
+      notifyError("Gagal menambahkan jadwal.");
     }
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 rounded-lg border p-6">

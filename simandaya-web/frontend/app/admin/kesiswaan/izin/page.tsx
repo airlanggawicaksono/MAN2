@@ -6,15 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calendar, Clock, LogOut } from "lucide-react";
+import { DateInputId } from "@/components/ui/date-input-id";
+import { formatIsoToIdDate } from "@/lib/date-id";
+import { Search, Clock, LogOut } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function AdminIzinKesiswaanPage() {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 350);
 
   const { data: izins, isLoading } = useListPublicIzinKeluarQuery({
     tanggal,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   });
 
   return (
@@ -30,15 +34,11 @@ export default function AdminIzinKesiswaanPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch gap-3">
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              type="date"
-              className="pl-10 w-full sm:w-[200px] rounded-xl border-slate-200"
-              value={tanggal}
-              onChange={(e) => setTanggal(e.target.value)}
-            />
-          </div>
+          <DateInputId
+            className="w-full sm:w-[200px] rounded-xl border-slate-200"
+            value={tanggal}
+            onValueChange={setTanggal}
+          />
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
@@ -57,7 +57,7 @@ export default function AdminIzinKesiswaanPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg">Riwayat Izin</CardTitle>
-                <CardDescription>Menampilkan data untuk tanggal {new Date(tanggal).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}</CardDescription>
+                <CardDescription>Menampilkan data untuk tanggal {formatIsoToIdDate(tanggal)}</CardDescription>
               </div>
               <Badge className="bg-orange-50 text-orange-700 border-orange-100">
                 {izins?.length || 0} Data

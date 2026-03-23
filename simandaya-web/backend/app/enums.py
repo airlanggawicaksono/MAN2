@@ -44,7 +44,6 @@ class StructuralRole(Enum):
     tim_it = "Tim IT"
     pengembang_madrasah = "Pengembang Madrasah"
     kepala_laboratorium_terpadu = "Kepala Laboratorium Terpadu"
-    wali_kelas = "Wali Kelas"
 
     # ── Di bawah Kesiswaan ────────────────────────────────────────────────
     bimbingan_konseling = "Bimbingan Konseling"

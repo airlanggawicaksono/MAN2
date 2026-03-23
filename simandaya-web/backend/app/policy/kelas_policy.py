@@ -5,6 +5,22 @@ from app.enums import UserType
 
 class KelasPolicy:
     @staticmethod
+    def ensure_kategori_exists(kategori, kategori_kelas_id) -> None:
+        if not kategori:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Kategori kelas with ID {kategori_kelas_id} not found",
+            )
+
+    @staticmethod
+    def ensure_kategori_active(kategori) -> None:
+        if not kategori.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Kategori kelas '{kategori.nama}' is inactive",
+            )
+
+    @staticmethod
     def ensure_tahun_ajaran_exists(tahun_ajaran, tahun_ajaran_id) -> None:
         if not tahun_ajaran:
             raise HTTPException(
@@ -27,6 +43,18 @@ class KelasPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"User {user.username} is not a guru (current type: {user.user_type.value})",
             )
+
+    @staticmethod
+    def ensure_wali_kelas_available(existing_kelas, username: str) -> None:
+        if not existing_kelas:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Guru {username} sudah menjadi wali kelas untuk "
+                f"{existing_kelas.nama_kelas} pada tahun ajaran yang sama."
+            ),
+        )
 
     @staticmethod
     def ensure_user_is_siswa(user) -> None:
@@ -67,6 +95,27 @@ class KelasPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Siswa {username} is already assigned to kelas {kelas_nama}",
             )
+
+    @staticmethod
+    def ensure_siswa_not_already_assigned_in_same_tahun(
+        existing_assignment, username: str, target_kelas_nama: str
+    ) -> None:
+        if not existing_assignment:
+            return
+
+        assigned_kelas_nama = (
+            existing_assignment.kelas.nama_kelas
+            if getattr(existing_assignment, "kelas", None)
+            else "kelas lain"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Siswa {username} sudah terdaftar di kelas {assigned_kelas_nama} "
+                f"pada tahun ajaran yang sama. Hapus dulu dari kelas lama sebelum "
+                f"memasukkan ke {target_kelas_nama}."
+            ),
+        )
 
     @staticmethod
     def ensure_kelas_capacity(current_count: int, kapasitas: int, kelas_nama: str) -> None:

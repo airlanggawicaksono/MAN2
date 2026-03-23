@@ -6,6 +6,7 @@ import AppHeader from "./components/app-header";
 import Footer from "./components/footer";
 import AuthGuard from "./components/auth-guard";
 import RouteChangeOverlay from "./components/route-change-overlay";
+import AppNotifications from "./components/app-notifications";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: Props) {
         <body className="flex min-h-screen flex-col">
           <AuthGuard>
             <RouteChangeOverlay />
+            <AppNotifications />
             <AppHeader />
             <div className="flex-1">{children}</div>
             <Footer />

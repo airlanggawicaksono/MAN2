@@ -28,6 +28,11 @@ class Kelas(Base):
         SQLAlchemyEnum(TingkatKelas, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
+    kategori_kelas_id: Mapped[UUID] = mapped_column(
+        SQLAlchemyUUID(as_uuid=True),
+        ForeignKey("kategori_kelas.kategori_kelas_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     jurusan: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     wali_kelas_id: Mapped[Optional[UUID]] = mapped_column(
         SQLAlchemyUUID(as_uuid=True),
@@ -37,6 +42,7 @@ class Kelas(Base):
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False, default=36)
 
     tahun_ajaran: Mapped["TahunAjaran"] = relationship()
+    kategori_kelas: Mapped["KategoriKelas"] = relationship()
     wali_kelas: Mapped[Optional["User"]] = relationship()
 
     def __repr__(self) -> str:

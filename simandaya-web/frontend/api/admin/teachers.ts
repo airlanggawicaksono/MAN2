@@ -14,6 +14,9 @@ export const teachersApi = createApi({
   reducerPath: "teachersApi",
   baseQuery: createBaseQuery("/users/teachers"),
   tagTypes: ["Teacher"],
+  keepUnusedDataFor: 120,
+  refetchOnFocus: false,
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     listTeachers: builder.query<PaginatedTeachersResponse, ListTeachersParams>({
       query: ({ skip, limit, search }) => {

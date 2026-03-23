@@ -11,7 +11,9 @@ from app.models.guru_profile import GuruProfile
 from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.kelas import Kelas
 from app.models.siswa_profile import SiswaProfile
+from app.models.siswa_kelas import SiswaKelas
 from app.models.structural_role_ref import StructuralRoleRef
+from app.models.tahun_ajaran import TahunAjaran
 from app.models.user import User
 
 
@@ -62,6 +64,19 @@ class UserManagementRepository:
     async def find_student_by_nis(self, nis: str) -> SiswaProfile | None:
         result = await self.db.execute(
             select(SiswaProfile).where(SiswaProfile.nis == nis)
+        )
+        return result.scalar_one_or_none()
+
+    async def find_active_kelas_name_for_user(self, user_id: UUID) -> str | None:
+        result = await self.db.execute(
+            select(Kelas.nama_kelas)
+            .join(SiswaKelas, SiswaKelas.kelas_id == Kelas.kelas_id)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
+            .where(
+                SiswaKelas.user_id == user_id,
+                TahunAjaran.is_active.is_(True),
+            )
+            .limit(1)
         )
         return result.scalar_one_or_none()
 

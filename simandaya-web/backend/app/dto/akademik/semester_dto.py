@@ -26,3 +26,17 @@ class SemesterResponseDTO(BaseModel):
     tanggal_mulai: date
     tanggal_selesai: date
     is_active: bool
+
+
+class CopySemesterStructureDTO(BaseModel):
+    source_semester_id: UUID = Field(..., description="Semester sumber untuk disalin strukturnya")
+    tipe: TipeSemester = Field(..., description="Tipe semester target (Ganjil/Genap)")
+    tanggal_mulai: date = Field(...)
+    tanggal_selesai: date = Field(...)
+    is_active: bool = Field(default=False)
+
+
+class CopySemesterStructureResponseDTO(BaseModel):
+    semester: SemesterResponseDTO
+    copied_jadwal: int
+    copied_rapor_bobot: int

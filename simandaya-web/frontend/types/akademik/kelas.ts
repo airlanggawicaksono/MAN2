@@ -5,6 +5,8 @@ export interface KelasResponse {
   tahun_ajaran_id: UUID;
   nama_kelas: string;
   tingkat: string;
+  kategori_kelas_id: UUID;
+  kategori_kelas_nama?: string;
   jurusan?: string;
   wali_kelas_id?: UUID;
   wali_kelas_nama?: string;
@@ -15,7 +17,7 @@ export interface CreateKelasRequest {
   tahun_ajaran_id: UUID;
   nama_kelas: string;
   tingkat: string;
-  jurusan?: string;
+  kategori_kelas_id: UUID;
   wali_kelas_id?: UUID;
   kapasitas?: number;
 }
@@ -23,8 +25,8 @@ export interface CreateKelasRequest {
 export interface UpdateKelasRequest {
   nama_kelas?: string;
   tingkat?: string;
-  jurusan?: string;
-  wali_kelas_id?: UUID;
+  kategori_kelas_id?: UUID;
+  wali_kelas_id?: UUID | null;
   kapasitas?: number;
 }
 

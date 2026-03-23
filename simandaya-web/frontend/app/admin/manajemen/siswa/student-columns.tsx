@@ -14,8 +14,9 @@ export const studentColumns: ColumnDef<StudentProfile>[] = [
     header: "Nama",
   },
   {
-    accessorKey: "kelas_jurusan",
+    accessorKey: "kelas_nama",
     header: "Kelas/Jurusan",
+    cell: ({ row }) => row.original.kelas_nama || row.original.kelas_jurusan || "-",
   },
   {
     accessorKey: "tahun_masuk",

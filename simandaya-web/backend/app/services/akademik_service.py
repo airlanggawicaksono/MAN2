@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import date
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,11 @@ from app.models.semester import Semester
 from app.models.kalender_akademik import KalenderAkademik
 from app.models.mata_pelajaran import MataPelajaran
 from app.models.slot_waktu import SlotWaktu
+from app.models.jadwal import Jadwal
+from app.models.rapor_bobot import RaporBobot
+from app.models.kelas import Kelas
+from app.models.guru_mapel import GuruMapel
+from app.models.kurikulum_mapel import KurikulumMapel
 from app.policy.kalender_policy import KalenderPolicy
 from app.policy.mapel_policy import MapelPolicy
 from app.policy.semester_policy import SemesterPolicy
@@ -18,10 +24,18 @@ from app.repositoriy.semester_repository import SemesterRepository
 from app.repositoriy.slot_waktu_repository import SlotWaktuRepository
 from app.repositoriy.tahun_ajaran_repository import TahunAjaranRepository
 from app.dto.akademik.tahun_ajaran_dto import (
-    CreateTahunAjaranDTO, UpdateTahunAjaranDTO, TahunAjaranResponseDTO
+    CopyTahunAjaranStructureDTO,
+    CopyTahunAjaranStructureResponseDTO,
+    CreateTahunAjaranDTO,
+    TahunAjaranResponseDTO,
+    UpdateTahunAjaranDTO,
 )
 from app.dto.akademik.semester_dto import (
-    CreateSemesterDTO, UpdateSemesterDTO, SemesterResponseDTO
+    CopySemesterStructureDTO,
+    CopySemesterStructureResponseDTO,
+    CreateSemesterDTO,
+    SemesterResponseDTO,
+    UpdateSemesterDTO,
 )
 from app.dto.akademik.kalender_dto import (
     CreateKalenderDTO, UpdateKalenderDTO, KalenderResponseDTO
@@ -398,7 +412,6 @@ class AkademikService:
                 kode_mapel=request.kode_mapel,
                 nama_mapel=request.nama_mapel,
                 kelompok=request.kelompok,
-                jam_per_minggu=request.jam_per_minggu,
                 is_active=request.is_active,
             )
             await self.mapel_repo.add(mapel)
@@ -563,7 +576,209 @@ class AkademikService:
         await self.slot_waktu_repo.commit()
         return MessageResponseDTO(message="Time slot deleted successfully")
 
+    async def copy_semester_structure(
+        self, request: CopySemesterStructureDTO
+    ) -> CopySemesterStructureResponseDTO:
+        try:
+            source_semester = await self.semester_repo.find_by_id(request.source_semester_id)
+            self.semester_policy.ensure_exists(source_semester)
+
+            existing_target = await self.semester_repo.find_by_tahun_ajaran_and_tipe(
+                source_semester.tahun_ajaran_id, request.tipe
+            )
+            self.semester_policy.ensure_unique_for_tahun_ajaran(existing_target, request.tipe)
+
+            target_semester = Semester(
+                tahun_ajaran_id=source_semester.tahun_ajaran_id,
+                tipe=request.tipe,
+                tanggal_mulai=request.tanggal_mulai,
+                tanggal_selesai=request.tanggal_selesai,
+                is_active=request.is_active,
+            )
+            self.db.add(target_semester)
+            await self.db.flush()
+
+            copied_jadwal = 0
+            copied_rapor_bobot = 0
+
+            jadwal_result = await self.db.execute(
+                select(Jadwal).where(Jadwal.semester_id == source_semester.semester_id)
+            )
+            for row in jadwal_result.scalars().all():
+                self.db.add(
+                    Jadwal(
+                        semester_id=target_semester.semester_id,
+                        kelas_id=row.kelas_id,
+                        mapel_id=row.mapel_id,
+                        guru_user_id=row.guru_user_id,
+                        hari=row.hari,
+                        slot_waktu_id=row.slot_waktu_id,
+                    )
+                )
+                copied_jadwal += 1
+
+            bobot_result = await self.db.execute(
+                select(RaporBobot).where(RaporBobot.semester_id == source_semester.semester_id)
+            )
+            for row in bobot_result.scalars().all():
+                self.db.add(
+                    RaporBobot(
+                        kelas_id=row.kelas_id,
+                        semester_id=target_semester.semester_id,
+                        mapel_id=row.mapel_id,
+                        jenis_tugas=row.jenis_tugas,
+                        bobot=row.bobot,
+                    )
+                )
+                copied_rapor_bobot += 1
+
+            await self.db.commit()
+            await self.db.refresh(target_semester)
+
+            return CopySemesterStructureResponseDTO(
+                semester=self._to_semester_dto(target_semester),
+                copied_jadwal=copied_jadwal,
+                copied_rapor_bobot=copied_rapor_bobot,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to copy semester structure: {str(e)}"
+            )
+
+    async def copy_tahun_ajaran_structure(
+        self, request: CopyTahunAjaranStructureDTO
+    ) -> CopyTahunAjaranStructureResponseDTO:
+        try:
+            existing = await self.tahun_ajaran_repo.find_by_nama(request.nama)
+            self.tahun_ajaran_policy.ensure_nama_available(
+                is_taken=existing is not None,
+                nama=request.nama,
+            )
+
+            source_tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(request.source_tahun_ajaran_id)
+            self.tahun_ajaran_policy.ensure_exists(source_tahun_ajaran)
+
+            new_tahun_ajaran = TahunAjaran(
+                nama=request.nama,
+                tanggal_mulai=request.tanggal_mulai,
+                tanggal_selesai=request.tanggal_selesai,
+                is_active=request.is_active,
+            )
+            self.db.add(new_tahun_ajaran)
+            await self.db.flush()
+
+            copied_semester = 0
+            copied_kelas = 0
+            copied_guru_mapel = 0
+            copied_kurikulum = 0
+
+            kelas_map: dict[UUID, UUID] = {}
+
+            year_shift = request.tanggal_mulai.year - source_tahun_ajaran.tanggal_mulai.year
+
+            if request.copy_semester:
+                source_semesters = await self.semester_repo.list_by_tahun_ajaran(source_tahun_ajaran.tahun_ajaran_id)
+                for sem in source_semesters:
+                    self.db.add(
+                        Semester(
+                            tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                            tipe=sem.tipe,
+                            tanggal_mulai=self._shift_year(sem.tanggal_mulai, year_shift),
+                            tanggal_selesai=self._shift_year(sem.tanggal_selesai, year_shift),
+                            is_active=False,
+                        )
+                    )
+                    copied_semester += 1
+
+            if request.copy_kelas:
+                source_kelas_result = await self.db.execute(
+                    select(Kelas).where(Kelas.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id)
+                )
+                for source_kelas in source_kelas_result.scalars().all():
+                    new_kelas = Kelas(
+                        tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                        nama_kelas=source_kelas.nama_kelas,
+                        tingkat=source_kelas.tingkat,
+                        kategori_kelas_id=source_kelas.kategori_kelas_id,
+                        jurusan=source_kelas.jurusan,
+                        wali_kelas_id=source_kelas.wali_kelas_id,
+                        kapasitas=source_kelas.kapasitas,
+                    )
+                    self.db.add(new_kelas)
+                    await self.db.flush()
+                    kelas_map[source_kelas.kelas_id] = new_kelas.kelas_id
+                    copied_kelas += 1
+
+            if request.copy_guru_mapel and kelas_map:
+                source_gm_result = await self.db.execute(
+                    select(GuruMapel).where(GuruMapel.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id)
+                )
+                for row in source_gm_result.scalars().all():
+                    new_kelas_id = kelas_map.get(row.kelas_id)
+                    if not new_kelas_id:
+                        continue
+                    self.db.add(
+                        GuruMapel(
+                            user_id=row.user_id,
+                            mapel_id=row.mapel_id,
+                            kelas_id=new_kelas_id,
+                            tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                        )
+                    )
+                    copied_guru_mapel += 1
+
+            if request.copy_kurikulum:
+                source_kurikulum_result = await self.db.execute(
+                    select(KurikulumMapel).where(
+                        KurikulumMapel.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id
+                    )
+                )
+                for row in source_kurikulum_result.scalars().all():
+                    self.db.add(
+                        KurikulumMapel(
+                            mapel_id=row.mapel_id,
+                            tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                            tingkat=row.tingkat,
+                            kategori_kelas_id=row.kategori_kelas_id,
+                            is_wajib=row.is_wajib,
+                            jam_override=row.jam_override,
+                        )
+                    )
+                    copied_kurikulum += 1
+
+            await self.db.commit()
+            await self.db.refresh(new_tahun_ajaran)
+
+            return CopyTahunAjaranStructureResponseDTO(
+                tahun_ajaran=self._to_tahun_ajaran_dto(new_tahun_ajaran),
+                copied_semester=copied_semester,
+                copied_kelas=copied_kelas,
+                copied_guru_mapel=copied_guru_mapel,
+                copied_kurikulum=copied_kurikulum,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to copy academic year structure: {str(e)}"
+            )
+
     # ── Helpers ──────────────────────────────────────────────────────────────
+
+    def _shift_year(self, value: date, year_shift: int) -> date:
+        if year_shift == 0:
+            return value
+        target_year = value.year + year_shift
+        try:
+            return value.replace(year=target_year)
+        except ValueError:
+            return value.replace(year=target_year, day=28)
 
     def _to_tahun_ajaran_dto(self, tahun_ajaran: TahunAjaran) -> TahunAjaranResponseDTO:
         return TahunAjaranResponseDTO(
@@ -599,7 +814,6 @@ class AkademikService:
             kode_mapel=mapel.kode_mapel,
             nama_mapel=mapel.nama_mapel,
             kelompok=mapel.kelompok,
-            jam_per_minggu=mapel.jam_per_minggu,
             is_active=mapel.is_active,
         )
 

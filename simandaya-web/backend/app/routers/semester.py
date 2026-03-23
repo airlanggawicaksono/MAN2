@@ -6,7 +6,11 @@ from app.dependencies import require_role
 from app.enums import UserType
 from app.services.akademik_service import AkademikService
 from app.dto.akademik.semester_dto import (
-    CreateSemesterDTO, UpdateSemesterDTO, SemesterResponseDTO,
+    CopySemesterStructureDTO,
+    CopySemesterStructureResponseDTO,
+    CreateSemesterDTO,
+    SemesterResponseDTO,
+    UpdateSemesterDTO,
 )
 from app.dto.akademik.kelas_dto import MessageResponseDTO
 
@@ -29,6 +33,21 @@ async def create_semester(
 ) -> SemesterResponseDTO:
     service = AkademikService(db)
     return await service.create_semester(request)
+
+
+@router.post(
+    "/semester/copy-structure",
+    response_model=CopySemesterStructureResponseDTO,
+    status_code=201,
+    summary="Create Semester by Copying Structure",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def copy_semester_structure(
+    request: CopySemesterStructureDTO,
+    db: AsyncSession = Depends(get_db),
+) -> CopySemesterStructureResponseDTO:
+    service = AkademikService(db)
+    return await service.copy_semester_structure(request)
 
 
 @router.get(

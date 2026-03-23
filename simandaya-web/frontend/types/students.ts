@@ -11,6 +11,7 @@ export interface StudentProfile {
   alamat: string | null;
   nama_wali: string | null;
   kelas_jurusan: string | null;
+  kelas_nama?: string | null;
   tahun_masuk: number | null;
   status_siswa: StatusSiswa;
   kontak: string | null;

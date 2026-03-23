@@ -68,7 +68,7 @@ export default function GuruPenilaianPage() {
       mapel_id: selectedAssignment.mapel_id,
       semester_id: activeSemester.semester_id,
     });
-    if ("data" in result) {
+    if ("data" in result && result.data) {
       setIsCreatingTugas(false);
       setNewTugasForm({ judul: "", jenis: "Tugas" });
       setSelectedTugasId(result.data.tugas_id);

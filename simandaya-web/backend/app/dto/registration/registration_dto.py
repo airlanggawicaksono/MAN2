@@ -62,7 +62,6 @@ class PreRegisterStudentDTO(BaseModel):
     jenis_kelamin: Optional[JenisKelamin] = None
     alamat: Optional[str] = Field(default=None, min_length=1, max_length=500)
     nama_wali: Optional[str] = Field(default=None, min_length=2, max_length=225)
-    kelas_jurusan: Optional[str] = Field(default=None, min_length=1, max_length=100)
     tahun_masuk: Optional[int] = Field(default=None, ge=1900, le=2100)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)

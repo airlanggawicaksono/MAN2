@@ -10,6 +10,7 @@ from app.routers import (
     tugas, nilai,
     rapor, registration,
     desktop, kurikulum,
+    kategori_kelas,
 )
 from app.config.settings import settings
 
@@ -48,6 +49,7 @@ app = FastAPI(
         {"name": "Admin - Mata Pelajaran"},
         {"name": "Admin - Slot Waktu"},
         {"name": "Admin - Kurikulum"},
+        {"name": "Admin - Kategori Kelas"},
         {"name": "Admin - Kelas"},
         {"name": "Admin - Jadwal"},
         {"name": "Admin - Desktop Device"},
@@ -97,6 +99,7 @@ app.include_router(nilai.router)
 app.include_router(rapor.router)
 app.include_router(desktop.router)
 app.include_router(kurikulum.router)
+app.include_router(kategori_kelas.router)
 
 
 @app.get("/", tags=["Root"])

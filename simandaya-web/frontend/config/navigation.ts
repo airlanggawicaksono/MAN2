@@ -49,22 +49,24 @@ export const adminNav: NavItem[] = [
       { label: "Pengaturan Manajemen Konten", href: "/admin/manajemen/pengaturan-cms" },
     ],
   },
-  {
-    label: "Kesiswaan",
-    width: "w-[240px]",
-    children: [
-      { label: "Absensi Masuk Sekolah", href: "/admin/kesiswaan/absensi" },
-      { label: "Izin Kesiswaan", href: "/admin/kesiswaan/izin" },
-    ],
-  },
+
 
   {
     label: "Akademik",
     width: "w-[240px]",
     children: [
       { label: "Manajemen Akademik", href: "/admin/manajemen/akademik" },
-      { label: "Kelas, Guru & Siswa", href: "/admin/manajemen/akademik/kelas-guru-siswa" },
       { label: "Manajemen Jadwal", href: "/admin/manajemen/akademik/jadwal" },
+
+    ],
+  },
+
+    {
+    label: "Kesiswaan",
+    width: "w-[240px]",
+    children: [
+      { label: "Absensi Masuk Sekolah", href: "/admin/kesiswaan/absensi" },
+      { label: "Izin Kesiswaan", href: "/admin/kesiswaan/izin" },
     ],
   },
 ];

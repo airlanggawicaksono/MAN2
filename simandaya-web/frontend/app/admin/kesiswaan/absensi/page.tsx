@@ -10,11 +10,21 @@ import {
   useUpdateAttendanceMutation,
   useUpdateAttendanceSettingsMutation,
 } from "@/api/public/absensi";
-import { useListKelasQuery, useListSiswaInKelasQuery } from "@/api/shared/akademik";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  useListKelasQuery,
+  useListSiswaInKelasQuery,
+} from "@/api/shared/akademik";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DateInputId } from "@/components/ui/date-input-id";
 import {
   Select,
   SelectContent,
@@ -22,13 +32,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { PublicAbsensiResponse, UpdateAbsensiRequest } from "@/types/absensi";
+import type {
+  PublicAbsensiResponse,
+  UpdateAbsensiRequest,
+} from "@/types/absensi";
+import { formatIsoToIdDate } from "@/lib/date-id";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const EMPTY_LIST: never[] = [];
-const STATUS_OPTIONS: UpdateAbsensiRequest["status"][] = ["Hadir", "Izin", "Sakit", "Alfa", "Terlambat"];
+type AttendanceStatus = NonNullable<UpdateAbsensiRequest["status"]>;
+const STATUS_OPTIONS: AttendanceStatus[] = [
+  "Hadir",
+  "Izin",
+  "Sakit",
+  "Alfa",
+  "Terlambat",
+];
 
 export default function AbsensiPage() {
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
+  const [tanggal, setTanggal] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [rawSearch, setRawSearch] = useState("");
   const [rawKelasFilter, setRawKelasFilter] = useState("ALL");
   const [bulkKelasId, setBulkKelasId] = useState("");
@@ -36,31 +60,58 @@ export default function AbsensiPage() {
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
   const [rawMessage, setRawMessage] = useState<string | null>(null);
   const [editingAbsensiId, setEditingAbsensiId] = useState<string | null>(null);
-  const [editingStatus, setEditingStatus] = useState<UpdateAbsensiRequest["status"]>("Hadir");
+  const [editingStatus, setEditingStatus] = useState<AttendanceStatus>("Hadir");
   const [lateCutoffInput, setLateCutoffInput] = useState("07:15");
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const debouncedRawSearch = useDebounce(rawSearch, 350);
 
-  const { data: attendance = [], isLoading: loadingAttendance, refetch: refetchAttendance } = useListPublicAttendanceQuery({
+  const {
+    data: attendance = [],
+    isLoading: loadingAttendance,
+    refetch: refetchAttendance,
+  } = useListPublicAttendanceQuery({
     tanggal,
-    search: rawSearch || undefined,
+    search: debouncedRawSearch || undefined,
     limit: 200,
   });
-  const { data: izin = [], isLoading: loadingIzin, refetch: refetchIzin } = useListPublicIzinKeluarQuery({
+  const {
+    data: izin = [],
+    isLoading: loadingIzin,
+    refetch: refetchIzin,
+  } = useListPublicIzinKeluarQuery({
     tanggal,
     limit: 200,
   });
   const { data: classesData } = useListKelasQuery();
-  const { data: attendanceSettings, refetch: refetchAttendanceSettings } = useGetAttendanceSettingsQuery();
-  const { data: studentsInClassData, isLoading: loadingStudents } = useListSiswaInKelasQuery(bulkKelasId, {
+  const {
+    data: attendanceSettings,
+    refetch: refetchAttendanceSettings,
+  } = useGetAttendanceSettingsQuery();
+  const {
+    data: studentsInClassData,
+    isLoading: loadingStudents,
+  } = useListSiswaInKelasQuery(bulkKelasId, {
     skip: !bulkKelasId,
   });
 
   const classes = classesData ?? EMPTY_LIST;
   const studentsInClass = studentsInClassData ?? EMPTY_LIST;
-  const [bulkMarkAttendance, { isLoading: savingBulk }] = useBulkMarkAttendanceMutation();
-  const [updateAttendance, { isLoading: savingEdit }] = useUpdateAttendanceMutation();
-  const [deleteAttendance, { isLoading: deletingAttendance }] = useDeleteAttendanceMutation();
-  const [updateAttendanceSettings, { isLoading: savingSettings }] = useUpdateAttendanceSettingsMutation();
+  const [
+    bulkMarkAttendance,
+    { isLoading: savingBulk },
+  ] = useBulkMarkAttendanceMutation();
+  const [
+    updateAttendance,
+    { isLoading: savingEdit },
+  ] = useUpdateAttendanceMutation();
+  const [
+    deleteAttendance,
+    { isLoading: deletingAttendance },
+  ] = useDeleteAttendanceMutation();
+  const [
+    updateAttendanceSettings,
+    { isLoading: savingSettings },
+  ] = useUpdateAttendanceSettingsMutation();
 
   useEffect(() => {
     if (!attendanceSettings?.late_cutoff_time) return;
@@ -111,7 +162,11 @@ export default function AbsensiPage() {
 
   const startEdit = (row: PublicAbsensiResponse) => {
     setEditingAbsensiId(row.absensi_id);
-    setEditingStatus((row.status as UpdateAbsensiRequest["status"]) ?? "Hadir");
+    setEditingStatus(
+      STATUS_OPTIONS.includes(row.status as AttendanceStatus)
+        ? (row.status as AttendanceStatus)
+        : "Hadir",
+    );
     setRawMessage(null);
   };
 
@@ -188,7 +243,12 @@ export default function AbsensiPage() {
       setSettingsMessage("Gagal simpan pengaturan keterlambatan.");
       return;
     }
-    setSettingsMessage(`Cutoff keterlambatan disimpan: ${result.data.late_cutoff_time.slice(0, 5)}`);
+    setSettingsMessage(
+      `Cutoff keterlambatan disimpan: ${result.data.late_cutoff_time.slice(
+        0,
+        5,
+      )}`,
+    );
     await refetchAttendanceSettings();
   };
 
@@ -198,32 +258,37 @@ export default function AbsensiPage() {
         <div>
           <h1 className="text-2xl font-bold">Kesiswaan: Manajemen Absensi</h1>
           <p className="text-sm text-muted-foreground">
-            Ada dua mode: raw management per siswa (tanpa kelas wajib) dan bulk mark per kelas.
+            Ada dua mode: raw management per siswa (tanpa kelas wajib) dan bulk
+            mark per kelas.
           </p>
         </div>
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Tanggal</label>
-          <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+          <DateInputId value={tanggal} onValueChange={setTanggal} />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Absensi</CardDescription>
+            <CardDescription>Total Absensi (Tanggal Dipilih)</CardDescription>
             <CardTitle>{stats.totalAbsen}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Izin Keluar</CardDescription>
+            <CardDescription>
+              Total Izin Keluar (Tanggal Dipilih)
+            </CardDescription>
             <CardTitle>{stats.totalIzinKeluar}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Loading</CardDescription>
-            <CardTitle>{loadingAttendance || loadingIzin ? "Ya" : "Tidak"}</CardTitle>
+            <CardDescription>Status Data</CardDescription>
+            <CardTitle>
+              {loadingAttendance || loadingIzin ? "Memuat..." : "Termuat penuh"}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -232,31 +297,40 @@ export default function AbsensiPage() {
         <CardHeader>
           <CardTitle>Pengaturan Keterlambatan</CardTitle>
           <CardDescription>
-            Record absen masuk dari desktop akan ditandai <b>Terlambat</b> jika melewati jam ini.
+            Record absen masuk dari desktop akan ditandai <b>Terlambat</b> jika
+            melewati jam ini.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex max-w-sm items-end gap-2">
             <div className="grid flex-1 gap-1">
-              <label className="text-xs text-muted-foreground">Jam cutoff</label>
+              <label className="text-xs text-muted-foreground">
+                Jam cutoff
+              </label>
               <Input
                 type="time"
                 value={lateCutoffInput}
                 onChange={(e) => setLateCutoffInput(e.target.value)}
               />
             </div>
-            <Button type="button" onClick={handleSaveSettings} disabled={savingSettings}>
+            <Button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+            >
               {savingSettings ? "Menyimpan..." : "Simpan"}
             </Button>
           </div>
-          {settingsMessage && <p className="text-sm text-muted-foreground">{settingsMessage}</p>}
+          {settingsMessage && (
+            <p className="text-sm text-muted-foreground">{settingsMessage}</p>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Distribusi Status Harian</CardTitle>
-          <CardDescription>{tanggal}</CardDescription>
+          <CardDescription>{formatIsoToIdDate(tanggal)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {Object.entries(stats.byStatus).map(([status, count]) => (
@@ -271,13 +345,16 @@ export default function AbsensiPage() {
         <CardHeader>
           <CardTitle>Raw Management (Admin)</CardTitle>
           <CardDescription>
-            Cari siswa langsung, edit status absensi, atau hapus record tanpa harus pilih kelas.
+            Cari siswa langsung, edit status absensi, atau hapus record tanpa
+            harus pilih kelas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-1">
-              <label className="text-xs text-muted-foreground">Cari siswa</label>
+              <label className="text-xs text-muted-foreground">
+                Cari siswa
+              </label>
               <Input
                 placeholder="Nama siswa..."
                 value={rawSearch}
@@ -285,7 +362,9 @@ export default function AbsensiPage() {
               />
             </div>
             <div className="grid gap-1">
-              <label className="text-xs text-muted-foreground">Filter kelas</label>
+              <label className="text-xs text-muted-foreground">
+                Filter kelas
+              </label>
               <Select value={rawKelasFilter} onValueChange={setRawKelasFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Semua kelas" />
@@ -302,13 +381,19 @@ export default function AbsensiPage() {
             </div>
           </div>
 
-          {rawMessage && <p className="text-sm text-muted-foreground">{rawMessage}</p>}
+          {rawMessage && (
+            <p className="text-sm text-muted-foreground">{rawMessage}</p>
+          )}
 
           <div className="max-h-80 overflow-auto rounded-md border">
             {loadingAttendance ? (
-              <p className="p-3 text-sm text-muted-foreground">Memuat data absensi...</p>
+              <p className="p-3 text-sm text-muted-foreground">
+                Memuat data absensi...
+              </p>
             ) : filteredAttendance.length === 0 ? (
-              <p className="p-3 text-sm text-muted-foreground">Tidak ada data absensi untuk filter ini.</p>
+              <p className="p-3 text-sm text-muted-foreground">
+                Tidak ada data absensi untuk filter ini.
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted/40">
@@ -330,7 +415,9 @@ export default function AbsensiPage() {
                           {isEditing ? (
                             <Select
                               value={editingStatus}
-                              onValueChange={(val) => setEditingStatus(val as UpdateAbsensiRequest["status"])}
+                              onValueChange={(val) =>
+                                setEditingStatus(val as AttendanceStatus)
+                              }
                             >
                               <SelectTrigger className="w-[140px]">
                                 <SelectValue />
@@ -370,14 +457,21 @@ export default function AbsensiPage() {
                               </>
                             ) : (
                               <>
-                                <Button type="button" size="sm" variant="outline" onClick={() => startEdit(row)}>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => startEdit(row)}
+                                >
                                   Edit
                                 </Button>
                                 <Button
                                   type="button"
                                   size="sm"
                                   variant="destructive"
-                                  onClick={() => void removeRecord(row.absensi_id)}
+                                  onClick={() =>
+                                    void removeRecord(row.absensi_id)
+                                  }
                                   disabled={deletingAttendance}
                                 >
                                   Hapus
@@ -400,7 +494,8 @@ export default function AbsensiPage() {
         <CardHeader>
           <CardTitle>Bulk Mark Per Kelas (Admin)</CardTitle>
           <CardDescription>
-            Default semua siswa di kelas ditandai hadir. Uncheck yang tidak masuk, lalu simpan.
+            Default semua siswa di kelas ditandai hadir. Uncheck yang tidak
+            masuk, lalu simpan.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -421,7 +516,9 @@ export default function AbsensiPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Total siswa: {studentsInClass.length}</Badge>
+            <Badge variant="outline">
+              Total siswa: {studentsInClass.length}
+            </Badge>
             <Badge variant="outline">Ditandai hadir: {selectedCount}</Badge>
             <Button
               type="button"
@@ -440,7 +537,8 @@ export default function AbsensiPage() {
               variant="outline"
               onClick={() => {
                 const next: Record<string, boolean> = {};
-                for (const siswa of studentsInClass) next[siswa.user_id] = false;
+                for (const siswa of studentsInClass)
+                  next[siswa.user_id] = false;
                 setSelectedMap(next);
               }}
               disabled={!studentsInClass.length}
@@ -456,13 +554,19 @@ export default function AbsensiPage() {
             </Button>
           </div>
 
-          {bulkMessage && <p className="text-sm text-muted-foreground">{bulkMessage}</p>}
+          {bulkMessage && (
+            <p className="text-sm text-muted-foreground">{bulkMessage}</p>
+          )}
 
           <div className="max-h-80 overflow-auto rounded-md border">
             {loadingStudents ? (
-              <p className="p-3 text-sm text-muted-foreground">Memuat siswa kelas...</p>
+              <p className="p-3 text-sm text-muted-foreground">
+                Memuat siswa kelas...
+              </p>
             ) : studentsInClass.length === 0 ? (
-              <p className="p-3 text-sm text-muted-foreground">Pilih kelas untuk mulai bulk mark.</p>
+              <p className="p-3 text-sm text-muted-foreground">
+                Pilih kelas untuk mulai bulk mark.
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted/40">

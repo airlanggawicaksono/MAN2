@@ -3,6 +3,22 @@ from fastapi import HTTPException, status
 
 class KurikulumPolicy:
     @staticmethod
+    def ensure_kategori_exists(kategori, kategori_kelas_id) -> None:
+        if not kategori:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Kategori kelas with ID {kategori_kelas_id} not found",
+            )
+
+    @staticmethod
+    def ensure_kategori_active(kategori) -> None:
+        if not kategori.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Kategori kelas '{kategori.nama}' is inactive",
+            )
+
+    @staticmethod
     def ensure_mapel_exists(mapel, mapel_id) -> None:
         if not mapel:
             raise HTTPException(

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -60,15 +61,27 @@ export function ServiceLinkCard({
       </CardContent>
 
       <CardFooter className="pb-8 pt-2">
-        <Button
-          asChild
-          className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
-        >
-          <a href={link} target={target} rel={rel} className="flex items-center justify-center gap-2">
-            Buka Layanan
-            <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
-          </a>
-        </Button>
+        {isExternal ? (
+          <Button
+            asChild
+            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+          >
+            <a href={link} target={target} rel={rel} className="flex items-center justify-center gap-2">
+              Buka Layanan
+              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+            </a>
+          </Button>
+        ) : (
+          <Button
+            asChild
+            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+          >
+            <Link href={link} className="flex items-center justify-center gap-2">
+              Buka Layanan
+              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+            </Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

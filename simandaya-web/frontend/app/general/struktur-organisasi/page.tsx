@@ -93,7 +93,7 @@ export default function StrukturOrganisasiPage() {
 
           {/* Right 2/5: Civitas List */}
           <div className="w-full lg:w-2/5 lg:h-full">
-            <Card className="h-full border-slate-200 shadow-sm overflow-hidden flex flex-col rounded-2xl bg-white">
+            <Card className="max-h-[72vh] lg:h-[calc(100vh-250px)] border-slate-200 shadow-sm overflow-hidden flex flex-col rounded-2xl bg-white">
               <div className="p-4 border-b border-slate-100 bg-white flex items-center gap-2 shrink-0">
                 <Users className="w-5 h-5 text-blue-600" />
                 <h2 className="font-semibold text-slate-800">
@@ -101,7 +101,7 @@ export default function StrukturOrganisasiPage() {
                 </h2>
               </div>
 
-              <div className="flex-1 overflow-y-auto bg-slate-50/30">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/30">
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

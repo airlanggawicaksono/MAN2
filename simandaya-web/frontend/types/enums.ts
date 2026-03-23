@@ -13,7 +13,6 @@ export type StructuralRole =
   | "Tim IT"
   | "Pengembang Madrasah"
   | "Kepala Laboratorium Terpadu"
-  | "Wali Kelas"
   | "Bimbingan Konseling"
   | "Satuan Pendidikan Ramah Anak"
   | "Tim Pendidikan Karakter"
@@ -51,7 +50,6 @@ export const STRUCTURAL_ROLE_OPTIONS: readonly StructuralRole[] = [
   "Tim IT",
   "Pengembang Madrasah",
   "Kepala Laboratorium Terpadu",
-  "Wali Kelas",
   "Bimbingan Konseling",
   "Satuan Pendidikan Ramah Anak",
   "Tim Pendidikan Karakter",
@@ -77,4 +75,14 @@ export const STRUCTURAL_ROLE_OPTIONS: readonly StructuralRole[] = [
   "Pustakawan",
   "Laboran",
   "Petugas UKS",
+] as const;
+
+export const ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS: readonly StructuralRole[] = [
+  "Komite Madrasah",
+  "Kepala Madrasah",
+  "Kepala Tata Usaha",
+  "Wakamad Bid. Kurikulum",
+  "Wakamad Bid. Kesiswaan",
+  "Wakamad Bid. Sarpras",
+  "Wakamad Bid. Humas",
 ] as const;

@@ -3,6 +3,7 @@ import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/auth";
 import cmsReducer from "./slices/cms";
 import absensiReducer from "./slices/absensi";
+import kurikulumReducer from "./slices/kurikulum";
 import { authApi } from "@/api/public/auth";
 import { studentsApi } from "@/api/admin/students";
 import { teachersApi } from "@/api/admin/teachers";
@@ -23,7 +24,7 @@ const rootReducer = combineSlices(
   usermanApi,
   akademikApi,
   penilaianApi,
-  { auth: authReducer, cms: cmsReducer, absensi: absensiReducer }
+  { auth: authReducer, cms: cmsReducer, absensi: absensiReducer, kurikulum: kurikulumReducer }
 );
 
 export type RootState = ReturnType<typeof rootReducer>;

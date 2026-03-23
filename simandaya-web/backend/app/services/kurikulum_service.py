@@ -33,9 +33,15 @@ class KurikulumService:
 
             tahun_ajaran = await self.repo.find_tahun_ajaran_by_id(request.tahun_ajaran_id)
             self.policy.ensure_tahun_ajaran_exists(tahun_ajaran, request.tahun_ajaran_id)
+            kategori = await self.repo.find_kategori_by_id(request.kategori_kelas_id)
+            self.policy.ensure_kategori_exists(kategori, request.kategori_kelas_id)
+            self.policy.ensure_kategori_active(kategori)
 
             existing = await self.repo.find_assignment(
-                request.mapel_id, request.tingkat, request.tahun_ajaran_id
+                request.mapel_id,
+                request.tingkat,
+                request.tahun_ajaran_id,
+                request.kategori_kelas_id,
             )
             self.policy.ensure_assignment_unique(existing, mapel.nama_mapel, request.tingkat.value)
 
@@ -43,6 +49,7 @@ class KurikulumService:
                 mapel_id=request.mapel_id,
                 tahun_ajaran_id=request.tahun_ajaran_id,
                 tingkat=request.tingkat,
+                kategori_kelas_id=request.kategori_kelas_id,
                 is_wajib=request.is_wajib,
                 jam_override=request.jam_override,
             )
@@ -63,6 +70,9 @@ class KurikulumService:
         try:
             tahun_ajaran = await self.repo.find_tahun_ajaran_by_id(request.tahun_ajaran_id)
             self.policy.ensure_tahun_ajaran_exists(tahun_ajaran, request.tahun_ajaran_id)
+            kategori = await self.repo.find_kategori_by_id(request.kategori_kelas_id)
+            self.policy.ensure_kategori_exists(kategori, request.kategori_kelas_id)
+            self.policy.ensure_kategori_active(kategori)
 
             created: list[KurikulumMapel] = []
             for mapel_id in request.mapel_ids:
@@ -70,7 +80,10 @@ class KurikulumService:
                 self.policy.ensure_mapel_exists(mapel, mapel_id)
 
                 existing = await self.repo.find_assignment(
-                    mapel_id, request.tingkat, request.tahun_ajaran_id
+                    mapel_id,
+                    request.tingkat,
+                    request.tahun_ajaran_id,
+                    request.kategori_kelas_id,
                 )
                 if existing:
                     continue
@@ -79,6 +92,7 @@ class KurikulumService:
                     mapel_id=mapel_id,
                     tahun_ajaran_id=request.tahun_ajaran_id,
                     tingkat=request.tingkat,
+                    kategori_kelas_id=request.kategori_kelas_id,
                     is_wajib=request.is_wajib,
                 )
                 await self.repo.add_assignment(km)
@@ -98,10 +112,15 @@ class KurikulumService:
             )
 
     async def list_by_tahun_ajaran_and_tingkat(
-        self, tahun_ajaran_id: UUID, tingkat: TingkatKelas
+        self,
+        tahun_ajaran_id: UUID,
+        tingkat: TingkatKelas,
+        kategori_kelas_id: UUID | None = None,
     ) -> list[KurikulumMapelResponseDTO]:
         try:
-            items = await self.repo.list_by_tahun_ajaran_and_tingkat(tahun_ajaran_id, tingkat)
+            items = await self.repo.list_by_tahun_ajaran_and_tingkat(
+                tahun_ajaran_id, tingkat, kategori_kelas_id
+            )
             return [self._to_dto(km) for km in items]
         except Exception as e:
             raise HTTPException(
@@ -109,9 +128,11 @@ class KurikulumService:
                 detail=f"Failed to list kurikulum by tingkat: {str(e)}",
             )
 
-    async def list_by_tahun_ajaran(self, tahun_ajaran_id: UUID) -> list[KurikulumMapelResponseDTO]:
+    async def list_by_tahun_ajaran(
+        self, tahun_ajaran_id: UUID, kategori_kelas_id: UUID | None = None
+    ) -> list[KurikulumMapelResponseDTO]:
         try:
-            items = await self.repo.list_by_tahun_ajaran(tahun_ajaran_id)
+            items = await self.repo.list_by_tahun_ajaran(tahun_ajaran_id, kategori_kelas_id)
             return [self._to_dto(km) for km in items]
         except Exception as e:
             raise HTTPException(
@@ -168,10 +189,11 @@ class KurikulumService:
             mapel_id=km.mapel_id,
             tahun_ajaran_id=km.tahun_ajaran_id,
             tingkat=km.tingkat,
+            kategori_kelas_id=km.kategori_kelas_id,
+            kategori_kelas_nama=km.kategori_kelas.nama if km.kategori_kelas else None,
             is_wajib=km.is_wajib,
             jam_override=km.jam_override,
             mapel_nama=mapel.nama_mapel if mapel else None,
             kode_mapel=mapel.kode_mapel if mapel else None,
             kelompok=mapel.kelompok.value if mapel else None,
-            jam_per_minggu=mapel.jam_per_minggu if mapel else None,
         )

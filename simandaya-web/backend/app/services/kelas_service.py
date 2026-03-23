@@ -34,11 +34,14 @@ class KelasService:
         wali_nama = None
         if kelas.wali_kelas and kelas.wali_kelas.guru_profile:
             wali_nama = kelas.wali_kelas.guru_profile.nama_lengkap
+        kategori_nama = kelas.kategori_kelas.nama if kelas.kategori_kelas else None
         return KelasResponseDTO(
             kelas_id=kelas.kelas_id,
             tahun_ajaran_id=kelas.tahun_ajaran_id,
             nama_kelas=kelas.nama_kelas,
             tingkat=kelas.tingkat,
+            kategori_kelas_id=kelas.kategori_kelas_id,
+            kategori_kelas_nama=kategori_nama,
             jurusan=kelas.jurusan,
             wali_kelas_id=kelas.wali_kelas_id,
             wali_kelas_nama=wali_nama,
@@ -63,11 +66,18 @@ class KelasService:
         try:
             tahun_ajaran = await self.repo.find_tahun_ajaran_by_id(request.tahun_ajaran_id)
             self.policy.ensure_tahun_ajaran_exists(tahun_ajaran, request.tahun_ajaran_id)
+            kategori = await self.repo.find_kategori_by_id(request.kategori_kelas_id)
+            self.policy.ensure_kategori_exists(kategori, request.kategori_kelas_id)
+            self.policy.ensure_kategori_active(kategori)
 
             if request.wali_kelas_id:
                 wali_kelas = await self.repo.find_user_by_id(request.wali_kelas_id)
                 self.policy.ensure_user_exists(wali_kelas, request.wali_kelas_id)
                 self.policy.ensure_user_is_guru(wali_kelas)
+                wali_existing = await self.repo.find_kelas_by_tahun_and_wali(
+                    request.tahun_ajaran_id, request.wali_kelas_id
+                )
+                self.policy.ensure_wali_kelas_available(wali_existing, wali_kelas.username)
 
             existing_kelas = await self.repo.find_kelas_by_tahun_and_name(
                 request.tahun_ajaran_id, request.nama_kelas
@@ -80,7 +90,8 @@ class KelasService:
                 tahun_ajaran_id=request.tahun_ajaran_id,
                 nama_kelas=request.nama_kelas,
                 tingkat=request.tingkat,
-                jurusan=request.jurusan,
+                kategori_kelas_id=request.kategori_kelas_id,
+                jurusan=kategori.nama,
                 wali_kelas_id=request.wali_kelas_id,
                 kapasitas=request.kapasitas,
             )
@@ -143,6 +154,24 @@ class KelasService:
                 wali_kelas = await self.repo.find_user_by_id(update_data["wali_kelas_id"])
                 self.policy.ensure_user_exists(wali_kelas, update_data["wali_kelas_id"])
                 self.policy.ensure_user_is_guru(wali_kelas)
+                wali_existing = await self.repo.find_kelas_by_tahun_and_wali(
+                    kelas.tahun_ajaran_id,
+                    update_data["wali_kelas_id"],
+                    exclude_kelas_id=kelas.kelas_id,
+                )
+                self.policy.ensure_wali_kelas_available(wali_existing, wali_kelas.username)
+
+            if "kategori_kelas_id" in update_data:
+                if update_data["kategori_kelas_id"] is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="kategori_kelas_id cannot be null",
+                    )
+                kategori = await self.repo.find_kategori_by_id(update_data["kategori_kelas_id"])
+                self.policy.ensure_kategori_exists(kategori, update_data["kategori_kelas_id"])
+                self.policy.ensure_kategori_active(kategori)
+                # Keep legacy jurusan field in sync for old consumers.
+                update_data["jurusan"] = kategori.nama
 
             for field, value in update_data.items():
                 setattr(kelas, field, value)
@@ -188,6 +217,14 @@ class KelasService:
             self.policy.ensure_siswa_not_already_assigned(
                 existing_assignment, user.username, kelas.nama_kelas
             )
+
+            existing_in_same_tahun = await self.repo.find_siswa_assignment_in_tahun(
+                request.user_id, kelas.tahun_ajaran_id
+            )
+            if existing_in_same_tahun and existing_in_same_tahun.kelas_id != kelas_id:
+                self.policy.ensure_siswa_not_already_assigned_in_same_tahun(
+                    existing_in_same_tahun, user.username, kelas.nama_kelas
+                )
 
             current_count = await self.repo.count_siswa_in_kelas(kelas_id)
             self.policy.ensure_kelas_capacity(current_count, kelas.kapasitas, kelas.nama_kelas)
@@ -262,7 +299,9 @@ class KelasService:
                 continue
 
             target_classes = [
-                c for c in new_classes if c.tingkat == next_tingkat and c.jurusan == prev_class.jurusan
+                c
+                for c in new_classes
+                if c.tingkat == next_tingkat and c.kategori_kelas_id == prev_class.kategori_kelas_id
             ]
             if not target_classes:
                 target_classes = [c for c in new_classes if c.tingkat == next_tingkat]
@@ -272,8 +311,10 @@ class KelasService:
 
             for i, student in enumerate(students):
                 target_class = target_classes[i % len(target_classes)]
-                existing = await self.repo.find_siswa_assignment(target_class.kelas_id, student.user_id)
-                if existing:
+                existing_in_target_tahun = await self.repo.find_siswa_assignment_in_tahun(
+                    student.user_id, request.to_tahun_ajaran_id
+                )
+                if existing_in_target_tahun:
                     skipped += 1
                     continue
                 await self.repo.add_siswa_assignment(

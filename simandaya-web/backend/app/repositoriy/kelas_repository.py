@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.kelas import Kelas
+from app.models.kategori_kelas import KategoriKelas
 from app.models.siswa_kelas import SiswaKelas
 from app.models.tahun_ajaran import TahunAjaran
 from app.models.user import User
@@ -35,6 +36,21 @@ class KelasRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_kelas_by_tahun_and_wali(
+        self,
+        tahun_ajaran_id: UUID,
+        wali_kelas_id: UUID,
+        exclude_kelas_id: UUID | None = None,
+    ) -> Kelas | None:
+        stmt = select(Kelas).where(
+            Kelas.tahun_ajaran_id == tahun_ajaran_id,
+            Kelas.wali_kelas_id == wali_kelas_id,
+        )
+        if exclude_kelas_id:
+            stmt = stmt.where(Kelas.kelas_id != exclude_kelas_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def find_kelas_by_id(self, kelas_id: UUID) -> Kelas | None:
         result = await self.db.execute(select(Kelas).where(Kelas.kelas_id == kelas_id))
         return result.scalar_one_or_none()
@@ -43,14 +59,18 @@ class KelasRepository:
         result = await self.db.execute(
             select(Kelas)
             .where(Kelas.kelas_id == kelas_id)
-            .options(selectinload(Kelas.wali_kelas).selectinload(User.guru_profile))
+            .options(
+                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
+                selectinload(Kelas.kategori_kelas),
+            )
         )
         return result.scalar_one_or_none()
 
     async def list_kelas_with_wali(self) -> list[Kelas]:
         result = await self.db.execute(
             select(Kelas).options(
-                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile)
+                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
+                selectinload(Kelas.kategori_kelas),
             )
         )
         return list(result.scalars().all())
@@ -59,9 +79,18 @@ class KelasRepository:
         result = await self.db.execute(
             select(Kelas)
             .where(Kelas.tahun_ajaran_id == tahun_ajaran_id)
-            .options(selectinload(Kelas.wali_kelas).selectinload(User.guru_profile))
+            .options(
+                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
+                selectinload(Kelas.kategori_kelas),
+            )
         )
         return list(result.scalars().all())
+
+    async def find_kategori_by_id(self, kategori_kelas_id: UUID) -> KategoriKelas | None:
+        result = await self.db.execute(
+            select(KategoriKelas).where(KategoriKelas.kategori_kelas_id == kategori_kelas_id)
+        )
+        return result.scalar_one_or_none()
 
     async def add_kelas(self, kelas: Kelas) -> None:
         self.db.add(kelas)
@@ -75,6 +104,20 @@ class KelasRepository:
                 SiswaKelas.kelas_id == kelas_id,
                 SiswaKelas.user_id == user_id,
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def find_siswa_assignment_in_tahun(
+        self, user_id: UUID, tahun_ajaran_id: UUID
+    ) -> SiswaKelas | None:
+        result = await self.db.execute(
+            select(SiswaKelas)
+            .join(Kelas, Kelas.kelas_id == SiswaKelas.kelas_id)
+            .where(
+                SiswaKelas.user_id == user_id,
+                Kelas.tahun_ajaran_id == tahun_ajaran_id,
+            )
+            .options(selectinload(SiswaKelas.kelas))
         )
         return result.scalar_one_or_none()
 
@@ -125,7 +168,10 @@ class KelasRepository:
             select(Kelas)
             .join(SiswaKelas)
             .where(SiswaKelas.user_id == user_id)
-            .options(selectinload(Kelas.wali_kelas).selectinload(User.guru_profile))
+            .options(
+                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
+                selectinload(Kelas.kategori_kelas),
+            )
         )
         return result.scalar_one_or_none()
 

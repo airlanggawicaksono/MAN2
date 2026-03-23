@@ -23,6 +23,9 @@ export const absensiApi = createApi({
   reducerPath: "absensiApi",
   baseQuery: createBaseQuery("/absensi"),
   tagTypes: ["Absensi", "IzinKeluar"],
+  keepUnusedDataFor: 120,
+  refetchOnFocus: false,
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     // ── Public Endpoints ─────────────────────────────────────────────────────
     listPublicAttendance: builder.query<PublicAbsensiResponse[], ListParams>({
@@ -31,6 +34,7 @@ export const absensiApi = createApi({
         if (search) url += `&search=${encodeURIComponent(search)}`;
         return url;
       },
+      keepUnusedDataFor: 120,
       providesTags: (_r, _e, { tanggal }) => [{ type: "Absensi", id: `PUBLIC-${tanggal}` }],
     }),
     listPublicIzinKeluar: builder.query<PublicIzinKeluarResponse[], ListParams>({
@@ -39,6 +43,7 @@ export const absensiApi = createApi({
         if (search) url += `&search=${encodeURIComponent(search)}`;
         return url;
       },
+      keepUnusedDataFor: 120,
       providesTags: (_r, _e, { tanggal }) => [{ type: "IzinKeluar", id: `PUBLIC-${tanggal}` }],
     }),
 

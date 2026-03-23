@@ -29,14 +29,18 @@ export function useTeacherPrecache(skip: number, total: number, search?: string)
     const nextSkip = (chunkIndex + 1) * CHUNK;
     if (nextSkip < total) {
       const remaining = total - nextSkip;
-      prefetch({ skip: nextSkip, limit: Math.min(CHUNK, remaining), search });
+      if (remaining >= CHUNK) {
+        prefetch({ skip: nextSkip, limit: CHUNK, search });
+      }
     }
 
     // Prev chunk
     const prevSkip = (chunkIndex - 1) * CHUNK;
     if (prevSkip >= 0) {
       const remaining = total - prevSkip;
-      prefetch({ skip: prevSkip, limit: Math.min(CHUNK, remaining), search });
+      if (remaining >= CHUNK) {
+        prefetch({ skip: prevSkip, limit: CHUNK, search });
+      }
     }
   }, [skip, total, search, prefetch]);
 }

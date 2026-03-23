@@ -8,6 +8,7 @@ class CreateKurikulumMapelDTO(BaseModel):
     mapel_id: UUID
     tahun_ajaran_id: UUID
     tingkat: TingkatKelas
+    kategori_kelas_id: UUID
     is_wajib: bool = Field(default=True)
     jam_override: Optional[int] = Field(default=None, ge=1, le=20)
 
@@ -15,6 +16,7 @@ class CreateKurikulumMapelDTO(BaseModel):
 class BulkAssignKurikulumMapelDTO(BaseModel):
     tahun_ajaran_id: UUID
     tingkat: TingkatKelas
+    kategori_kelas_id: UUID
     mapel_ids: list[UUID] = Field(..., min_length=1)
     is_wajib: bool = Field(default=True)
 
@@ -29,10 +31,11 @@ class KurikulumMapelResponseDTO(BaseModel):
     mapel_id: UUID
     tahun_ajaran_id: UUID
     tingkat: TingkatKelas
+    kategori_kelas_id: UUID
+    kategori_kelas_nama: Optional[str] = None
     is_wajib: bool
     jam_override: Optional[int] = None
     # Enriched fields from relationships
     mapel_nama: Optional[str] = None
     kode_mapel: Optional[str] = None
     kelompok: Optional[str] = None
-    jam_per_minggu: Optional[int] = None

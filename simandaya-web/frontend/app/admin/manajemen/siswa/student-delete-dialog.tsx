@@ -3,6 +3,7 @@
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
 import { useDeleteStudentMutation } from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface StudentDeleteDialogProps {
   student: StudentProfile | null;
@@ -24,10 +25,7 @@ export function StudentDeleteDialog({ student, open, onClose }: StudentDeleteDia
     onClose();
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   return (
     <ConfirmDialog

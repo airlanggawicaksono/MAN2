@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
@@ -57,10 +57,11 @@ async def bulk_assign_kurikulum_mapel(
 )
 async def list_kurikulum_by_tahun_ajaran(
     tahun_ajaran_id: UUID,
+    kategori_kelas_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[KurikulumMapelResponseDTO]:
     service = KurikulumService(db)
-    return await service.list_by_tahun_ajaran(tahun_ajaran_id)
+    return await service.list_by_tahun_ajaran(tahun_ajaran_id, kategori_kelas_id)
 
 
 @router.get(
@@ -72,10 +73,13 @@ async def list_kurikulum_by_tahun_ajaran(
 async def list_kurikulum_by_tingkat(
     tahun_ajaran_id: UUID,
     tingkat: TingkatKelas,
+    kategori_kelas_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[KurikulumMapelResponseDTO]:
     service = KurikulumService(db)
-    return await service.list_by_tahun_ajaran_and_tingkat(tahun_ajaran_id, tingkat)
+    return await service.list_by_tahun_ajaran_and_tingkat(
+        tahun_ajaran_id, tingkat, kategori_kelas_id
+    )
 
 
 @router.patch(

@@ -77,6 +77,7 @@ async def init_db(drop_existing: bool = False):
     from app.models.kalender_akademik import KalenderAkademik  # noqa: F401
     from app.models.mata_pelajaran import MataPelajaran  # noqa: F401
     from app.models.slot_waktu import SlotWaktu  # noqa: F401
+    from app.models.kategori_kelas import KategoriKelas  # noqa: F401
     from app.models.kelas import Kelas  # noqa: F401
     from app.models.siswa_kelas import SiswaKelas  # noqa: F401
     from app.models.guru_mapel import GuruMapel  # noqa: F401

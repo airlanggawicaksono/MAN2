@@ -26,17 +26,28 @@ ADMINS = [
 
 SEED_ADMIN_PASSWORD = ADMINS[0]["password"]
 
-STUDENTS = [
+BASE_STUDENTS = [
     {
         "username": "wicaksono_student",
         "nis": "001",
         "nama_lengkap": "Wicaksono Student",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "kelas_jurusan": "X IPA 1",
-    },
+    }
 ]
 
-TEACHERS = [
+AUTO_STUDENTS = [
+    {
+        "username": f"student_{i:03d}",
+        "nis": f"{1000 + i:04d}",
+        "nama_lengkap": f"Siswa Seed {i:03d}",
+        "jenis_kelamin": JenisKelamin.laki_laki if i % 2 else JenisKelamin.perempuan,
+    }
+    for i in range(1, 31)
+]
+
+STUDENTS = [*BASE_STUDENTS, *AUTO_STUDENTS]
+
+BASE_TEACHERS = [
     {
         "username": "wicaksono_guru",
         "nip": "001",
@@ -44,6 +55,18 @@ TEACHERS = [
         "jenis_kelamin": JenisKelamin.laki_laki,
     },
 ]
+
+AUTO_TEACHERS = [
+    {
+        "username": f"teacher_{i:03d}",
+        "nip": f"{2000 + i:04d}",
+        "nama_lengkap": f"Guru Seed {i:03d}",
+        "jenis_kelamin": JenisKelamin.laki_laki if i % 2 else JenisKelamin.perempuan,
+    }
+    for i in range(1, 31)
+]
+
+TEACHERS = [*BASE_TEACHERS, *AUTO_TEACHERS]
 
 
 async def seed() -> None:
@@ -93,7 +116,6 @@ async def seed() -> None:
                 nis=s["nis"],
                 nama_lengkap=s["nama_lengkap"],
                 jenis_kelamin=s.get("jenis_kelamin"),
-                kelas_jurusan=s.get("kelas_jurusan"),
                 status_siswa=StatusSiswa.aktif,
             )
             session.add(profile)
@@ -141,7 +163,9 @@ async def seed() -> None:
         "\nSeed complete. Credentials:\n"
         "  admin              / 1qaz2wsx3edc\n"
         "  wicaksono_student  / 1qaz2wsx3edc\n"
-        "  wicaksono_guru     / 1qaz2wsx3edc"
+        "  student_001..030   / 1qaz2wsx3edc\n"
+        "  wicaksono_guru     / 1qaz2wsx3edc\n"
+        "  teacher_001..030   / 1qaz2wsx3edc"
     )
 
 

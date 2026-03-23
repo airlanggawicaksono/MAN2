@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { useUpdateMapelMutation } from "@/api/shared/akademik";
 import type { MapelResponse, UpdateMapelRequest } from "@/types/akademik/mapel";
+import { getApiErrorMessage } from "@/lib/api-error";
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 interface MapelEditDialogProps {
   mapel: MapelResponse | null;
@@ -37,7 +39,6 @@ export function MapelEditDialog({ mapel, open, onClose }: MapelEditDialogProps) 
         nama_mapel: mapel.nama_mapel,
         kode_mapel: mapel.kode_mapel,
         kelompok: mapel.kelompok || "",
-        jam_per_minggu: mapel.jam_per_minggu,
       });
     }
   }, [mapel]);
@@ -52,7 +53,12 @@ export function MapelEditDialog({ mapel, open, onClose }: MapelEditDialogProps) 
     reset();
 
     const result = await updateMapel({ id: mapel.mapel_id, body: form });
-    if ("data" in result) onClose();
+    if ("data" in result) {
+      notifySuccess("Perubahan mata pelajaran berhasil disimpan.");
+      onClose();
+    } else {
+      notifyError("Gagal menyimpan perubahan mata pelajaran.");
+    }
   };
 
   const handleClose = () => {
@@ -60,16 +66,7 @@ export function MapelEditDialog({ mapel, open, onClose }: MapelEditDialogProps) 
     onClose();
   };
 
-  const errorDetail =
-    error && "data" in error
-      ? (error.data as { detail?: unknown })?.detail
-      : undefined;
-
-  const errorText = typeof errorDetail === "string"
-    ? errorDetail
-    : Array.isArray(errorDetail)
-      ? errorDetail.map((e: any) => e.msg).join(", ")
-      : errorDetail ? JSON.stringify(errorDetail) : undefined;
+  const errorText = getApiErrorMessage(error);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -109,16 +106,6 @@ export function MapelEditDialog({ mapel, open, onClose }: MapelEditDialogProps) 
                   <SelectItem value="Keagamaan">Keagamaan</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Jam/Minggu</Label>
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                value={form.jam_per_minggu ?? ""}
-                onChange={(e) => handleChange("jam_per_minggu", parseInt(e.target.value) || 1)}
-              />
             </div>
           </div>
           <DialogFooter>

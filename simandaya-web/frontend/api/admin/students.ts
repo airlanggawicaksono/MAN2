@@ -14,6 +14,9 @@ export const studentsApi = createApi({
   reducerPath: "studentsApi",
   baseQuery: createBaseQuery("/users/students"),
   tagTypes: ["Student"],
+  keepUnusedDataFor: 120,
+  refetchOnFocus: false,
+  refetchOnReconnect: false,
   endpoints: (builder) => ({
     listStudents: builder.query<PaginatedStudentsResponse, ListStudentsParams>({
       query: ({ skip, limit, search }) => {

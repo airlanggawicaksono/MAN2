@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInputId } from "@/components/ui/date-input-id";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,8 @@ import {
 import { useUpdateStudentMutation } from "@/api/admin/students";
 import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
+import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface StudentEditDialogProps {
   student: StudentProfile | null;
@@ -34,11 +37,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
 
   useEffect(() => {
     if (student) {
-      let dobIso = student.dob ?? "";
-      if (dobIso && dobIso.includes("/")) {
-        const [day, month, year] = dobIso.split("/");
-        dobIso = `${year}-${month}-${day}`;
-      }
+      const dobIso = normalizeDateToIso(student.dob);
       setForm({
         nis: student.nis ?? undefined,
         nama_lengkap: student.nama_lengkap,
@@ -47,7 +46,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
         jenis_kelamin: student.jenis_kelamin ?? undefined,
         alamat: student.alamat ?? undefined,
         nama_wali: student.nama_wali ?? undefined,
-        kelas_jurusan: student.kelas_jurusan ?? undefined,
         tahun_masuk: student.tahun_masuk ?? undefined,
         status_siswa: student.status_siswa,
         kontak: student.kontak ?? undefined,
@@ -61,9 +59,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
   };
 
   const formatDateForApi = (isoDate: string | undefined): string => {
-    if (!isoDate || !isoDate.includes("-")) return isoDate ?? "";
-    const [year, month, day] = isoDate.split("-");
-    return `${day}/${month}/${year}`;
+    return formatIsoToApiDmy(isoDate) ?? "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,10 +77,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
     onClose();
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (() => { const d = (error.data as { detail?: unknown })?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map((e: any) => e.msg).join(", ") : undefined; })()
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -118,10 +111,9 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
             </div>
             <div className="grid gap-2">
               <Label>Tanggal Lahir</Label>
-              <Input
-                type="date"
+              <DateInputId
                 value={form.dob || ""}
-                onChange={(e) => handleChange("dob", e.target.value)}
+                onValueChange={(value) => handleChange("dob", value)}
               />
             </div>
             <div className="grid gap-2">
@@ -151,13 +143,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Input
                 value={form.nama_wali || ""}
                 onChange={(e) => handleChange("nama_wali", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Kelas/Jurusan</Label>
-              <Input
-                value={form.kelas_jurusan || ""}
-                onChange={(e) => handleChange("kelas_jurusan", e.target.value)}
               />
             </div>
             <div className="grid gap-2">
