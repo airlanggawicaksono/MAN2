@@ -46,6 +46,22 @@ class BulkCardAssignProgress {
   });
 }
 
+class HikvisionCleanupResult {
+  final int usersDeleted;
+  final int cardsDeleted;
+  final int usersSkippedAdmin;
+  final List<String> deletedUsers;
+  final List<String> deletedCards;
+
+  const HikvisionCleanupResult({
+    this.usersDeleted = 0,
+    this.cardsDeleted = 0,
+    this.usersSkippedAdmin = 0,
+    this.deletedUsers = const [],
+    this.deletedCards = const [],
+  });
+}
+
 class CardAlreadyAssignedException implements Exception {
   final String cardNo;
   final String ownerName;
@@ -168,6 +184,87 @@ class StudentService {
         // Ignore per-person failures; continue best-effort reconciliation.
       }
     }
+  }
+
+  /// Full reconciliation by scanning device data and deleting stale entries
+  /// that are not present in local DB.
+  /// Safety rule: never delete Hikvision user entries with userType=administrator.
+  Future<HikvisionCleanupResult> cleanupStaleFromHikvision({
+    required AppConfig config,
+  }) async {
+    if (!config.isHikvisionConfigured) return const HikvisionCleanupResult();
+
+    final localStudents = await db.getAllStudents();
+    final localEmployeeNos = localStudents
+        .map((s) => s.userId.replaceAll('-', ''))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final localCardNos = localStudents
+        .map((s) => s.cardNo)
+        .whereType<String>()
+        .where((card) => card.isNotEmpty)
+        .toSet();
+
+    final client = _hikvisionClientFactory(config);
+    final deviceUsers = await client.listUsers();
+    final deviceCards = await client.listCards();
+
+    final adminEmployeeNos = <String>{};
+    int usersDeleted = 0;
+    int usersSkippedAdmin = 0;
+    final deletedUsers = <String>[];
+
+    for (final user in deviceUsers) {
+      final employeeNo = user.employeeNo.trim();
+      if (employeeNo.isEmpty) continue;
+
+      final userType = (user.userType ?? '').trim().toLowerCase();
+      if (userType == 'administrator') {
+        adminEmployeeNos.add(employeeNo);
+        usersSkippedAdmin++;
+        continue;
+      }
+
+      if (localEmployeeNos.contains(employeeNo)) continue;
+
+      try {
+        await client.deletePerson(employeeNo: employeeNo);
+        usersDeleted++;
+        deletedUsers.add(employeeNo);
+      } catch (_) {
+        // Best-effort delete; continue with others.
+      }
+    }
+
+    int cardsDeleted = 0;
+    final deletedCards = <String>[];
+    for (final card in deviceCards) {
+      final cardNo = card.cardNo.trim();
+      if (cardNo.isEmpty) continue;
+
+      final ownerEmployeeNo = (card.employeeNo ?? '').trim();
+      if (ownerEmployeeNo.isNotEmpty && adminEmployeeNos.contains(ownerEmployeeNo)) {
+        continue;
+      }
+
+      if (localCardNos.contains(cardNo)) continue;
+
+      try {
+        await client.deleteCard(cardNo: cardNo);
+        cardsDeleted++;
+        deletedCards.add(cardNo);
+      } catch (_) {
+        // Best-effort delete; continue with others.
+      }
+    }
+
+    return HikvisionCleanupResult(
+      usersDeleted: usersDeleted,
+      cardsDeleted: cardsDeleted,
+      usersSkippedAdmin: usersSkippedAdmin,
+      deletedUsers: deletedUsers,
+      deletedCards: deletedCards,
+    );
   }
 
   /// Push a single student to Hikvision and mark as registered.

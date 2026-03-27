@@ -10,6 +10,7 @@ from app.services.jadwal_service import JadwalService
 from app.dto.akademik.guru_mapel_dto import (
     CreateGuruMapelDTO, GuruMapelResponseDTO,
     MessageResponseDTO,
+    UpdateGuruMapelDTO,
 )
 from app.dto.akademik.jadwal_dto import (
     CreateJadwalDTO, UpdateJadwalDTO, JadwalResponseDTO,
@@ -50,6 +51,19 @@ async def list_guru_mapel(
 ) -> list[GuruMapelResponseDTO]:
     service = JadwalService(db)
     return await service.list_guru_mapel()
+
+
+@admin_router.get(
+    "/guru-mapel/active",
+    response_model=list[GuruMapelResponseDTO],
+    summary="List Active-Year Teacher Assignments",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def list_guru_mapel_active(
+    db: AsyncSession = Depends(get_db),
+) -> list[GuruMapelResponseDTO]:
+    service = JadwalService(db)
+    return await service.list_guru_mapel_active_tahun()
 
 
 @guru_router.get(
@@ -105,6 +119,21 @@ async def delete_guru_mapel(
 ) -> MessageResponseDTO:
     service = JadwalService(db)
     return await service.delete_guru_mapel(guru_mapel_id)
+
+
+@admin_router.patch(
+    "/guru-mapel/{guru_mapel_id}",
+    response_model=GuruMapelResponseDTO,
+    summary="Update Teacher Assignment",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def update_guru_mapel(
+    guru_mapel_id: UUID,
+    request: UpdateGuruMapelDTO,
+    db: AsyncSession = Depends(get_db),
+) -> GuruMapelResponseDTO:
+    service = JadwalService(db)
+    return await service.update_guru_mapel(guru_mapel_id, request)
 
 
 # ── Jadwal (Timetable) ──────────────────────────────────────────────────────

@@ -168,6 +168,7 @@ function ContentBox({
                       <img
                         src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
                         alt="Video"
+                        loading="lazy"
                         className="rounded w-20 h-14 object-cover shrink-0"
                       />
                     ) : (
@@ -184,6 +185,7 @@ function ContentBox({
                   <img
                     src={slide.image_url}
                     alt={slide.title || ""}
+                    loading="lazy"
                     className="rounded w-20 h-14 object-cover shrink-0"
                   />
                 ) : (
@@ -271,22 +273,23 @@ export default function SettingPage() {
 
   const [activeType, setActiveType] = useState<ContentType>("carousel");
 
-  const { data: carouselItems = [], isLoading: loadingCarousel } = useListSlidesQuery("carousel");
-  const { data: flyerItems = [], isLoading: loadingFlyer } = useListSlidesQuery("flyer");
-  const { data: mediaItems = [], isLoading: loadingMedia } = useListSlidesQuery("media");
-  const { data: videoItems = [], isLoading: loadingVideo } = useListSlidesQuery("video");
-  const { data: lokasiItems = [], isLoading: loadingLokasi } = useListSlidesQuery("lokasi");
+  const { data: allSlides = [], isLoading: loadingSlides } = useListSlidesQuery();
+  const carouselItems = allSlides.filter((s) => s.type === "carousel");
+  const flyerItems = allSlides.filter((s) => s.type === "flyer");
+  const mediaItems = allSlides.filter((s) => s.type === "media");
+  const videoItems = allSlides.filter((s) => s.type === "video");
+  const lokasiItems = allSlides.filter((s) => s.type === "lokasi");
 
   const [createSlide, { isLoading: creating }] = useCreateSlideMutation();
   const [updateSlide, { isLoading: updating }] = useUpdateSlideMutation();
   const [deleteSlide, { isLoading: deleting }] = useDeleteSlideMutation();
 
   const dataMap: Record<ContentType, { items: CarouselSlide[]; loading: boolean }> = {
-    carousel: { items: carouselItems, loading: loadingCarousel },
-    flyer: { items: flyerItems, loading: loadingFlyer },
-    media: { items: mediaItems, loading: loadingMedia },
-    video: { items: videoItems, loading: loadingVideo },
-    lokasi: { items: lokasiItems, loading: loadingLokasi },
+    carousel: { items: carouselItems, loading: loadingSlides },
+    flyer: { items: flyerItems, loading: loadingSlides },
+    media: { items: mediaItems, loading: loadingSlides },
+    video: { items: videoItems, loading: loadingSlides },
+    lokasi: { items: lokasiItems, loading: loadingSlides },
   };
 
   async function handleCreate(data: CreateSlideRequest) {

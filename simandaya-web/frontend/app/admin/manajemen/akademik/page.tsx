@@ -1,12 +1,28 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import PeriodeTab from "./periode/page";
-import KategoriKelasTab from "./kategori-kelas/page";
-import KurikulumTab from "./_kurikulum/kurikulum-tab";
-import KelasGuruSiswaPage from "./kelas-guru-siswa/page";
+
+const TabLoading = () => (
+  <div className="flex items-center justify-center py-16">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  </div>
+);
+
+const KategoriKelasTab = dynamic(() => import("./kategori-kelas/page"), {
+  loading: TabLoading,
+});
+const PeriodeTab = dynamic(() => import("./periode/page"), {
+  loading: TabLoading,
+});
+const KurikulumTab = dynamic(() => import("./_kurikulum/kurikulum-tab"), {
+  loading: TabLoading,
+});
+const KelasGuruSiswaPage = dynamic(() => import("./kelas-guru-siswa/page"), {
+  loading: TabLoading,
+});
 
 const VALID_TABS = ["pengaturan", "periode", "kurikulum", "kelas"] as const;
 type AkademikTab = (typeof VALID_TABS)[number];

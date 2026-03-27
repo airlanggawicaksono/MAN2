@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Calendar, ClipboardCheck, GraduationCap, User } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { DashboardActionCard } from "@/app/components/dashboard-action-card";
 import { DashboardHeader } from "@/app/components/dashboard-header";
-import { GuruProfileCard } from "@/app/components/guru-profile-card";
+
+const GuruProfileCard = dynamic(
+  () => import("@/app/components/guru-profile-card").then((m) => ({ default: m.GuruProfileCard })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    ),
+  },
+);
 
 const actions = [
   {

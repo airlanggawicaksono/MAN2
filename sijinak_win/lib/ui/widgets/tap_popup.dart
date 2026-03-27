@@ -57,7 +57,7 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
       }
 
       final existing = await widget.attendanceService.getExistingTodayRecord(
-        widget.student.cardNo ?? '',
+        widget.student.userId,
         type,
       );
 

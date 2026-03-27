@@ -8,12 +8,9 @@ from app.dto.akademik.kelas_dto import (
     CreateKelasDTO,
     KelasResponseDTO,
     MessageResponseDTO,
-    PromoteResultDTO,
-    PromoteStudentsDTO,
     SiswaKelasResponseDTO,
     UpdateKelasDTO,
 )
-from app.enums import TingkatKelas
 from app.models.kelas import Kelas
 from app.models.siswa_kelas import SiswaKelas
 from app.policy.kelas_policy import KelasPolicy
@@ -117,6 +114,16 @@ class KelasService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list kelas: {str(e)}",
+            )
+
+    async def list_active_kelas(self) -> list[KelasResponseDTO]:
+        try:
+            kelas_list = await self.repo.list_active_kelas_with_wali()
+            return [self._to_kelas_dto(kelas) for kelas in kelas_list]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to list active kelas: {str(e)}",
             )
 
     async def get_kelas(self, kelas_id: UUID) -> KelasResponseDTO:
@@ -275,61 +282,6 @@ class KelasService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list siswa in kelas: {str(e)}",
             )
-
-    async def promote_students(self, request: PromoteStudentsDTO) -> PromoteResultDTO:
-        promotion_map = {
-            TingkatKelas.x: TingkatKelas.xi,
-            TingkatKelas.xi: TingkatKelas.xii,
-        }
-
-        prev_classes = await self.repo.list_kelas_by_tahun(request.from_tahun_ajaran_id)
-        new_classes = await self.repo.list_kelas_by_tahun(request.to_tahun_ajaran_id)
-        self.policy.ensure_target_classes_exist(new_classes)
-
-        promoted = 0
-        graduated = 0
-        skipped = 0
-
-        for prev_class in prev_classes:
-            students = await self.repo.list_siswa_assignments_by_kelas(prev_class.kelas_id)
-            next_tingkat = promotion_map.get(prev_class.tingkat)
-
-            if next_tingkat is None:
-                graduated += len(students)
-                continue
-
-            target_classes = [
-                c
-                for c in new_classes
-                if c.tingkat == next_tingkat and c.kategori_kelas_id == prev_class.kategori_kelas_id
-            ]
-            if not target_classes:
-                target_classes = [c for c in new_classes if c.tingkat == next_tingkat]
-            if not target_classes:
-                skipped += len(students)
-                continue
-
-            for i, student in enumerate(students):
-                target_class = target_classes[i % len(target_classes)]
-                existing_in_target_tahun = await self.repo.find_siswa_assignment_in_tahun(
-                    student.user_id, request.to_tahun_ajaran_id
-                )
-                if existing_in_target_tahun:
-                    skipped += 1
-                    continue
-                await self.repo.add_siswa_assignment(
-                    SiswaKelas(kelas_id=target_class.kelas_id, user_id=student.user_id)
-                )
-                promoted += 1
-
-        await self.repo.commit()
-
-        return PromoteResultDTO(
-            promoted=promoted,
-            graduated=graduated,
-            skipped=skipped,
-            message=f"{promoted} siswa dipromosikan, {graduated} siswa lulus (XII), {skipped} dilewati.",
-        )
 
     async def get_student_kelas(self, user_id: UUID) -> KelasResponseDTO:
         kelas = await self.repo.get_student_kelas_with_wali(user_id)

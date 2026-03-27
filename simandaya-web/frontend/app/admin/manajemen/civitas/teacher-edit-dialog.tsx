@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Ban, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useListTeachersQuery, useUpdateTeacherMutation } from "@/api/admin/teachers";
+import { useUpdateTeacherMutation } from "@/api/admin/teachers";
 import {
   useAssignStructuralRoleMutation,
   useDeactivateStructuralAssignmentMutation,
@@ -31,53 +31,18 @@ import type {
   StatusGuru,
   StructuralRole,
 } from "@/types/enums";
-import { ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS } from "@/types/enums";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateInputId } from "@/components/ui/date-input-id";
 import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
-
-const NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES = new Set<string>([
-  "Tim IT",
-  "Pengembang Madrasah",
-  "Kepala Laboratorium Terpadu",
-  "Wali Kelas",
-  "Bimbingan Konseling",
-  "Satuan Pendidikan Ramah Anak",
-  "Tim Pendidikan Karakter",
-  "Tim Penjaminan Karakter",
-  "Pembina Ekstrakurikuler",
-  "Laboratorium Komputer",
-  "Publikasi dan Informasi",
-  "Multimedia dan Studio",
-  "Tim Adiwiyata",
-  "Satgas Anti Narkoba",
-  "OSIS",
-  "MPK",
-  "PIKR",
-  "KIR",
-  "Robotik",
-  "Koord. OSN/KSN",
-  "Koord. OSN/KSM",
-  "PMR dan UKS",
-  "Olahraga",
-  "Seni",
-  "Pecinta Alam",
-  "Corps Mubaligh",
-  "Pramuka",
-  "Staf Tata Usaha",
-  "Pustakawan",
-  "Laboran",
-  "Petugas UKS",
-  "Guru",
-]);
+import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 interface TeacherEditDialogProps {
   teacher: GuruProfile | null;
   open: boolean;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
 }
 
 export function TeacherEditDialog({
@@ -91,6 +56,10 @@ export function TeacherEditDialog({
   const [roleSearch, setRoleSearch] = useState("");
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleGuardError, setRoleGuardError] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
   const [tahunMasukDate, setTahunMasukDate] = useState<string>("");
   const [
     updateTeacher,
@@ -104,21 +73,17 @@ export function TeacherEditDialog({
     deactivateStructuralAssignment,
     { isLoading: isDeactivating, error: deactivateError, reset: resetDeactivateError },
   ] = useDeactivateStructuralAssignmentMutation();
-  const { data: teachersData } = useListTeachersQuery({
-    skip: 0,
-    limit: 100,
-  });
-  const {
-    data: structuralRoles = [],
-    refetch: refetchStructuralRoles,
-  } = useGetStructuralRolesQuery(
+  // All assignable roles (for display)
+  const { data: allRoles = [] } = useGetStructuralRolesQuery(
+    teacher ? { includeInactive: false, availableOnly: false } : undefined,
+    { refetchOnMountOrArgChange: true },
+  );
+  // Only available (not taken by others) roles
+  const { data: availableRoles = [] } = useGetStructuralRolesQuery(
     teacher
-      ? {
-          includeInactive: false,
-          availableOnly: true,
-          forUserId: teacher.user_id,
-        }
+      ? { includeInactive: false, availableOnly: true, forUserId: teacher.user_id }
       : undefined,
+    { refetchOnMountOrArgChange: true },
   );
 
   const NO_ROLE = "__NONE__";
@@ -173,35 +138,18 @@ export function TeacherEditDialog({
     return dp[n][m];
   };
 
-  const takenRoleNames = useMemo(() => {
-    if (!teacher || !teachersData?.items?.length) return new Set<string>();
-    const taken = new Set<string>();
-    for (const teacherItem of teachersData.items) {
-      if (teacherItem.user_id === teacher.user_id) continue;
-      const activeRoles = teacherItem.structural_assignments
-        .filter((assignment) => assignment.is_active)
-        .map((assignment) => assignment.structural_role ?? assignment.role_name)
-        .filter((role): role is string => Boolean(role));
-      for (const roleName of activeRoles) {
-        taken.add(roleName);
-      }
-    }
-    return taken;
-  }, [teachersData?.items, teacher]);
+  const availableRoleNames = useMemo(
+    () => new Set(availableRoles.map((r) => r.name)),
+    [availableRoles],
+  );
 
   const selectableStructuralRoles = useMemo(() => {
-    const apiNames = structuralRoles.map((role) => role.name).filter(Boolean);
-    // Prefer backend catalog as source of truth; fallback to local options if catalog is empty.
-    const backendFirst = apiNames.length > 0 ? apiNames : [...ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS];
-    const merged = Array.from(new Set<string>(backendFirst));
-    if (selectedRole && selectedRole !== NO_ROLE && !merged.includes(selectedRole)) {
-      merged.push(selectedRole);
+    const names = allRoles.map((r) => r.name);
+    if (selectedRole && selectedRole !== NO_ROLE && !names.includes(selectedRole)) {
+      names.push(selectedRole);
     }
-    return merged
-      .filter((roleName) => !NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES.has(roleName))
-      .filter((roleName) => !takenRoleNames.has(roleName) || roleName === selectedRole)
-      .sort((a, b) => a.localeCompare(b));
-  }, [structuralRoles, selectedRole, takenRoleNames]);
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [allRoles, selectedRole]);
 
   const filteredStructuralRoles = useMemo(() => {
     const query = roleSearch.trim().toLowerCase();
@@ -221,10 +169,7 @@ export function TeacherEditDialog({
     return scored.map((item) => item.roleName);
   }, [selectableStructuralRoles, roleSearch]);
 
-  const visibleStructuralRoles = useMemo(() => {
-    if (!selectedRole || selectedRole === NO_ROLE) return filteredStructuralRoles;
-    return filteredStructuralRoles.filter((roleName) => roleName !== selectedRole);
-  }, [filteredStructuralRoles, selectedRole]);
+  const visibleStructuralRoles = filteredStructuralRoles;
 
   const handleChange = (
     field: keyof UpdateGuruRequest,
@@ -244,6 +189,7 @@ export function TeacherEditDialog({
     resetAssignError();
     resetDeactivateError();
     setRoleGuardError(null);
+    setStatusNotice(null);
     const payload = { ...form };
     if (payload.dob) payload.dob = formatDateForApi(payload.dob);
     if (!payload.tahun_masuk) delete payload.tahun_masuk;
@@ -252,7 +198,11 @@ export function TeacherEditDialog({
       guruId: teacher.guru_id,
       body: payload,
     });
-    if ("error" in result) return;
+    if (!("data" in result)) {
+      notifyError("Gagal menyimpan data civitas.");
+      setStatusNotice({ type: "error", message: "Gagal menyimpan data civitas." });
+      return;
+    }
 
     const activeAssignments = teacher.structural_assignments.filter(
       (assignment) => assignment.is_active,
@@ -264,44 +214,50 @@ export function TeacherEditDialog({
       activeCurrentAssignment?.structural_role ??
       activeCurrentAssignment?.role_name ??
       NO_ROLE;
+    const hasRoleChange = selectedRole !== activeRole;
 
-    if (selectedRole !== activeRole) {
+    if (hasRoleChange) {
       let newAssignmentId: string | null = null;
       if (selectedRole !== NO_ROLE) {
-        if (NON_ASSIGNABLE_STRUCTURAL_ROLE_NAMES.has(selectedRole)) {
-          setRoleGuardError(
-            "Jabatan tersebut tidak dapat di-assign. Pilih jabatan struktural yang assignable.",
-          );
-          return;
-        }
-        // Re-check right before submit to avoid stale options in long-open dialog.
-        const latest = await refetchStructuralRoles();
-        const latestNames = (latest.data ?? structuralRoles).map((role) => role.name);
-        if (!latestNames.includes(selectedRole)) {
-          setRoleGuardError(
-            "Jabatan sudah dipakai/berubah oleh user lain. Silakan pilih ulang jabatan.",
-          );
-          return;
-        }
         const assignResult = await assignStructuralRole({
           user_id: teacher.user_id,
           structural_role: selectedRole as StructuralRole,
           kelas_id: null,
           is_active: true,
         });
-        if ("error" in assignResult) return;
+        if (!("data" in assignResult)) {
+          notifyError("Profil tersimpan, tapi gagal mengubah jabatan struktural.");
+          setStatusNotice({
+            type: "error",
+            message: "Profil tersimpan, tapi gagal mengubah jabatan struktural.",
+          });
+          await onSaved?.();
+          return;
+        }
         newAssignmentId = assignResult.data.assignment_id;
       }
 
       for (const assignment of activeAssignments) {
         if (newAssignmentId && assignment.assignment_id === newAssignmentId) continue;
         const deactivationResult = await deactivateStructuralAssignment(assignment.assignment_id);
-        if ("error" in deactivationResult) return;
+        if (!("data" in deactivationResult)) {
+          notifyError("Jabatan baru tersimpan, tapi gagal menonaktifkan jabatan lama.");
+          setStatusNotice({
+            type: "error",
+            message: "Jabatan baru tersimpan, tapi gagal menonaktifkan jabatan lama.",
+          });
+          await onSaved?.();
+          return;
+        }
       }
     }
 
-    onSaved?.();
-    onClose();
+    await onSaved?.();
+    const successMessage = hasRoleChange
+      ? "Data civitas dan jabatan struktural berhasil diperbarui."
+      : "Data civitas berhasil diperbarui.";
+    notifySuccess(successMessage);
+    setStatusNotice({ type: "success", message: successMessage });
   };
 
   const handleClose = () => {
@@ -309,12 +265,17 @@ export function TeacherEditDialog({
     resetAssignError();
     resetDeactivateError();
     setRoleGuardError(null);
+    setStatusNotice(null);
     onClose();
   };
 
   const errorMessage = getApiErrorMessage(error);
   const assignErrorMessage = getApiErrorMessage(assignError);
   const deactivateErrorMessage = getApiErrorMessage(deactivateError);
+  const activeRoleName =
+    teacher?.structural_assignments.find((assignment) => assignment.is_active)?.structural_role ??
+    teacher?.structural_assignments.find((assignment) => assignment.is_active)?.role_name ??
+    NO_ROLE;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -333,6 +294,18 @@ export function TeacherEditDialog({
         )}
         {roleGuardError && (
           <p className="text-sm text-destructive">{roleGuardError}</p>
+        )}
+        {statusNotice && (
+          <div
+            className={cn(
+              "rounded-md border px-3 py-2 text-sm",
+              statusNotice.type === "success" && "border-emerald-200 bg-emerald-50 text-emerald-900",
+              statusNotice.type === "error" && "border-red-200 bg-red-50 text-red-900",
+              statusNotice.type === "info" && "border-slate-200 bg-slate-50 text-slate-900",
+            )}
+          >
+            {statusNotice.message}
+          </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -434,32 +407,55 @@ export function TeacherEditDialog({
                       className="w-full justify-start"
                       onClick={() => {
                         setSelectedRole(NO_ROLE);
+                        setStatusNotice({
+                          type: "info",
+                          message: "Pilihan jabatan diubah ke 'Tidak ada jabatan'. Klik Simpan Perubahan.",
+                        });
                         setRoleOpen(false);
                       }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", selectedRole === NO_ROLE ? "opacity-100" : "opacity-0")} />
                       Tidak ada jabatan
                     </Button>
-                    {visibleStructuralRoles.map((roleName) => (
-                      <Button
-                        key={roleName}
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSelectedRole(roleName);
-                          setRoleOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedRole === roleName ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        {roleName}
-                      </Button>
-                    ))}
+                    {visibleStructuralRoles.map((roleName) => {
+                      const isTaken =
+                        !availableRoleNames.has(roleName) &&
+                        roleName !== selectedRole;
+                      return (
+                        <Button
+                          key={roleName}
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start"
+                          disabled={isTaken}
+                          onClick={() => {
+                            setSelectedRole(roleName);
+                            setRoleGuardError(null);
+                            setStatusNotice({
+                              type: "info",
+                              message: `Jabatan dipilih: ${roleName}. Klik Simpan Perubahan.`,
+                            });
+                            setRoleOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedRole === roleName ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          <span className="flex items-center gap-2">
+                            {roleName}
+                            {isTaken && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Ban className="h-3.5 w-3.5" />
+                                Dipakai
+                              </span>
+                            )}
+                          </span>
+                        </Button>
+                      );
+                    })}
                     {visibleStructuralRoles.length === 0 && (
                       <p className="px-2 py-1 text-sm text-muted-foreground">Tidak ada hasil</p>
                     )}

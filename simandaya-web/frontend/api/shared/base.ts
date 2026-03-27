@@ -4,6 +4,10 @@ import type { RootState } from "@/store";
 import { logout, setCredentials } from "@/store/slices/auth";
 
 const API_BASE = "/api/v1";
+const TOKEN_REFRESH_LEEWAY_MS = 20_000;
+
+let refreshInFlight: Promise<boolean> | null = null;
+let lastForcedLogoutAt = 0;
 
 function getTokenExpirationMs(token: string): number | null {
   try {
@@ -25,7 +29,7 @@ function getTokenExpirationMs(token: string): number | null {
 function isTokenExpired(token: string): boolean {
   const expMs = getTokenExpirationMs(token);
   if (expMs === null) return false;
-  return expMs <= Date.now();
+  return expMs <= Date.now() + TOKEN_REFRESH_LEEWAY_MS;
 }
 
 async function tryRefreshToken(api: any): Promise<boolean> {
@@ -47,6 +51,25 @@ async function tryRefreshToken(api: any): Promise<boolean> {
   }
 }
 
+async function ensureFreshToken(api: any): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = tryRefreshToken(api).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+function forceLogoutAndRedirect(api: any): void {
+  const now = Date.now();
+  if (now - lastForcedLogoutAt < 1500) return;
+  lastForcedLogoutAt = now;
+  api.dispatch(logout());
+  if (typeof window !== "undefined") {
+    window.location.href = "/";
+  }
+}
+
 export function createBaseQuery(path: string): BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> {
   const baseQuery = fetchBaseQuery({
     baseUrl: `${API_BASE}${path}`,
@@ -64,26 +87,26 @@ export function createBaseQuery(path: string): BaseQueryFn<string | FetchArgs, u
   return async (args, api, extraOptions) => {
     const tokenBefore = (api.getState() as RootState).auth.token;
     if (tokenBefore && isTokenExpired(tokenBefore)) {
-      const refreshed = await tryRefreshToken(api);
+      const refreshed = await ensureFreshToken(api);
       if (!refreshed) {
-        api.dispatch(logout());
-        if (typeof window !== "undefined") {
-          window.location.href = "/";
-        }
+        forceLogoutAndRedirect(api);
+        return {
+          error: {
+            status: 401,
+            data: { detail: "Token expired and refresh failed" },
+          },
+        };
       }
     }
 
     let result = await baseQuery(args, api, extraOptions);
 
     if (result.error && result.error.status === 401) {
-      const refreshed = await tryRefreshToken(api);
+      const refreshed = await ensureFreshToken(api);
       if (refreshed) {
         result = await baseQuery(args, api, extraOptions);
       } else {
-        api.dispatch(logout());
-        if (typeof window !== "undefined") {
-          window.location.href = "/";
-        }
+        forceLogoutAndRedirect(api);
       }
     }
 

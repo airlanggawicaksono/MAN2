@@ -2,7 +2,7 @@
         dev-up dev-down dev-reset-seed dev-nuke-seed dev-backend dev-frontend \
         prod-build prod-up prod-down \
         db-up db-down db-shell db-reset \
-        seed-admins import-students \
+        seed-admins seed-academic-demo seed-all import-students \
         logs status clean
 
 include .env
@@ -39,6 +39,8 @@ help:
 	@echo ""
 	@echo "Scripts:"
 	@echo "  make seed-admins              Seed admin accounts (admin1-3)"
+	@echo "  make seed-academic-demo       Seed structural+akademik+jadwal+siswa_kelas demo data"
+	@echo "  make seed-all                 Seed admins then seed academic demo data"
 	@echo "  make import-students FILE=x   Import students from xlsx"
 	@echo ""
 	@echo "Other:"
@@ -67,22 +69,24 @@ dev-down:
 	$(DEV) stop
 
 dev-reset-seed:
-	@echo "Resetting dev environment and seeding admins..."
+	@echo "Resetting dev environment and seeding demo data..."
 	$(DEV) down -v
 	$(DEV) up -d
 	@sleep 10
 	$(DEV) exec backend python scripts/seed_admins.py
-	@echo "Reset and admin seed complete"
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+	@echo "Reset and demo seed complete"
 
 dev-nuke-seed:
-	@echo "Nuking dev Docker state and seeding admins..."
+	@echo "Nuking dev Docker state and seeding demo data..."
 	$(DEV) down -v --remove-orphans
 	docker builder prune -af
 	docker system prune -af --volumes
 	$(DEV) up -d
 	@sleep 12
 	$(DEV) exec backend python scripts/seed_admins.py
-	@echo "Nuke + admin seed complete"
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+	@echo "Nuke + demo seed complete"
 
 dev-backend:
 	$(DEV) up -d backend
@@ -135,6 +139,13 @@ db-reset-hard:
 
 seed-admins:
 	$(DEV) exec backend python scripts/seed_admins.py
+
+seed-academic-demo:
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+
+seed-all:
+	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_academic_demo.py
 
 import-students:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make import-students FILE=\"/path/to/file.xlsx\""; exit 1; fi

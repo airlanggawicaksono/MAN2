@@ -8,8 +8,7 @@ const LAYANAN_AKADEMIK = [
     description:
       "Portal penilaian dan laporan capaian hasil belajar siswa (Rapor Digital) Madrasah.",
     link: "https://ard.kemenag.go.id/",
-    image:
-      "https://images.unsplash.com/photo-1434031211128-095490e7e7bb?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/ard.jpg",
     icon: GraduationCap,
   },
   {
@@ -17,8 +16,7 @@ const LAYANAN_AKADEMIK = [
     description:
       "Sistem Manajemen Pembelajaran (LMS) terpadu untuk kegiatan belajar mengajar digital.",
     link: "https://elearning.man2yogyakarta.sch.id/",
-    image:
-      "https://images.unsplash.com/photo-1501504905252-473c47e087f8?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/elearning.jpg",
     icon: BookOpen,
   },
   {
@@ -26,8 +24,7 @@ const LAYANAN_AKADEMIK = [
     description:
       "Informasi jadwal pelajaran, kalender akademik, dan agenda kegiatan madrasah.",
     link: "/general/absensi",
-    image:
-      "https://images.unsplash.com/photo-1506784919121-4d145e1d4ad5?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/jadwal.jpg",
     icon: Calendar,
   },
 ];

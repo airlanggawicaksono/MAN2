@@ -82,24 +82,15 @@ export default function IndexPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/cms/slides?type=flyer")
+    fetch("/api/cms/slides")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setFlyerItems(data.filter((s) => s.is_active)))
-      .catch(() => {});
-
-    fetch("/api/cms/slides?type=media")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setMediaItems(data.filter((s) => s.is_active)))
-      .catch(() => {});
-
-    fetch("/api/cms/slides?type=video")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setVideoItems(data.filter((s) => s.is_active)))
-      .catch(() => {});
-
-    fetch("/api/cms/slides?type=lokasi")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => setLokasiItems(data.filter((s) => s.is_active)))
+      .then((data: CarouselSlide[]) => {
+        const active = data.filter((s) => s.is_active);
+        setFlyerItems(active.filter((s) => s.type === "flyer"));
+        setMediaItems(active.filter((s) => s.type === "media"));
+        setVideoItems(active.filter((s) => s.type === "video"));
+        setLokasiItems(active.filter((s) => s.type === "lokasi"));
+      })
       .catch(() => {});
   }, []);
 
@@ -214,7 +205,7 @@ export default function IndexPage() {
           }
 
           return (
-            <Link key={item.title} href={item.href} className="block h-full">
+            <Link key={item.title} href={item.href} prefetch={false} className="block h-full">
               {card}
             </Link>
           );
@@ -255,6 +246,7 @@ export default function IndexPage() {
                       title={videoTitles[video.id] || "Video"}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
+                      loading="lazy"
                     />
                   </div>
                   {videoTitles[video.id] && (

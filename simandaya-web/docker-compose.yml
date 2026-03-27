@@ -81,6 +81,9 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       CI: "true"
       WATCHPACK_POLLING: "true"
+      WATCHPACK_POLLING_INTERVAL: "300"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     ports:
       - "${FRONTEND_EXTERNAL_PORT:-4923}:3000"
     depends_on:

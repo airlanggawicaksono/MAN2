@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,26 @@ export default function StrukturOrganisasiPage() {
     limit: 100,
   });
   const civitas = data?.items ?? [];
+
+  // Lazy-render OrgChart: only mount when its container is in the viewport
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartVisible, setChartVisible] = useState(false);
+
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setChartVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const filteredCivitas = useMemo(() => {
     return civitas.filter((p) => {
@@ -80,12 +100,18 @@ export default function StrukturOrganisasiPage() {
                   * Scroll untuk zoom, drag untuk geser
                 </div>
               </div>
-              <CardContent className="p-0 bg-white flex-1 relative min-h-[700px]">
+              <CardContent ref={chartRef} className="p-0 bg-white flex-1 relative min-h-[700px]">
                 <div
                   className="w-full h-full"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <OrgChart civitas={civitas} />
+                  {chartVisible ? (
+                    <OrgChart civitas={civitas} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-50">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

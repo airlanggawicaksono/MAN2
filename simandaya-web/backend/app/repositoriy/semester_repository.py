@@ -38,6 +38,12 @@ class SemesterRepository:
         result = await self.db.execute(select(Semester))
         return list(result.scalars().all())
 
+    async def list_active(self) -> list[Semester]:
+        result = await self.db.execute(
+            select(Semester).where(Semester.is_active.is_(True))
+        )
+        return list(result.scalars().all())
+
     async def list_by_tahun_ajaran(self, tahun_ajaran_id: UUID) -> list[Semester]:
         result = await self.db.execute(
             select(Semester).where(Semester.tahun_ajaran_id == tahun_ajaran_id)

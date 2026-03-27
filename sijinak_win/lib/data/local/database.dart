@@ -30,11 +30,13 @@ abstract class StudentStorePort {
 abstract class AttendanceStorePort {
   Future<Student?> getStudentByUserId(String userId);
   Future<Student?> getStudentByCard(String cardNo);
+  Future<List<TapRecord>> getTodayRecordsForStudent(String userId);
   Future<List<TapRecord>> getTodayRecordsForCard(String cardNo);
 }
 
 abstract class SyncStorePort {
   Future<List<TapRecord>> getUnpublishedRecords();
+  Future<Student?> getStudentByUserId(String userId);
   Future<Student?> getStudentByCard(String cardNo);
   Future<void> markPublished(String recordId, int publishedAt);
 }
@@ -57,7 +59,7 @@ class AppDatabase extends _$AppDatabase
   static final AppDatabase instance = AppDatabase._();
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -66,6 +68,10 @@ class AppDatabase extends _$AppDatabase
           if (from < 3) {
             await m.deleteTable('students');
             await m.createTable(students);
+          }
+          if (from < 4) {
+            // Reset legacy history rows that were tied to mutable card ownership.
+            await delete(tapRecords).go();
           }
         },
       );
@@ -222,6 +228,22 @@ class AppDatabase extends _$AppDatabase
           ..where(
             (r) =>
                 r.cardNo.equals(cardNo) &
+                r.deviceTime.isBiggerOrEqualValue(startOfDay) &
+                r.deviceTime.isSmallerThanValue(endOfDay),
+          )
+          ..orderBy([(r) => OrderingTerm.asc(r.deviceTime)]))
+        .get();
+  }
+
+  Future<List<TapRecord>> getTodayRecordsForStudent(String userId) {
+    final now = DateTime.now();
+    final startOfDay =
+        DateTime(now.year, now.month, now.day).millisecondsSinceEpoch ~/ 1000;
+    final endOfDay = startOfDay + 86400;
+    return (select(tapRecords)
+          ..where(
+            (r) =>
+                r.id.like('${userId}_%') &
                 r.deviceTime.isBiggerOrEqualValue(startOfDay) &
                 r.deviceTime.isSmallerThanValue(endOfDay),
           )

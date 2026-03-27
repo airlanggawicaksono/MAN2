@@ -6,6 +6,7 @@ from app.dto.akademik.guru_mapel_dto import (
     CreateGuruMapelDTO,
     GuruMapelResponseDTO,
     MessageResponseDTO,
+    UpdateGuruMapelDTO,
 )
 from app.dto.akademik.jadwal_dto import (
     CreateJadwalDTO,
@@ -16,6 +17,7 @@ from app.models.guru_mapel import GuruMapel
 from app.models.jadwal import Jadwal
 from app.models.user import User
 from app.policy.jadwal_policy import JadwalPolicy
+from app.policy.slot_waktu_policy import SlotWaktuPolicy
 from app.repositoriy.jadwal_repository import JadwalRepository
 
 
@@ -64,6 +66,10 @@ class JadwalService:
         guru_mapels = await self.repo.list_guru_mapel_all()
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
+    async def list_guru_mapel_active_tahun(self) -> list[GuruMapelResponseDTO]:
+        guru_mapels = await self.repo.list_guru_mapel_active_tahun()
+        return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
+
     async def list_guru_mapel_by_guru(self, user_id: UUID) -> list[GuruMapelResponseDTO]:
         guru_mapels = await self.repo.list_guru_mapel_by_guru(user_id)
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
@@ -78,6 +84,59 @@ class JadwalService:
         await self.repo.delete_guru_mapel(guru_mapel)
         await self.repo.commit()
         return MessageResponseDTO(message="GuruMapel deleted successfully")
+
+    async def update_guru_mapel(
+        self, guru_mapel_id: UUID, request: UpdateGuruMapelDTO
+    ) -> GuruMapelResponseDTO:
+        guru_mapel = await self.repo.find_guru_mapel_by_id(guru_mapel_id)
+        self.policy.ensure_guru_mapel_exists(guru_mapel, guru_mapel_id)
+        old_user_id = guru_mapel.user_id
+        old_mapel_id = guru_mapel.mapel_id
+        old_kelas_id = guru_mapel.kelas_id
+
+        update_data = request.model_dump(exclude_unset=True)
+        self.policy.ensure_guru_mapel_update_payload(update_data)
+
+        new_user_id = update_data.get("user_id", guru_mapel.user_id)
+        new_mapel_id = update_data.get("mapel_id", guru_mapel.mapel_id)
+        new_kelas_id = update_data.get("kelas_id", guru_mapel.kelas_id)
+
+        if "user_id" in update_data:
+            user = await self.repo.find_user_by_id(new_user_id)
+            self.policy.ensure_user_exists(user, new_user_id)
+            self.policy.ensure_user_is_guru(user, new_user_id)
+
+        if "mapel_id" in update_data:
+            mapel = await self.repo.find_mapel_by_id(new_mapel_id)
+            self.policy.ensure_entity_exists(mapel, "Mata pelajaran", new_mapel_id)
+
+        if "kelas_id" in update_data:
+            kelas = await self.repo.find_kelas_by_id(new_kelas_id)
+            self.policy.ensure_entity_exists(kelas, "Kelas", new_kelas_id)
+
+        existing = await self.repo.find_guru_mapel_unique(
+            new_user_id, new_mapel_id, new_kelas_id, guru_mapel.tahun_ajaran_id
+        )
+        if existing and existing.guru_mapel_id != guru_mapel_id:
+            self.policy.ensure_guru_mapel_unique(existing)
+
+        guru_mapel.user_id = new_user_id
+        guru_mapel.mapel_id = new_mapel_id
+        guru_mapel.kelas_id = new_kelas_id
+
+        if old_user_id != new_user_id:
+            await self.repo.sync_jadwal_teacher_for_assignment(
+                tahun_ajaran_id=guru_mapel.tahun_ajaran_id,
+                kelas_id=old_kelas_id,
+                mapel_id=old_mapel_id,
+                old_user_id=old_user_id,
+                new_user_id=new_user_id,
+            )
+
+        await self.repo.commit()
+        await self.repo.refresh_guru_mapel(guru_mapel)
+        guru_mapel = await self.repo.find_guru_mapel_by_id_with_relations(guru_mapel.guru_mapel_id)
+        return self._to_guru_mapel_dto(guru_mapel)
 
     async def create_jadwal(self, request: CreateJadwalDTO) -> JadwalResponseDTO:
         semester = await self.repo.find_semester_by_id(request.semester_id)
@@ -95,16 +154,25 @@ class JadwalService:
 
         slot_waktu = await self.repo.find_slot_waktu_by_id(request.slot_waktu_id)
         self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", request.slot_waktu_id)
+        SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
 
-        class_clash = await self.repo.find_class_clash(
-            request.semester_id, request.hari, request.slot_waktu_id, request.kelas_id
+        class_time_clash = await self.repo.find_class_time_overlap(
+            request.semester_id,
+            request.hari,
+            request.kelas_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
         )
-        self.policy.ensure_class_slot_available(class_clash)
+        self.policy.ensure_class_time_available(class_time_clash)
 
-        teacher_clash = await self.repo.find_teacher_clash(
-            request.semester_id, request.hari, request.slot_waktu_id, request.guru_user_id
+        teacher_time_clash = await self.repo.find_teacher_time_overlap(
+            request.semester_id,
+            request.hari,
+            request.guru_user_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
         )
-        self.policy.ensure_teacher_slot_available(teacher_clash)
+        self.policy.ensure_teacher_time_available(teacher_time_clash)
 
         jadwal = Jadwal(
             semester_id=request.semester_id,
@@ -155,28 +223,34 @@ class JadwalService:
         if "slot_waktu_id" in update_data:
             slot_waktu = await self.repo.find_slot_waktu_by_id(update_data["slot_waktu_id"])
             self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", update_data["slot_waktu_id"])
+            SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
+        else:
+            slot_waktu = await self.repo.find_slot_waktu_by_id(jadwal.slot_waktu_id)
+            self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", jadwal.slot_waktu_id)
+            SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
 
         new_hari = update_data.get("hari", jadwal.hari)
-        new_slot_waktu_id = update_data.get("slot_waktu_id", jadwal.slot_waktu_id)
         new_guru_user_id = update_data.get("guru_user_id", jadwal.guru_user_id)
 
-        class_clash = await self.repo.find_class_clash(
+        class_time_clash = await self.repo.find_class_time_overlap(
             jadwal.semester_id,
             new_hari,
-            new_slot_waktu_id,
             jadwal.kelas_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
             exclude_jadwal_id=jadwal_id,
         )
-        self.policy.ensure_class_slot_available(class_clash)
+        self.policy.ensure_class_time_available(class_time_clash)
 
-        teacher_clash = await self.repo.find_teacher_clash(
+        teacher_time_clash = await self.repo.find_teacher_time_overlap(
             jadwal.semester_id,
             new_hari,
-            new_slot_waktu_id,
             new_guru_user_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
             exclude_jadwal_id=jadwal_id,
         )
-        self.policy.ensure_teacher_slot_available(teacher_clash)
+        self.policy.ensure_teacher_time_available(teacher_time_clash)
 
         for field, value in update_data.items():
             setattr(jadwal, field, value)
@@ -211,6 +285,9 @@ class JadwalService:
         )
 
     def _to_jadwal_dto(self, jadwal: Jadwal) -> JadwalResponseDTO:
+        guru_nama = None
+        if jadwal.guru and jadwal.guru.guru_profile:
+            guru_nama = jadwal.guru.guru_profile.nama_lengkap
         return JadwalResponseDTO(
             jadwal_id=jadwal.jadwal_id,
             semester_id=jadwal.semester_id,
@@ -219,4 +296,9 @@ class JadwalService:
             guru_user_id=jadwal.guru_user_id,
             hari=jadwal.hari,
             slot_waktu_id=jadwal.slot_waktu_id,
+            mapel_nama=jadwal.mapel.nama_mapel if jadwal.mapel else None,
+            nama_kelas=jadwal.kelas.nama_kelas if jadwal.kelas else None,
+            guru_nama=guru_nama,
+            jam_mulai=jadwal.slot_waktu.jam_mulai if jadwal.slot_waktu else None,
+            jam_selesai=jadwal.slot_waktu.jam_selesai if jadwal.slot_waktu else None,
         )

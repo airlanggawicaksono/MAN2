@@ -26,6 +26,12 @@ class TahunAjaranRepository:
         result = await self.db.execute(select(TahunAjaran))
         return list(result.scalars().all())
 
+    async def find_active(self) -> TahunAjaran | None:
+        result = await self.db.execute(
+            select(TahunAjaran).where(TahunAjaran.is_active.is_(True))
+        )
+        return result.scalar_one_or_none()
+
     async def add(self, tahun_ajaran: TahunAjaran) -> None:
         self.db.add(tahun_ajaran)
 

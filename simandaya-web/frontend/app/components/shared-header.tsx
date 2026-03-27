@@ -73,7 +73,7 @@ export default function SharedHeader({
                                   {child.label}
                                 </a>
                               ) : (
-                                <Link href={child.href} className={dropdownLinkStyle}>
+                                <Link href={child.href} prefetch={false} className={dropdownLinkStyle}>
                                   {child.label}
                                 </Link>
                               )}
@@ -95,7 +95,7 @@ export default function SharedHeader({
                       navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)
                     }
                   >
-                    <Link href={item.href}>{item.label}</Link>
+                    <Link href={item.href} prefetch={false}>{item.label}</Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               );

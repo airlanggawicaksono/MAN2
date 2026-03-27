@@ -35,6 +35,7 @@ export function ServiceLinkCard({
         <img
           src={image}
           alt={title}
+          loading="lazy"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex items-end p-4">
@@ -76,7 +77,7 @@ export function ServiceLinkCard({
             asChild
             className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
           >
-            <Link href={link} className="flex items-center justify-center gap-2">
+            <Link href={link} prefetch={false} className="flex items-center justify-center gap-2">
               Buka Layanan
               <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
             </Link>

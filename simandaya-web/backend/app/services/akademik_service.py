@@ -81,10 +81,17 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
+            self.tahun_ajaran_policy.ensure_date_range_valid(
+                request.tanggal_mulai, request.tanggal_selesai
+            )
             existing = await self.tahun_ajaran_repo.find_by_nama(request.nama)
             self.tahun_ajaran_policy.ensure_nama_available(
                 is_taken=existing is not None,
                 nama=request.nama,
+            )
+            all_tahun_ajaran = await self.tahun_ajaran_repo.list_all()
+            self.tahun_ajaran_policy.ensure_not_overlapping(
+                all_tahun_ajaran, request.tanggal_mulai, request.tanggal_selesai
             )
 
             tahun_ajaran = TahunAjaran(
@@ -117,6 +124,15 @@ class AkademikService:
         """
         tahun_ajaran_list = await self.tahun_ajaran_repo.list_all()
         return [self._to_tahun_ajaran_dto(ta) for ta in tahun_ajaran_list]
+
+    async def get_active_tahun_ajaran(self) -> TahunAjaranResponseDTO:
+        tahun_ajaran = await self.tahun_ajaran_repo.find_active()
+        if not tahun_ajaran:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active academic year found",
+            )
+        return self._to_tahun_ajaran_dto(tahun_ajaran)
 
     async def get_tahun_ajaran(self, tahun_ajaran_id: UUID) -> TahunAjaranResponseDTO:
         """
@@ -153,6 +169,18 @@ class AkademikService:
                 is_taken=nama_check is not None,
                 nama=update_data["nama"],
             )
+
+        new_tanggal_mulai = update_data.get("tanggal_mulai", tahun_ajaran.tanggal_mulai)
+        new_tanggal_selesai = update_data.get("tanggal_selesai", tahun_ajaran.tanggal_selesai)
+        self.tahun_ajaran_policy.ensure_date_range_valid(new_tanggal_mulai, new_tanggal_selesai)
+
+        all_tahun_ajaran = await self.tahun_ajaran_repo.list_all()
+        self.tahun_ajaran_policy.ensure_not_overlapping(
+            all_tahun_ajaran,
+            new_tanggal_mulai,
+            new_tanggal_selesai,
+            exclude_id=tahun_ajaran_id,
+        )
 
         for field, value in update_data.items():
             setattr(tahun_ajaran, field, value)
@@ -193,12 +221,23 @@ class AkademikService:
             self.semester_policy.ensure_tahun_ajaran_exists(
                 tahun_ajaran, request.tahun_ajaran_id
             )
+            self.semester_policy.ensure_date_range_valid(
+                request.tanggal_mulai, request.tanggal_selesai
+            )
+            self.semester_policy.ensure_within_tahun_ajaran(
+                tahun_ajaran, request.tanggal_mulai, request.tanggal_selesai
+            )
 
             semester_check = await self.semester_repo.find_by_tahun_ajaran_and_tipe(
                 request.tahun_ajaran_id, request.tipe
             )
             self.semester_policy.ensure_unique_for_tahun_ajaran(
                 semester_check, request.tipe
+            )
+
+            all_semesters = await self.semester_repo.list_by_tahun_ajaran(request.tahun_ajaran_id)
+            self.semester_policy.ensure_not_overlapping(
+                all_semesters, request.tanggal_mulai, request.tanggal_selesai
             )
 
             semester = Semester(
@@ -231,6 +270,10 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         semesters = await self.semester_repo.list_all()
+        return [self._to_semester_dto(s) for s in semesters]
+
+    async def list_active_semesters(self) -> list[SemesterResponseDTO]:
+        semesters = await self.semester_repo.list_active()
         return [self._to_semester_dto(s) for s in semesters]
 
     async def get_semester(self, semester_id: UUID) -> SemesterResponseDTO:
@@ -270,6 +313,24 @@ class AkademikService:
 
         update_data = request.model_dump(exclude_unset=True)
         self.semester_policy.ensure_update_payload(update_data)
+
+        tahun_ajaran = await self.semester_repo.find_tahun_ajaran_by_id(semester.tahun_ajaran_id)
+        self.semester_policy.ensure_tahun_ajaran_exists(tahun_ajaran, semester.tahun_ajaran_id)
+
+        new_tanggal_mulai = update_data.get("tanggal_mulai", semester.tanggal_mulai)
+        new_tanggal_selesai = update_data.get("tanggal_selesai", semester.tanggal_selesai)
+        self.semester_policy.ensure_date_range_valid(new_tanggal_mulai, new_tanggal_selesai)
+        self.semester_policy.ensure_within_tahun_ajaran(
+            tahun_ajaran, new_tanggal_mulai, new_tanggal_selesai
+        )
+
+        all_semesters = await self.semester_repo.list_by_tahun_ajaran(semester.tahun_ajaran_id)
+        self.semester_policy.ensure_not_overlapping(
+            all_semesters,
+            new_tanggal_mulai,
+            new_tanggal_selesai,
+            exclude_id=semester_id,
+        )
 
         for field, value in update_data.items():
             setattr(semester, field, value)
@@ -507,6 +568,7 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
+            self.slot_waktu_policy.ensure_time_range_valid(request.jam_mulai, request.jam_selesai)
             slot = SlotWaktu(
                 nama=request.nama,
                 jam_mulai=request.jam_mulai,
@@ -553,6 +615,9 @@ class AkademikService:
 
         update_data = request.model_dump(exclude_unset=True)
         self.slot_waktu_policy.ensure_update_payload(update_data)
+        new_jam_mulai = update_data.get("jam_mulai", slot.jam_mulai)
+        new_jam_selesai = update_data.get("jam_selesai", slot.jam_selesai)
+        self.slot_waktu_policy.ensure_time_range_valid(new_jam_mulai, new_jam_selesai)
 
         for field, value in update_data.items():
             setattr(slot, field, value)
@@ -582,11 +647,21 @@ class AkademikService:
         try:
             source_semester = await self.semester_repo.find_by_id(request.source_semester_id)
             self.semester_policy.ensure_exists(source_semester)
+            tahun_ajaran = await self.semester_repo.find_tahun_ajaran_by_id(source_semester.tahun_ajaran_id)
+            self.semester_policy.ensure_tahun_ajaran_exists(tahun_ajaran, source_semester.tahun_ajaran_id)
+            self.semester_policy.ensure_date_range_valid(request.tanggal_mulai, request.tanggal_selesai)
+            self.semester_policy.ensure_within_tahun_ajaran(
+                tahun_ajaran, request.tanggal_mulai, request.tanggal_selesai
+            )
 
             existing_target = await self.semester_repo.find_by_tahun_ajaran_and_tipe(
                 source_semester.tahun_ajaran_id, request.tipe
             )
             self.semester_policy.ensure_unique_for_tahun_ajaran(existing_target, request.tipe)
+            all_semesters = await self.semester_repo.list_by_tahun_ajaran(source_semester.tahun_ajaran_id)
+            self.semester_policy.ensure_not_overlapping(
+                all_semesters, request.tanggal_mulai, request.tanggal_selesai
+            )
 
             target_semester = Semester(
                 tahun_ajaran_id=source_semester.tahun_ajaran_id,
@@ -653,10 +728,17 @@ class AkademikService:
         self, request: CopyTahunAjaranStructureDTO
     ) -> CopyTahunAjaranStructureResponseDTO:
         try:
+            self.tahun_ajaran_policy.ensure_date_range_valid(
+                request.tanggal_mulai, request.tanggal_selesai
+            )
             existing = await self.tahun_ajaran_repo.find_by_nama(request.nama)
             self.tahun_ajaran_policy.ensure_nama_available(
                 is_taken=existing is not None,
                 nama=request.nama,
+            )
+            all_tahun_ajaran = await self.tahun_ajaran_repo.list_all()
+            self.tahun_ajaran_policy.ensure_not_overlapping(
+                all_tahun_ajaran, request.tanggal_mulai, request.tanggal_selesai
             )
 
             source_tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(request.source_tahun_ajaran_id)

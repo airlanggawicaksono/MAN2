@@ -45,6 +45,14 @@ class JadwalPolicy:
             )
 
     @staticmethod
+    def ensure_guru_mapel_update_payload(update_data: dict) -> None:
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update",
+            )
+
+    @staticmethod
     def ensure_class_slot_available(clash) -> None:
         if clash:
             raise HTTPException(
@@ -58,6 +66,22 @@ class JadwalPolicy:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Teacher already has a lesson at this time slot",
+            )
+
+    @staticmethod
+    def ensure_class_time_available(clash) -> None:
+        if clash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Jadwal kelas bertabrakan dengan jam pelajaran lain",
+            )
+
+    @staticmethod
+    def ensure_teacher_time_available(clash) -> None:
+        if clash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Jadwal guru bertabrakan dengan kelas lain pada jam tersebut",
             )
 
     @staticmethod

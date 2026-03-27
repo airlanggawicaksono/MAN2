@@ -275,7 +275,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Use existing record ID if overwriting, otherwise generate new one based on event
     final recordId =
         result.existingRecordId ??
-        '${entry.event.cardNo}_${entry.event.serialNo}';
+        '${entry.student.userId}_${entry.event.cardNo}_${entry.event.serialNo}';
 
     await db
         .into(db.tapRecords)

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useListTeachersQuery } from "@/api/admin/teachers";
 import type { GuruProfile } from "@/types/teachers";
 import { useTeacherPrecache } from "@/hooks/useTeacherPrecache";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useCrudListPage } from "@/hooks/useCrudListPage";
 import { DataTable } from "@/components/ui/data-table";
 import { TeacherForm } from "./teacher-form";
 import { teacherColumns } from "./teacher-columns";
@@ -12,46 +11,25 @@ import { TeacherEditDialog } from "./teacher-edit-dialog";
 import { TeacherDeleteDialog } from "./teacher-delete-dialog";
 import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
-import { RowEditDeleteActions } from "@/app/components/admin/row-edit-delete-actions";
-
-const LIMIT = 30;
+import { withActionsColumn } from "@/app/components/admin/row-edit-delete-actions";
 
 export default function CivitasAkademikPage() {
-  const [skip, setSkip] = useState(0);
-  const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const crud = useCrudListPage<GuruProfile>();
 
   const { data, isLoading, error, refetch } = useListTeachersQuery({
-    skip,
-    limit: LIMIT,
-    search: debouncedSearch || undefined,
+    skip: crud.skip,
+    limit: crud.limit,
+    search: crud.debouncedSearch,
   });
 
   const total = data?.total ?? 0;
-  useTeacherPrecache(skip, total, debouncedSearch || undefined);
+  useTeacherPrecache(crud.skip, total, crud.debouncedSearch);
 
-  const [editTarget, setEditTarget] = useState<GuruProfile | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<GuruProfile | null>(null);
-
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    setSkip(0);
-  };
-
-  const columnsWithActions = [
-    ...teacherColumns,
-    {
-      id: "actions",
-      header: "Aksi",
-      cell: ({ row }: { row: { original: GuruProfile } }) => (
-        <RowEditDeleteActions
-          rowData={row.original}
-          onEdit={setEditTarget}
-          onDelete={setDeleteTarget}
-        />
-      ),
-    },
-  ];
+  const columnsWithActions = withActionsColumn(
+    teacherColumns,
+    crud.setEditTarget,
+    crud.setDeleteTarget,
+  );
 
   return (
     <div className="space-y-8 p-8">
@@ -69,42 +47,38 @@ export default function CivitasAkademikPage() {
 
         <EntitySearchInput
           placeholder="Cari civitas..."
-          value={searchInput}
-          onChange={handleSearchChange}
+          value={crud.searchInput}
+          onChange={crud.handleSearchChange}
         />
 
         {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
-        {error && (
-          <p className="text-destructive">
-            Gagal memuat data civitas: {JSON.stringify(error)}
-          </p>
-        )}
+        {error && <p className="text-destructive">Gagal memuat data civitas.</p>}
         {data && <DataTable columns={columnsWithActions} data={data.items} />}
 
         {data ? (
           <EntityTablePagination
-            skip={skip}
-            limit={LIMIT}
+            skip={crud.skip}
+            limit={crud.limit}
             total={total}
             itemLabel="civitas"
-            onSkipChange={setSkip}
+            onSkipChange={crud.setSkip}
           />
         ) : null}
       </div>
 
       <TeacherEditDialog
-        teacher={editTarget}
-        open={!!editTarget}
-        onClose={() => setEditTarget(null)}
-        onSaved={() => {
-          void refetch();
+        teacher={crud.editTarget}
+        open={!!crud.editTarget}
+        onClose={() => crud.setEditTarget(null)}
+        onSaved={async () => {
+          await refetch();
         }}
       />
 
       <TeacherDeleteDialog
-        teacher={deleteTarget}
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        teacher={crud.deleteTarget}
+        open={!!crud.deleteTarget}
+        onClose={() => crud.setDeleteTarget(null)}
       />
     </div>
   );

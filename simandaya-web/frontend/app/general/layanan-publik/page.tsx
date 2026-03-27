@@ -8,8 +8,7 @@ const LAYANAN_PUBLIK = [
     description:
       "Portal informasi resmi MAN 2 Yogyakarta mengenai berita, prestasi, dan pengumuman terbaru.",
     link: "https://man2yogyakarta.sch.id/",
-    image:
-      "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/website.jpg",
     icon: Globe,
   },
   {
@@ -17,8 +16,7 @@ const LAYANAN_PUBLIK = [
     description:
       "Layanan komunikasi dan pendataan bagi alumni MAN 2 Yogyakarta lintas generasi.",
     link: "https://alumni.man2yogyakarta.sch.id/",
-    image:
-      "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/alumni.jpg",
     icon: Users,
   },
   {
@@ -26,8 +24,7 @@ const LAYANAN_PUBLIK = [
     description:
       "Layanan Whistleblowing System untuk melaporkan indikasi pelanggaran secara anonim dan aman.",
     link: "https://jogja.kemenag.go.id/wbs",
-    image:
-      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&q=80&w=800",
+    image: "/images/layanan/wbs.jpg",
     icon: MessageSquare,
   },
 ];

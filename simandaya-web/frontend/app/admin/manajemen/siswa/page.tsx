@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useListStudentsQuery } from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useCrudListPage } from "@/hooks/useCrudListPage";
 import { DataTable } from "@/components/ui/data-table";
 import { StudentForm } from "./student-form";
 import { studentColumns } from "./student-columns";
@@ -12,46 +11,25 @@ import { StudentEditDialog } from "./student-edit-dialog";
 import { StudentDeleteDialog } from "./student-delete-dialog";
 import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
-import { RowEditDeleteActions } from "@/app/components/admin/row-edit-delete-actions";
-
-const LIMIT = 30;
+import { withActionsColumn } from "@/app/components/admin/row-edit-delete-actions";
 
 export default function DataSiswaPage() {
-  const [skip, setSkip] = useState(0);
-  const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const crud = useCrudListPage<StudentProfile>();
 
   const { data, isLoading, error } = useListStudentsQuery({
-    skip,
-    limit: LIMIT,
-    search: debouncedSearch || undefined,
+    skip: crud.skip,
+    limit: crud.limit,
+    search: crud.debouncedSearch,
   });
 
   const total = data?.total ?? 0;
-  useStudentPrecache(skip, total, debouncedSearch || undefined);
+  useStudentPrecache(crud.skip, total, crud.debouncedSearch);
 
-  const [editTarget, setEditTarget] = useState<StudentProfile | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<StudentProfile | null>(null);
-
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    setSkip(0);
-  };
-
-  const columnsWithActions = [
-    ...studentColumns,
-    {
-      id: "actions",
-      header: "Aksi",
-      cell: ({ row }: { row: { original: StudentProfile } }) => (
-        <RowEditDeleteActions
-          rowData={row.original}
-          onEdit={setEditTarget}
-          onDelete={setDeleteTarget}
-        />
-      ),
-    },
-  ];
+  const columnsWithActions = withActionsColumn(
+    studentColumns,
+    crud.setEditTarget,
+    crud.setDeleteTarget,
+  );
 
   return (
     <div className="space-y-8 p-8">
@@ -69,8 +47,8 @@ export default function DataSiswaPage() {
 
         <EntitySearchInput
           placeholder="Cari siswa..."
-          value={searchInput}
-          onChange={handleSearchChange}
+          value={crud.searchInput}
+          onChange={crud.handleSearchChange}
         />
 
         {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
@@ -79,25 +57,25 @@ export default function DataSiswaPage() {
 
         {data ? (
           <EntityTablePagination
-            skip={skip}
-            limit={LIMIT}
+            skip={crud.skip}
+            limit={crud.limit}
             total={total}
             itemLabel="siswa"
-            onSkipChange={setSkip}
+            onSkipChange={crud.setSkip}
           />
         ) : null}
       </div>
 
       <StudentEditDialog
-        student={editTarget}
-        open={!!editTarget}
-        onClose={() => setEditTarget(null)}
+        student={crud.editTarget}
+        open={!!crud.editTarget}
+        onClose={() => crud.setEditTarget(null)}
       />
 
       <StudentDeleteDialog
-        student={deleteTarget}
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        student={crud.deleteTarget}
+        open={!!crud.deleteTarget}
+        onClose={() => crud.setDeleteTarget(null)}
       />
     </div>
   );

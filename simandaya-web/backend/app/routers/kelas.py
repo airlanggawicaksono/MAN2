@@ -1,29 +1,26 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config.database import get_db
 from app.dependencies import require_role
+from app.dto.akademik.kelas_dto import (
+    AssignSiswaDTO,
+    CreateKelasDTO,
+    KelasResponseDTO,
+    MessageResponseDTO,
+    SiswaKelasResponseDTO,
+    UpdateKelasDTO,
+)
 from app.enums import UserType
 from app.models.user import User
 from app.services.kelas_service import KelasService
-from app.dto.akademik.kelas_dto import (
-    CreateKelasDTO,
-    UpdateKelasDTO,
-    KelasResponseDTO,
-    AssignSiswaDTO,
-    SiswaKelasResponseDTO,
-    PromoteStudentsDTO,
-    PromoteResultDTO,
-    MessageResponseDTO,
-)
 
 router = APIRouter(prefix="/api/v1/akademik")
 admin_router = APIRouter(tags=["Admin - Kelas"])
 guru_router = APIRouter(tags=["Guru - Kelas"])
 student_router = APIRouter(tags=["Siswa - Kelas"])
-
-
-# ── Kelas CRUD ───────────────────────────────────────────────────────────────
 
 
 @admin_router.post(
@@ -82,6 +79,19 @@ async def list_kelas_by_tahun_ajaran(
 
 
 @guru_router.get(
+    "/kelas/active",
+    response_model=list[KelasResponseDTO],
+    summary="List Active Classes (Active Academic Year)",
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru))],
+)
+async def list_active_kelas(
+    db: AsyncSession = Depends(get_db),
+) -> list[KelasResponseDTO]:
+    service = KelasService(db)
+    return await service.list_active_kelas()
+
+
+@guru_router.get(
     "/kelas/{kelas_id}",
     response_model=KelasResponseDTO,
     summary="Get Class",
@@ -122,26 +132,6 @@ async def delete_kelas(
 ) -> MessageResponseDTO:
     service = KelasService(db)
     return await service.delete_kelas(kelas_id)
-
-
-# ── Student Promotion ────────────────────────────────────────────────────────
-
-
-@admin_router.post(
-    "/kelas/promote",
-    response_model=PromoteResultDTO,
-    summary="Promote Students to New Academic Year",
-    dependencies=[Depends(require_role(UserType.admin))],
-)
-async def promote_students(
-    request: PromoteStudentsDTO,
-    db: AsyncSession = Depends(get_db),
-) -> PromoteResultDTO:
-    service = KelasService(db)
-    return await service.promote_students(request)
-
-
-# ── Student Assignment ───────────────────────────────────────────────────────
 
 
 @admin_router.post(
@@ -192,4 +182,3 @@ async def remove_siswa(
 router.include_router(admin_router)
 router.include_router(guru_router)
 router.include_router(student_router)
-

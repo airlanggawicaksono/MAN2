@@ -62,6 +62,8 @@ Database:
 
 Scripts:
   .\make.ps1 seed-admins              Seed admin accounts (admin1-3)
+  .\make.ps1 seed-academic-demo       Seed structural+akademik+jadwal+siswa_kelas demo data
+  .\make.ps1 seed-all                 Seed admins then seed academic demo data
   .\make.ps1 import-students FILE=x   Import students from xlsx
 
 Other:
@@ -95,26 +97,28 @@ Ports:
     "dev-up"       { Invoke-Dev "up -d" }
     "dev-down"     { Invoke-Dev "stop" }
     "dev-reset-seed" {
-        Write-Host "Resetting dev environment and seeding..."
+        Write-Host "Resetting dev environment and seeding demo data..."
         Invoke-Dev "down -v"
         Invoke-Dev "up -d"
         Write-Host "Waiting for services to initialize (10s)..."
         Start-Sleep -Seconds 10
-        Write-Host "Seeding admins..."
+        Write-Host "Seeding admins + academic demo..."
         Invoke-Dev "exec backend python scripts/seed_admins.py"
-        Write-Host "Reset and admin seed complete!"
+        Invoke-Dev "exec backend python scripts/seed_academic_demo.py"
+        Write-Host "Reset and demo seed complete!"
     }
     "dev-nuke-seed" {
-        Write-Host "Nuking dev Docker state and seeding admins..."
+        Write-Host "Nuking dev Docker state and seeding demo data..."
         Invoke-Dev "down -v --remove-orphans"
         docker builder prune -af | Out-Host
         docker system prune -af --volumes | Out-Host
         Invoke-Dev "up -d"
         Write-Host "Waiting for services to initialize (12s)..."
         Start-Sleep -Seconds 12
-        Write-Host "Seeding admins..."
+        Write-Host "Seeding admins + academic demo..."
         Invoke-Dev "exec backend python scripts/seed_admins.py"
-        Write-Host "Nuke + admin seed complete!"
+        Invoke-Dev "exec backend python scripts/seed_academic_demo.py"
+        Write-Host "Nuke + demo seed complete!"
     }
     "dev-backend"  { Invoke-Dev "up -d backend" }
     "dev-frontend" { Invoke-Dev "up -d frontend" }
@@ -158,6 +162,11 @@ Ports:
 
     # ── Scripts ───────────────────────────────────────────────────────────
     "seed-admins"  { Invoke-Dev "exec backend python scripts/seed_admins.py" }
+    "seed-academic-demo" { Invoke-Dev "exec backend python scripts/seed_academic_demo.py" }
+    "seed-all" {
+        Invoke-Dev "exec backend python scripts/seed_admins.py"
+        Invoke-Dev "exec backend python scripts/seed_academic_demo.py"
+    }
     "import-students" {
         if (!$FILE) {
             Write-Host 'Usage: .\make.ps1 import-students "path/to/file.xlsx"'

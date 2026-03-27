@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { BookOpen, Calendar, GraduationCap, User } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { DashboardActionCard } from "@/app/components/dashboard-action-card";
 import { DashboardHeader } from "@/app/components/dashboard-header";
-import { SiswaProfileCard } from "@/app/components/siswa-profile-card";
+
+const SiswaProfileCard = dynamic(
+  () => import("@/app/components/siswa-profile-card").then((m) => ({ default: m.SiswaProfileCard })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    ),
+  },
+);
 
 const actions = [
   {

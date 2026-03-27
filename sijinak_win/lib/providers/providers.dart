@@ -186,6 +186,7 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
 
       if (config.isHikvisionConfigured) {
         await ref.read(studentServiceProvider).publishUnregisteredToHikvision(config);
+        await ref.read(studentServiceProvider).cleanupStaleFromHikvision(config: config);
       }
 
       final count = await db.getStudentCount();

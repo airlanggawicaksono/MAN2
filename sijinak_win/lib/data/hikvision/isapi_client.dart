@@ -20,6 +20,8 @@ abstract class HikvisionDevicePort {
   });
   Future<void> deleteCard({required String cardNo});
   Future<void> deletePerson({required String employeeNo});
+  Future<List<HikvisionUserInfo>> listUsers({int pageSize = 200});
+  Future<List<HikvisionCardInfo>> listCards({int pageSize = 200});
   Future<DeviceInfo> testConnection({
     Duration timeout = const Duration(seconds: 3),
   });
@@ -272,7 +274,9 @@ class IsapiClient implements HikvisionDevicePort {
   Future<void> deleteCard({required String cardNo}) async {
     await putJson('/ISAPI/AccessControl/CardInfo/Delete?format=json', {
       'CardInfoDelCond': {
-        'CardNoList': [{'cardNo': cardNo}],
+        'cardNoList': [
+          {'cardNo': cardNo},
+        ],
       },
     });
   }
@@ -283,11 +287,99 @@ class IsapiClient implements HikvisionDevicePort {
     final hikId = employeeNo.replaceAll('-', '');
     await putJson('/ISAPI/AccessControl/UserInfo/Delete?format=json', {
       'UserInfoDelCond': {
-        'EmployeeNoList': [
+        'employeeNoList': [
           {'employeeNo': hikId},
         ],
       },
     });
+  }
+
+  @override
+  Future<List<HikvisionUserInfo>> listUsers({int pageSize = 200}) async {
+    final users = <HikvisionUserInfo>[];
+    int position = 0;
+
+    while (true) {
+      final body = await postJson(
+        '/ISAPI/AccessControl/UserInfo/Search?format=json',
+        {
+          'UserInfoSearchCond': {
+            'searchID': 'sijinak-users',
+            'searchResultPosition': position,
+            'maxResults': pageSize,
+          },
+        },
+      );
+
+      if (body.trim().isEmpty) break;
+      final parsed = jsonDecode(body) as Map<String, dynamic>;
+      final userInfoSearch = parsed['UserInfoSearch'] as Map<String, dynamic>?;
+      if (userInfoSearch == null) break;
+
+      final matches = userInfoSearch['UserInfo'] as List<dynamic>? ?? const [];
+      for (final raw in matches) {
+        if (raw is! Map<String, dynamic>) continue;
+        final employeeNo = (raw['employeeNo'] as String?)?.trim();
+        if (employeeNo == null || employeeNo.isEmpty) continue;
+        users.add(
+          HikvisionUserInfo(
+            employeeNo: employeeNo,
+            name: (raw['name'] as String?)?.trim(),
+            userType: (raw['userType'] as String?)?.trim(),
+          ),
+        );
+      }
+
+      final totalMatches = (userInfoSearch['totalMatches'] as int?) ?? 0;
+      if (matches.isEmpty || users.length >= totalMatches) break;
+      position += matches.length;
+    }
+
+    return users;
+  }
+
+  @override
+  Future<List<HikvisionCardInfo>> listCards({int pageSize = 200}) async {
+    final cards = <HikvisionCardInfo>[];
+    int position = 0;
+
+    while (true) {
+      final body = await postJson(
+        '/ISAPI/AccessControl/CardInfo/Search?format=json',
+        {
+          'CardInfoSearchCond': {
+            'searchID': 'sijinak-cards',
+            'searchResultPosition': position,
+            'maxResults': pageSize,
+          },
+        },
+      );
+
+      if (body.trim().isEmpty) break;
+      final parsed = jsonDecode(body) as Map<String, dynamic>;
+      final cardInfoSearch = parsed['CardInfoSearch'] as Map<String, dynamic>?;
+      if (cardInfoSearch == null) break;
+
+      final matches = cardInfoSearch['CardInfo'] as List<dynamic>? ?? const [];
+      for (final raw in matches) {
+        if (raw is! Map<String, dynamic>) continue;
+        final cardNo = (raw['cardNo'] as String?)?.trim();
+        if (cardNo == null || cardNo.isEmpty) continue;
+        cards.add(
+          HikvisionCardInfo(
+            cardNo: cardNo,
+            employeeNo: (raw['employeeNo'] as String?)?.trim(),
+            cardType: (raw['cardType'] as String?)?.trim(),
+          ),
+        );
+      }
+
+      final totalMatches = (cardInfoSearch['totalMatches'] as int?) ?? 0;
+      if (matches.isEmpty || cards.length >= totalMatches) break;
+      position += matches.length;
+    }
+
+    return cards;
   }
 
   /// Test connection by fetching device info.
@@ -321,6 +413,30 @@ class IsapiException implements Exception {
 
   @override
   String toString() => 'IsapiException($statusCode): $message';
+}
+
+class HikvisionUserInfo {
+  final String employeeNo;
+  final String? name;
+  final String? userType;
+
+  const HikvisionUserInfo({
+    required this.employeeNo,
+    this.name,
+    this.userType,
+  });
+}
+
+class HikvisionCardInfo {
+  final String cardNo;
+  final String? employeeNo;
+  final String? cardType;
+
+  const HikvisionCardInfo({
+    required this.cardNo,
+    this.employeeNo,
+    this.cardType,
+  });
 }
 
 class IsapiAuthException extends IsapiException {

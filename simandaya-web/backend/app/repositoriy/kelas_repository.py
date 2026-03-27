@@ -75,6 +75,18 @@ class KelasRepository:
         )
         return list(result.scalars().all())
 
+    async def list_active_kelas_with_wali(self) -> list[Kelas]:
+        result = await self.db.execute(
+            select(Kelas)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
+            .where(TahunAjaran.is_active.is_(True))
+            .options(
+                selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
+                selectinload(Kelas.kategori_kelas),
+            )
+        )
+        return list(result.scalars().all())
+
     async def list_kelas_by_tahun_with_wali(self, tahun_ajaran_id: UUID) -> list[Kelas]:
         result = await self.db.execute(
             select(Kelas)

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Plus, Users, ArrowUpDown } from "lucide-react";
+import { Trash2, Plus, Users, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +57,8 @@ export default function KelasGuruSiswaPage({
     createKategoriKelas,
     createWaliKelasOptions,
     deleteGMTarget,
+    editGMTarget,
+    editGmForm,
     deleteGuruMapel,
     deleteKelas,
     deleteKelasTarget,
@@ -66,10 +68,11 @@ export default function KelasGuruSiswaPage({
     filteredGM,
     filteredStudents,
     gmForm,
+    gmSearch,
     handleCreateGM,
     handleCreateKelas,
-    handlePromote,
     handleSaveKelasEdit,
+    handleSaveGMEdit,
     hasSelectionChanges,
     hasTahunAjaran,
     initialSelectedSiswaIds,
@@ -80,25 +83,23 @@ export default function KelasGuruSiswaPage({
     loadingKelas,
     manageKelas,
     mapels,
-    promoteDialog,
-    promoteFrom,
-    promoteResult,
     removeSiswa,
     removeSiswaTarget,
     selectedSiswaIds,
     selectedTA,
     setAddSiswaKelasId,
     setDeleteGMTarget,
+    setEditGMTarget,
+    setEditGmForm,
     setDeleteKelasTarget,
     setEditKelasForm,
     setGmForm,
+    setGmSearch,
     setInitialSelectedSiswaIds,
     setKategoriForm,
     setKelasForm,
     setKelasSearch,
     setManageKelas,
-    setPromoteDialog,
-    setPromoteFrom,
     setRemoveSiswaTarget,
     setSelectedSiswaIds,
     setSelectedTA,
@@ -257,7 +258,7 @@ export default function KelasGuruSiswaPage({
                 Tambah
               </Button>
               <span className="text-xs text-muted-foreground ml-2">
-                {"->"} {kelasForm.tingkat}{" "}
+                {"Preview Label Kelas: "} {kelasForm.tingkat}{" "}
                 {kategoriKelas.find(
                   (k) => k.kategori_kelas_id === kelasForm.kategoriKelasId,
                 )?.kode || "KAT"}{" "}
@@ -352,26 +353,7 @@ export default function KelasGuruSiswaPage({
             </div>
           </section>
 
-          {/* ── Section 2: Promosi Siswa ──────────────────────────────────── */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">Promosi Siswa</h2>
-              <Button variant="outline" onClick={() => setPromoteDialog(true)}>
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                Promosi dari Tahun Sebelumnya
-              </Button>
-            </div>
-            {promoteResult && (
-              <div className="rounded-lg border bg-green-50 p-4 text-sm text-green-800">
-                {promoteResult}
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Promosi otomatis: X{"->"}XI, XI{"->"}XII. Siswa XII dianggap lulus. Siswa
-              didistribusikan ke kelas yang sesuai (kategori & tingkat).
-            </p>
-          </section>
-
+          {/* ── Section 2: Penugasan Guru ─────────────────────────────────── */}
           {/* ── Section 3: Penugasan Guru ──────────────────────────────────── */}
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">
@@ -391,7 +373,7 @@ export default function KelasGuruSiswaPage({
                   }
                   options={(teachers?.items || []).map((t) => ({
                     value: t.user_id,
-                    label: t.nama_lengkap || t.username || t.user_id,
+                    label: t.nama_lengkap || t.nip || t.user_id,
                   }))}
                   placeholder="Pilih Guru"
                   searchPlaceholder="Cari guru..."
@@ -408,7 +390,9 @@ export default function KelasGuruSiswaPage({
                   }
                   options={(mapels || []).map((m) => ({
                     value: m.mapel_id,
-                    label: `${m.nama_mapel}${m.kode_mapel ? ` (${m.kode_mapel})` : ""}`,
+                    label: `${m.nama_mapel}${
+                      m.kode_mapel ? ` (${m.kode_mapel})` : ""
+                    }`,
                     keywords: `${m.nama_mapel || ""} ${m.kode_mapel || ""}`,
                   }))}
                   placeholder="Pilih Mapel"
@@ -446,10 +430,20 @@ export default function KelasGuruSiswaPage({
               </Button>
             </form>
 
-            <div className="rounded-lg border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
+            <div className="max-w-xs">
+              <Label className="text-xs">Cari Penugasan</Label>
+              <Input
+                value={gmSearch}
+                onChange={(event) => setGmSearch(event.target.value)}
+                placeholder="Cari guru / mapel / kelas..."
+              />
+            </div>
+
+            <div className="overflow-hidden rounded-lg border">
+              <div className="max-h-[420px] overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                    <tr className="border-b">
                     <th className="p-3 text-left font-medium">Guru</th>
                     <th className="p-3 text-left font-medium">
                       Mata Pelajaran
@@ -477,7 +471,15 @@ export default function KelasGuruSiswaPage({
                       <td className="p-3">{gm.guru_nama || "—"}</td>
                       <td className="p-3">{gm.mapel_nama || "—"}</td>
                       <td className="p-3">{gm.kelas_nama || "—"}</td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setEditGMTarget(gm)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -489,8 +491,9 @@ export default function KelasGuruSiswaPage({
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </>
@@ -770,44 +773,73 @@ export default function KelasGuruSiswaPage({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Promote Dialog */}
-      <AlertDialog open={promoteDialog} onOpenChange={setPromoteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Promosi Siswa dari Tahun Sebelumnya
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <span className="block">
-                Pilih tahun ajaran asal untuk mempromosikan siswa ke{" "}
-                <strong>{taName}</strong>.
-              </span>
+      {/* Edit Guru Mapel */}
+      <Dialog open={!!editGMTarget} onOpenChange={(open) => !open && setEditGMTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Penugasan Guru Mata Pelajaran</DialogTitle>
+            <DialogDescription>
+              Ubah guru, mata pelajaran, atau kelas untuk penugasan ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-1">
+              <Label className="text-xs">Guru</Label>
               <SearchableSelect
-                value={promoteFrom}
-                onValueChange={(v) => setPromoteFrom(v)}
-                options={(tahunAjarans || [])
-                  .filter((ta) => ta.tahun_ajaran_id !== selectedTA)
-                  .map((ta) => ({
-                    value: ta.tahun_ajaran_id,
-                    label: ta.nama,
-                  }))}
-                placeholder="Tahun ajaran asal"
-                searchPlaceholder="Cari tahun ajaran asal..."
-                emptyText="Tahun ajaran tidak ditemukan."
+                value={editGmForm.user_id}
+                onValueChange={(v) => setEditGmForm((p) => ({ ...p, user_id: v }))}
+                options={(teachers?.items || []).map((t) => ({
+                  value: t.user_id,
+                  label: t.nama_lengkap || t.nip || t.user_id,
+                }))}
+                placeholder="Pilih Guru"
+                searchPlaceholder="Cari guru..."
+                emptyText="Guru tidak ditemukan."
               />
-              <span className="block text-xs">
-                X{"->"}XI, XI{"->"}XII. Siswa XII dianggap lulus dan tidak dipindahkan.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePromote} disabled={!promoteFrom}>
-              Promosikan
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Mata Pelajaran</Label>
+              <SearchableSelect
+                value={editGmForm.mapel_id}
+                onValueChange={(v) => setEditGmForm((p) => ({ ...p, mapel_id: v }))}
+                options={(mapels || []).map((m) => ({
+                  value: m.mapel_id,
+                  label: `${m.nama_mapel}${m.kode_mapel ? ` (${m.kode_mapel})` : ""}`,
+                  keywords: `${m.nama_mapel || ""} ${m.kode_mapel || ""}`,
+                }))}
+                placeholder="Pilih Mapel"
+                searchPlaceholder="Cari mapel..."
+                emptyText="Mapel tidak ditemukan."
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Kelas</Label>
+              <SearchableSelect
+                value={editGmForm.kelas_id}
+                onValueChange={(v) => setEditGmForm((p) => ({ ...p, kelas_id: v }))}
+                options={(classes || []).map((c) => ({
+                  value: c.kelas_id,
+                  label: c.nama_kelas,
+                }))}
+                placeholder="Pilih Kelas"
+                searchPlaceholder="Cari kelas..."
+                emptyText="Kelas tidak ditemukan."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditGMTarget(null)}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleSaveGMEdit}
+                disabled={!editGmForm.user_id || !editGmForm.mapel_id || !editGmForm.kelas_id}
+              >
+                Simpan Perubahan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Guru Mapel */}
       <AlertDialog
@@ -830,7 +862,9 @@ export default function KelasGuruSiswaPage({
               onClick={async () => {
                 try {
                   if (deleteGMTarget)
-                    await deleteGuruMapel(deleteGMTarget.guru_mapel_id).unwrap();
+                    await deleteGuruMapel(
+                      deleteGMTarget.guru_mapel_id,
+                    ).unwrap();
                   notifySuccess("Penugasan guru mapel berhasil dihapus.");
                 } catch {
                   notifyError("Gagal menghapus penugasan guru mapel.");

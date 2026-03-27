@@ -64,6 +64,19 @@ async def list_tahun_ajaran(
 
 
 @router.get(
+    "/tahun-ajaran/active",
+    response_model=TahunAjaranResponseDTO,
+    summary="Get Active Academic Year",
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
+)
+async def get_active_tahun_ajaran(
+    db: AsyncSession = Depends(get_db),
+) -> TahunAjaranResponseDTO:
+    service = AkademikService(db)
+    return await service.get_active_tahun_ajaran()
+
+
+@router.get(
     "/tahun-ajaran/{tahun_ajaran_id}",
     response_model=TahunAjaranResponseDTO,
     summary="Get Academic Year",

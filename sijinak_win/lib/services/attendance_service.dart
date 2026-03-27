@@ -39,8 +39,8 @@ class AttendanceService {
   }
 
   /// Get the existing local record for today to check for duplicates.
-  Future<TapRecord?> getExistingTodayRecord(String cardNo, String eventType) async {
-    final today = await db.getTodayRecordsForCard(cardNo);
+  Future<TapRecord?> getExistingTodayRecord(String userId, String eventType) async {
+    final today = await db.getTodayRecordsForStudent(userId);
     try {
       return today.firstWhere((r) => r.eventType == eventType);
     } catch (_) {

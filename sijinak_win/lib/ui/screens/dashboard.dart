@@ -63,9 +63,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ref.invalidate(pendingSyncCountProvider);
   }
 
-  String _studentName(String cardNo) {
+  String _studentName(String cardNo, String recordId) {
     final students = ref.read(allStudentsProvider).asData?.value ?? [];
-    final student = students.where((s) => s.cardNo == cardNo).firstOrNull;
+    final userIdFromRecord = _extractUserIdFromRecordId(recordId);
+    final student = userIdFromRecord != null
+        ? students.where((s) => s.userId == userIdFromRecord).firstOrNull
+        : students.where((s) => s.cardNo == cardNo).firstOrNull;
     return student?.nama ?? cardNo;
   }
 
@@ -323,7 +326,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           title: Text(
-                            _studentName(record.cardNo),
+                            _studentName(record.cardNo, record.id),
                             style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
@@ -447,6 +450,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       default:
         return eventType;
     }
+  }
+
+  String? _extractUserIdFromRecordId(String recordId) {
+    final match = RegExp(
+      r'^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})_',
+    ).firstMatch(recordId);
+    return match?.group(1);
   }
 }
 

@@ -46,17 +46,5 @@ class SiswaKelasResponseDTO(BaseModel):
     nis: Optional[str] = None
 
 
-class PromoteStudentsDTO(BaseModel):
-    from_tahun_ajaran_id: UUID = Field(..., description="Previous academic year")
-    to_tahun_ajaran_id: UUID = Field(..., description="New academic year")
-
-
-class PromoteResultDTO(BaseModel):
-    promoted: int = 0
-    graduated: int = 0
-    skipped: int = 0
-    message: str
-
-
 class MessageResponseDTO(BaseModel):
     message: str

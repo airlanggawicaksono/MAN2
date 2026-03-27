@@ -25,3 +25,28 @@ class TahunAjaranPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No fields to update",
             )
+
+    @staticmethod
+    def ensure_date_range_valid(tanggal_mulai, tanggal_selesai) -> None:
+        if tanggal_selesai <= tanggal_mulai:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tanggal selesai harus lebih besar dari tanggal mulai",
+            )
+
+    @staticmethod
+    def ensure_not_overlapping(
+        existing_tahun_ajaran: list,
+        tanggal_mulai,
+        tanggal_selesai,
+        exclude_id=None,
+    ) -> None:
+        for row in existing_tahun_ajaran:
+            if exclude_id is not None and row.tahun_ajaran_id == exclude_id:
+                continue
+            overlaps = tanggal_mulai <= row.tanggal_selesai and tanggal_selesai >= row.tanggal_mulai
+            if overlaps:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Rentang tanggal bertabrakan dengan tahun ajaran '{row.nama}'",
+                )

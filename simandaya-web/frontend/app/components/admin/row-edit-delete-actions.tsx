@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { ColumnDef } from "@tanstack/react-table";
 
 interface RowEditDeleteActionsProps<T> {
   rowData: T;
@@ -24,5 +25,26 @@ export function RowEditDeleteActions<T>({
       </Button>
     </div>
   );
+}
+
+export function withActionsColumn<T>(
+  columns: ColumnDef<T, unknown>[],
+  onEdit: (item: T) => void,
+  onDelete: (item: T) => void,
+): ColumnDef<T, unknown>[] {
+  return [
+    ...columns,
+    {
+      id: "actions",
+      header: "Aksi",
+      cell: ({ row }: { row: { original: T } }) => (
+        <RowEditDeleteActions
+          rowData={row.original}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ),
+    },
+  ];
 }
 

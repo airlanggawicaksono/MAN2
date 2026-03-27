@@ -41,10 +41,3 @@ export interface SiswaKelasResponse {
   nama_lengkap?: string;
   nis?: string;
 }
-
-export interface PromoteStudentsResponse {
-  promoted: number;
-  graduated: number;
-  skipped: number;
-  message: string;
-}

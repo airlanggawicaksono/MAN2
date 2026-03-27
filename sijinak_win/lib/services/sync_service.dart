@@ -24,13 +24,18 @@ class SyncService {
     
     // Prepare events
     for (final record in pending) {
-      final student = await db.getStudentByCard(record.cardNo);
-      if (student == null) continue;
+      final userIdFromRecordId = _extractUserIdFromRecordId(record.id);
+      String? resolvedUserId = userIdFromRecordId;
+      if (resolvedUserId == null) {
+        final student = await db.getStudentByCard(record.cardNo);
+        resolvedUserId = student?.userId;
+      }
+      if (resolvedUserId == null || resolvedUserId.isEmpty) continue;
       final izinPayload = decodeIzinReasonPayload(record.reason);
 
       events.add({
         'record_id': record.id,
-        'user_id': student.userId,
+        'user_id': resolvedUserId,
         'event_type': record.eventType,
         'device_time': DateTime.fromMillisecondsSinceEpoch(record.deviceTime * 1000).toIso8601String(),
         'reason': izinPayload.reason ?? record.reason,
@@ -66,6 +71,13 @@ class SyncService {
     }
 
     return successCount;
+  }
+
+  String? _extractUserIdFromRecordId(String recordId) {
+    final match = RegExp(
+      r'^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})_',
+    ).firstMatch(recordId);
+    return match?.group(1);
   }
 }
 

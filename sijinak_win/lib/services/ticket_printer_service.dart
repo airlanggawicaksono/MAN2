@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter_thermal_printer/flutter_thermal_printer.dart';
 import 'package:flutter_thermal_printer/utils/printer.dart';
@@ -36,6 +37,8 @@ abstract class TicketPrinterPort {
 
   Future<List<TicketPrinterDevice>> scanUsbPrinters();
 
+  Future<void> printTest({String? preferredPrinterKey});
+
   Future<void> printIzinTicket(
     IzinTicketPayload payload, {
     required int copyNumber,
@@ -48,7 +51,7 @@ class TicketPrinterService implements TicketPrinterPort {
   Printer? _cachedPrinter;
 
   TicketPrinterService({FlutterThermalPrinter? printerPlugin})
-      : _printerPlugin = printerPlugin ?? FlutterThermalPrinter.instance;
+    : _printerPlugin = printerPlugin ?? FlutterThermalPrinter.instance;
 
   @override
   Future<bool> isPrinterReady({String? preferredPrinterKey}) async {
@@ -84,11 +87,50 @@ class TicketPrinterService implements TicketPrinterPort {
       preferredPrinterKey: preferredPrinterKey,
     );
     final bytes = await _buildTicketBytes(payload, copyNumber);
-    await _printerPlugin.printData(
-      printer,
-      bytes,
-      longData: true,
+    await _printerPlugin.printData(printer, bytes, longData: true);
+  }
+
+  @override
+  Future<void> printTest({String? preferredPrinterKey}) async {
+    final printer = await _resolvePrinter(
+      preferredPrinterKey: preferredPrinterKey,
     );
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm80, profile);
+    final out = <int>[];
+
+    out.addAll(
+      generator.text(
+        'SIJINAK - TEST PRINT',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size1,
+          width: PosTextSize.size1,
+        ),
+      ),
+    );
+    out.addAll(generator.hr(ch: '-'));
+    out.addAll(
+      generator.text(
+        'Matahari terbit perlahan,\n'
+        'angin pagi membawa tenang,\n'
+        'langkah kecil hari ini,\n'
+        'menjadi besar esok nanti.',
+        styles: const PosStyles(align: PosAlign.left),
+      ),
+    );
+    out.addAll(generator.hr(ch: '-'));
+    out.addAll(
+      generator.text(
+        'Waktu: ${DateTime.now().toLocal()}',
+        styles: const PosStyles(align: PosAlign.left),
+      ),
+    );
+    out.addAll(generator.feed(2));
+    out.addAll(generator.cut());
+
+    await _printerPlugin.printData(printer, out, longData: true);
   }
 
   Future<Printer> _resolvePrinter({String? preferredPrinterKey}) async {
@@ -125,7 +167,13 @@ class TicketPrinterService implements TicketPrinterPort {
       );
       await Future.delayed(const Duration(seconds: 3));
     } finally {
-      await _printerPlugin.stopScan();
+      if (!Platform.isWindows) {
+        try {
+          await _printerPlugin.stopScan();
+        } catch (_) {
+          // Ignore stop-scan failures on non-Windows targets.
+        }
+      }
       await sub.cancel();
     }
 
@@ -203,18 +251,21 @@ class TicketPrinterService implements TicketPrinterPort {
     out.addAll(
       generator.text(
         'COPY $copyNumber',
-        styles: const PosStyles(
-          align: PosAlign.center,
-          bold: true,
-        ),
+        styles: const PosStyles(align: PosAlign.center, bold: true),
       ),
     );
     out.addAll(generator.hr(ch: '-'));
 
     out.addAll(generator.text('Nama : ${payload.studentName}'));
-    out.addAll(generator.text('NIS  : ${payload.nis?.trim().isNotEmpty == true ? payload.nis!.trim() : '-'}'));
+    out.addAll(
+      generator.text(
+        'NIS  : ${payload.nis?.trim().isNotEmpty == true ? payload.nis!.trim() : '-'}',
+      ),
+    );
     out.addAll(generator.text('Alasan Izin : ${payload.alasanIzin}'));
-    out.addAll(generator.text('Waktu keluar : ${_fmtDateTime(payload.waktuKeluar)}'));
+    out.addAll(
+      generator.text('Waktu keluar : ${_fmtDateTime(payload.waktuKeluar)}'),
+    );
     out.addAll(
       generator.text(
         'Perkiraan kembali : ${payload.perkiraanKembali == null ? '-' : _fmtDateTime(payload.perkiraanKembali!)}',

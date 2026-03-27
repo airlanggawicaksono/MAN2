@@ -64,6 +64,19 @@ async def list_semesters(
 
 
 @router.get(
+    "/semester/active",
+    response_model=list[SemesterResponseDTO],
+    summary="List Active Semesters",
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
+)
+async def list_active_semesters(
+    db: AsyncSession = Depends(get_db),
+) -> list[SemesterResponseDTO]:
+    service = AkademikService(db)
+    return await service.list_active_semesters()
+
+
+@router.get(
     "/semester/tahun-ajaran/{tahun_ajaran_id}",
     response_model=list[SemesterResponseDTO],
     summary="List Semesters by Academic Year",

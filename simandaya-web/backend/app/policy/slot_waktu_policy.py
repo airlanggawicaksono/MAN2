@@ -17,3 +17,11 @@ class SlotWaktuPolicy:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No fields to update",
             )
+
+    @staticmethod
+    def ensure_time_range_valid(jam_mulai, jam_selesai) -> None:
+        if jam_selesai <= jam_mulai:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Jam selesai harus lebih besar dari jam mulai",
+            )

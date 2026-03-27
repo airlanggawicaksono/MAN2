@@ -41,6 +41,7 @@ export function HomeImageCarousel({
                   <img
                     src={item.image_url}
                     alt={item.title || ""}
+                    loading="lazy"
                     className={`w-full object-cover ${imageClassName}`}
                   />
                 )}

@@ -10,6 +10,12 @@ class CreateGuruMapelDTO(BaseModel):
     tahun_ajaran_id: UUID = Field(..., description="Academic year ID")
 
 
+class UpdateGuruMapelDTO(BaseModel):
+    user_id: Optional[UUID] = Field(default=None, description="Guru user_id")
+    mapel_id: Optional[UUID] = Field(default=None, description="Mata pelajaran ID")
+    kelas_id: Optional[UUID] = Field(default=None, description="Kelas ID")
+
+
 class GuruMapelResponseDTO(BaseModel):
     guru_mapel_id: UUID
     user_id: UUID

@@ -266,16 +266,19 @@ class TeacherUserManagementService:
         available_only: bool = False,
         for_user_id: UUID | None = None,
     ) -> list[StructuralRoleRefDTO]:
-        roles = await self.repo.list_structural_role_refs(include_inactive=include_inactive)
-
-        # Legacy cleanup: structural "Guru" should not appear in selectable structural positions.
-        roles = [
-            role
-            for role in roles
-            if role.code.lower() not in {"guru", "wali_kelas"}
-            and role.name.lower() not in {"guru", "wali kelas"}
-            and role.code.lower() not in NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES
+        # Enum is the source of truth for assignable roles — no DB seed needed.
+        assignable = [
+            member
+            for member in StructuralRole
+            if member.name.lower() not in NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES
+            and member.name.lower() not in {"guru", "wali_kelas"}
         ]
+
+        # Map DB rows by code so we can look up role_ids for availability.
+        db_roles = await self.repo.list_structural_role_refs(include_inactive=include_inactive)
+        db_by_code: dict[str, StructuralRoleRef] = {
+            role.code.lower(): role for role in db_roles
+        }
 
         if available_only:
             active_assignments = await self.repo.list_active_structural_assignments()
@@ -284,13 +287,23 @@ class TeacherUserManagementService:
                 for assignment in active_assignments
                 if assignment.user_id != for_user_id
             }
+        else:
+            taken_role_ids = set()
 
-            roles = [
-                role
-                for role in roles
-                if role.role_id not in taken_role_ids
-            ]
-        return [self._to_structural_role_ref_dto(r) for r in roles]
+        result: list[StructuralRoleRefDTO] = []
+        for member in assignable:
+            db_role = db_by_code.get(member.name.lower())
+            if available_only and db_role and db_role.role_id in taken_role_ids:
+                continue
+            result.append(
+                StructuralRoleRefDTO(
+                    role_id=str(db_role.role_id) if db_role else None,
+                    code=member.name,
+                    name=member.value,
+                    is_active=db_role.is_active if db_role else True,
+                )
+            )
+        return result
 
     async def assign_structural_role(
         self, request: AssignStructuralRoleDTO

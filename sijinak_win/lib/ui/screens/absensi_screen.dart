@@ -61,7 +61,10 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
                         row.deviceTime * 1000,
                       );
                       final students = ref.read(allStudentsProvider).asData?.value ?? [];
-                      final student = students.where((s) => s.cardNo == row.cardNo).firstOrNull;
+                      final userIdFromRecord = _extractUserIdFromRecordId(row.id);
+                      final student = userIdFromRecord != null
+                          ? students.where((s) => s.userId == userIdFromRecord).firstOrNull
+                          : students.where((s) => s.cardNo == row.cardNo).firstOrNull;
                       final displayName = student?.nama ?? 'Unknown';
                       return ListTile(
                         leading: const Icon(Icons.badge_outlined),
@@ -104,5 +107,12 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
     final alasan = izin.reason?.trim();
     final alasanText = (alasan == null || alasan.isEmpty) ? '-' : alasan;
     return 'Izin\nKeluar: $timeOut\nPerkiraan kembali: $kembali\nAlasan: $alasanText';
+  }
+
+  String? _extractUserIdFromRecordId(String recordId) {
+    final match = RegExp(
+      r'^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})_',
+    ).firstMatch(recordId);
+    return match?.group(1);
   }
 }

@@ -29,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _obscureKey = true;
   bool _fieldsPopulated = false;
   bool _scanningThermal = false;
+  bool _testingPrint = false;
 
   // Hikvision test state
   bool _testingHik = false;
@@ -340,6 +341,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _testThermalPrinter() async {
+    if (_thermalPrinterKey.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih printer thermal dulu')),
+      );
+      return;
+    }
+
+    setState(() => _testingPrint = true);
+    try {
+      await ref.read(ticketPrinterServiceProvider).printTest(
+            preferredPrinterKey: _thermalPrinterKey,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test print berhasil dikirim')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Test print gagal: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _testingPrint = false);
+      }
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────
 
   OutlineInputBorder? _errorBorder(String field) {
@@ -646,6 +677,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       label: Text(_scanningThermal
                           ? 'Mencari printer...'
                           : 'Cari Printer Thermal'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _testingPrint ? null : _testThermalPrinter,
+                      icon: _testingPrint
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.receipt_long),
+                      label: Text(_testingPrint ? 'Mencetak test...' : 'Test Print'),
                     ),
                   ),
 

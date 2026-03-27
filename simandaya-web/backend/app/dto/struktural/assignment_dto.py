@@ -6,7 +6,7 @@ from app.enums import StructuralRole
 
 
 class StructuralRoleRefDTO(BaseModel):
-    role_id: UUID
+    role_id: UUID | None = None
     code: str
     name: str
     is_active: bool

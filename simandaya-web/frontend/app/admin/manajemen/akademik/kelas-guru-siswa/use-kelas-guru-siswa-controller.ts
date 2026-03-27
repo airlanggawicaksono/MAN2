@@ -10,9 +10,9 @@ import {
   useListSiswaInKelasQuery,
   useAssignSiswaToKelasMutation,
   useRemoveSiswaFromKelasMutation,
-  usePromoteStudentsMutation,
   useListGuruMapelQuery,
   useCreateGuruMapelMutation,
+  useUpdateGuruMapelMutation,
   useDeleteGuruMapelMutation,
   useListMapelQuery,
   useListKategoriKelasQuery,
@@ -24,12 +24,16 @@ import type { KelasResponse } from "@/types/akademik/kelas";
 import type { GuruMapelResponse } from "@/types/akademik/jadwal";
 import type { StudentProfile } from "@/types/students";
 import { useClientSearchList } from "@/hooks/useClientSearchList";
+import { useDebounce } from "@/hooks/useDebounce";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
 import { getApiErrorMessage } from "@/lib/api-error";
 
 export function useKelasGuruSiswaController() {
   const [kelasSearch, setKelasSearch] = useState("");
+  const [gmSearch, setGmSearch] = useState("");
   const [siswaSearch, setSiswaSearch] = useState("");
+  const debouncedKelasSearch = useDebounce(kelasSearch, 250);
+  const debouncedGmSearch = useDebounce(gmSearch, 250);
 
   const { data: tahunAjarans } = useListTahunAjaranQuery();
   const [selectedTA, setSelectedTA] = useState("");
@@ -43,7 +47,7 @@ export function useKelasGuruSiswaController() {
   const { data: kategoriKelas = [] } = useListKategoriKelasQuery();
   const { data: allStudents } = useListStudentsQuery({
     skip: 0,
-    limit: 5000,
+    limit: 100,
   });
 
   const [createKelas] = useCreateKelasMutation();
@@ -51,8 +55,8 @@ export function useKelasGuruSiswaController() {
   const [deleteKelas] = useDeleteKelasMutation();
   const [assignSiswa] = useAssignSiswaToKelasMutation();
   const [removeSiswa] = useRemoveSiswaFromKelasMutation();
-  const [promoteStudents] = usePromoteStudentsMutation();
   const [createGuruMapel] = useCreateGuruMapelMutation();
+  const [updateGuruMapel] = useUpdateGuruMapelMutation();
   const [deleteGuruMapel] = useDeleteGuruMapelMutation();
   const [createKategoriKelas] = useCreateKategoriKelasMutation();
 
@@ -73,10 +77,13 @@ export function useKelasGuruSiswaController() {
     userId: string;
     nama: string;
   } | null>(null);
-  const [promoteDialog, setPromoteDialog] = useState(false);
-  const [promoteFrom, setPromoteFrom] = useState("");
-  const [promoteResult, setPromoteResult] = useState<string | null>(null);
   const [deleteGMTarget, setDeleteGMTarget] = useState<GuruMapelResponse | null>(null);
+  const [editGMTarget, setEditGMTarget] = useState<GuruMapelResponse | null>(null);
+  const [editGmForm, setEditGmForm] = useState({
+    user_id: "",
+    mapel_id: "",
+    kelas_id: "",
+  });
   const [editKelasForm, setEditKelasForm] = useState({
     tingkat: "X",
     kategoriKelasId: "",
@@ -107,7 +114,17 @@ export function useKelasGuruSiswaController() {
   }, [tahunAjarans, selectedTA]);
 
   const kelasIds = new Set(classes?.map((c) => c.kelas_id) || []);
-  const filteredGM = guruMapels?.filter((gm) => kelasIds.has(gm.kelas_id)) || [];
+  const filteredGM =
+    guruMapels?.filter((gm) => {
+      if (!kelasIds.has(gm.kelas_id)) return false;
+      const q = debouncedGmSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        (gm.guru_nama || "").toLowerCase().includes(q) ||
+        (gm.mapel_nama || "").toLowerCase().includes(q) ||
+        (gm.kelas_nama || "").toLowerCase().includes(q)
+      );
+    }) || [];
   const allStudentsItems = allStudents?.items || [];
   const { filteredItems: filteredStudents } = useClientSearchList<StudentProfile>({
     items: allStudentsItems,
@@ -131,7 +148,7 @@ export function useKelasGuruSiswaController() {
     return blocked;
   }, [addSiswaKelasId, addCandidateStudents, addTargetClass]);
   const filteredClasses = (classes || []).filter((kelas) => {
-    const q = kelasSearch.trim().toLowerCase();
+    const q = debouncedKelasSearch.trim().toLowerCase();
     if (!q) return true;
     return (
       kelas.nama_kelas.toLowerCase().includes(q) ||
@@ -231,19 +248,22 @@ export function useKelasGuruSiswaController() {
     }
   };
 
-  const handlePromote = async () => {
-    if (!promoteFrom || !selectedTA) return;
+  const handleSaveGMEdit = async () => {
+    if (!editGMTarget || !editGmForm.user_id || !editGmForm.mapel_id || !editGmForm.kelas_id) return;
     try {
-      const result = await promoteStudents({
-        from_tahun_ajaran_id: promoteFrom,
-        to_tahun_ajaran_id: selectedTA,
+      await updateGuruMapel({
+        id: editGMTarget.guru_mapel_id,
+        body: {
+          user_id: editGmForm.user_id,
+          mapel_id: editGmForm.mapel_id,
+          kelas_id: editGmForm.kelas_id,
+        },
       }).unwrap();
-      setPromoteResult(result.message);
-      notifySuccess(result.message);
+      setEditGMTarget(null);
+      notifySuccess("Penugasan guru mapel berhasil diperbarui.");
     } catch {
-      notifyError("Gagal melakukan promosi siswa.");
+      notifyError("Gagal memperbarui penugasan guru mapel.");
     }
-    setPromoteDialog(false);
   };
 
   useEffect(() => {
@@ -256,6 +276,15 @@ export function useKelasGuruSiswaController() {
       waliKelasId: manageKelas.wali_kelas_id || "null",
     });
   }, [manageKelas]);
+
+  useEffect(() => {
+    if (!editGMTarget) return;
+    setEditGmForm({
+      user_id: editGMTarget.user_id,
+      mapel_id: editGMTarget.mapel_id,
+      kelas_id: editGMTarget.kelas_id,
+    });
+  }, [editGMTarget]);
 
   useEffect(() => {
     if (!addSiswaKelasId) return;
@@ -342,6 +371,8 @@ export function useKelasGuruSiswaController() {
     createKategoriKelas,
     createWaliKelasOptions,
     deleteGMTarget,
+    editGMTarget,
+    editGmForm,
     deleteGuruMapel,
     deleteKelas,
     deleteKelasTarget,
@@ -351,10 +382,11 @@ export function useKelasGuruSiswaController() {
     filteredGM,
     filteredStudents,
     gmForm,
+    gmSearch,
     handleCreateGM,
     handleCreateKelas,
-    handlePromote,
     handleSaveKelasEdit,
+    handleSaveGMEdit,
     hasSelectionChanges,
     hasTahunAjaran,
     initialSelectedSiswaIds,
@@ -366,9 +398,6 @@ export function useKelasGuruSiswaController() {
     loadingKelas,
     manageKelas,
     mapels,
-    promoteDialog,
-    promoteFrom,
-    promoteResult,
     removeSiswa,
     removeSiswaTarget,
     selectedSiswaIds,
@@ -376,16 +405,17 @@ export function useKelasGuruSiswaController() {
     selectionInitializedForKelasId,
     setAddSiswaKelasId,
     setDeleteGMTarget,
+    setEditGMTarget,
+    setEditGmForm,
     setDeleteKelasTarget,
     setEditKelasForm,
     setGmForm,
+    setGmSearch,
     setInitialSelectedSiswaIds,
     setKategoriForm,
     setKelasForm,
     setKelasSearch,
     setManageKelas,
-    setPromoteDialog,
-    setPromoteFrom,
     setRemoveSiswaTarget,
     setSelectedSiswaIds,
     setSelectedTA,

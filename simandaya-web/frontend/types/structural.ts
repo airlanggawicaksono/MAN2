@@ -1,7 +1,7 @@
 import type { StructuralRole } from "./enums";
 
 export interface StructuralRoleRef {
-  role_id: string;
+  role_id: string | null;
   code: string;
   name: string;
   is_active: boolean;
