@@ -8,6 +8,7 @@ import {
 import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import { normalizeDateToIso, formatIsoToApiDmy } from "@/lib/date-id";
 import { ProfileFormCard, type ProfileField } from "./profile-form-card";
+import { Card, CardContent } from "@/components/ui/card";
 
 const EXTRA_FIELDS: ProfileField[] = [
   { key: "nama_wali", label: "Nama Wali" },
@@ -50,16 +51,29 @@ export function SiswaProfileCard() {
   );
 
   return (
-    <ProfileFormCard<StudentProfile, UpdateStudentRequest>
-      profile={profile}
-      updateProfile={handleUpdate}
-      isUpdating={isLoading}
-      updateError={error}
-      identifierLabel="NIS"
-      identifierValue={profile?.nis ?? "-"}
-      profileToForm={profileToForm}
-      extraFields={EXTRA_FIELDS}
-      transformPayload={transformPayload}
-    />
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-md border px-2 py-1">Kelas Aktif: {profile?.kelas_nama || "-"}</span>
+            <span className="rounded-md border px-2 py-1">
+              Semester Aktif: {profile?.semester_aktif_tipe || "-"}
+            </span>
+            <span className="rounded-md border px-2 py-1">Semester Ke: {profile?.semester_ke ?? "-"}</span>
+          </div>
+        </CardContent>
+      </Card>
+      <ProfileFormCard<StudentProfile, UpdateStudentRequest>
+        profile={profile}
+        updateProfile={handleUpdate}
+        isUpdating={isLoading}
+        updateError={error}
+        identifierLabel="NIS"
+        identifierValue={profile?.nis ?? "-"}
+        profileToForm={profileToForm}
+        extraFields={EXTRA_FIELDS}
+        transformPayload={transformPayload}
+      />
+    </div>
   );
 }

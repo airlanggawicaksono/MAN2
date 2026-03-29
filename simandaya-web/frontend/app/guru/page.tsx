@@ -28,10 +28,10 @@ const actions = [
     bgClass: "bg-blue-100",
   },
   {
-    title: "Penilaian Siswa",
-    description: "Input dan kelola nilai mata pelajaran",
+    title: "Penugasan Siswa",
+    description: "Atur tugas, deadline, dan penilaian kelas",
     icon: GraduationCap,
-    href: "/guru/penilaian",
+    href: "/guru/tugas",
     colorClass: "text-green-600",
     bgClass: "bg-green-100",
   },

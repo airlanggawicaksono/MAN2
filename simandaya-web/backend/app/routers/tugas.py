@@ -136,6 +136,62 @@ async def update_my_submission(
     return await service.update_my_submission(tugas_id, request, current_user)
 
 
-router.include_router(teacher_router)
+@student_router.get(
+    "/tugas/{tugas_id}/submission/my",
+    response_model=Optional[TugasSubmissionResponseDTO],
+    summary="Get My Submission (Student)",
+)
+async def get_my_submission(
+    tugas_id: UUID,
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[TugasSubmissionResponseDTO]:
+    service = TugasService(db)
+    return await service.get_my_submission(tugas_id, current_user)
+
+
+@student_router.delete(
+    "/tugas/{tugas_id}/submission/my",
+    response_model=MessageResponseDTO,
+    summary="Cancel My Submission (Student)",
+)
+async def delete_my_submission(
+    tugas_id: UUID,
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseDTO:
+    service = TugasService(db)
+    return await service.delete_my_submission(tugas_id, current_user)
+
+
+@student_router.get(
+    "/tugas/submissions/my",
+    response_model=list[TugasSubmissionResponseDTO],
+    summary="List My Submissions by Semester (Student)",
+)
+async def list_my_submissions(
+    semester_id: UUID = Query(...),
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> list[TugasSubmissionResponseDTO]:
+    service = TugasService(db)
+    return await service.list_my_submissions(semester_id, current_user)
+
+
+@teacher_router.get(
+    "/tugas/{tugas_id}/submissions",
+    response_model=list[TugasSubmissionResponseDTO],
+    summary="List Submissions by Tugas (Admin/Guru)",
+)
+async def list_submissions_by_tugas(
+    tugas_id: UUID,
+    current_user: User = Depends(require_role(UserType.guru, UserType.admin)),
+    db: AsyncSession = Depends(get_db),
+) -> list[TugasSubmissionResponseDTO]:
+    service = TugasService(db)
+    return await service.list_submissions_by_tugas(tugas_id, current_user)
+
+
 router.include_router(student_router)
+router.include_router(teacher_router)
 

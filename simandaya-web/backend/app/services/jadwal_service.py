@@ -4,6 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.akademik.guru_mapel_dto import (
     CreateGuruMapelDTO,
+    GuruAcademicContextKelasDTO,
+    GuruAcademicContextResponseDTO,
+    GuruAcademicContextSemesterDTO,
+    GuruAcademicContextTahunAjaranDTO,
     GuruMapelResponseDTO,
     MessageResponseDTO,
     UpdateGuruMapelDTO,
@@ -74,9 +78,62 @@ class JadwalService:
         guru_mapels = await self.repo.list_guru_mapel_by_guru(user_id)
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
-    async def list_guru_mapel_by_kelas(self, kelas_id: UUID) -> list[GuruMapelResponseDTO]:
-        guru_mapels = await self.repo.list_guru_mapel_by_kelas(kelas_id)
-        return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
+    async def get_my_guru_academic_context(
+        self,
+        user_id: UUID,
+    ) -> GuruAcademicContextResponseDTO:
+        guru_mapels = await self.repo.list_guru_mapel_by_guru(user_id)
+        assignment_dtos = [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
+        tahun_ajaran_ids = sorted(
+            {assignment.tahun_ajaran_id for assignment in assignment_dtos},
+            key=lambda value: str(value),
+        )
+
+        tahun_ajaran_rows = await self.repo.list_tahun_ajaran_by_ids(tahun_ajaran_ids)
+        tahun_ajaran_rows.sort(key=lambda item: item.tanggal_mulai, reverse=True)
+        tahun_ajaran_dtos = [
+            GuruAcademicContextTahunAjaranDTO(
+                tahun_ajaran_id=row.tahun_ajaran_id,
+                nama=row.nama,
+                is_active=row.is_active,
+            )
+            for row in tahun_ajaran_rows
+        ]
+
+        semester_rows = await self.repo.list_semesters_by_tahun_ajaran_ids(tahun_ajaran_ids)
+        semester_rows.sort(key=lambda item: (item.tahun_ajaran_id, item.tanggal_mulai))
+        semester_dtos = [
+            GuruAcademicContextSemesterDTO(
+                semester_id=row.semester_id,
+                tahun_ajaran_id=row.tahun_ajaran_id,
+                tipe=row.tipe.value if hasattr(row.tipe, "value") else str(row.tipe),
+                is_active=row.is_active,
+            )
+            for row in semester_rows
+        ]
+
+        kelas_seen: set[UUID] = set()
+        kelas_dtos: list[GuruAcademicContextKelasDTO] = []
+        for assignment in assignment_dtos:
+            if assignment.kelas_id in kelas_seen:
+                continue
+            kelas_seen.add(assignment.kelas_id)
+            kelas_dtos.append(
+                GuruAcademicContextKelasDTO(
+                    kelas_id=assignment.kelas_id,
+                    tahun_ajaran_id=assignment.tahun_ajaran_id,
+                    nama_kelas=assignment.kelas_nama or str(assignment.kelas_id),
+                )
+            )
+
+        kelas_dtos.sort(key=lambda item: item.nama_kelas.lower())
+
+        return GuruAcademicContextResponseDTO(
+            assignments=assignment_dtos,
+            tahun_ajaran=tahun_ajaran_dtos,
+            semesters=semester_dtos,
+            kelas=kelas_dtos,
+        )
 
     async def delete_guru_mapel(self, guru_mapel_id: UUID) -> MessageResponseDTO:
         guru_mapel = await self.repo.find_guru_mapel_by_id(guru_mapel_id)
@@ -187,22 +244,45 @@ class JadwalService:
         await self.repo.refresh(jadwal)
         return self._to_jadwal_dto(jadwal)
 
-    async def list_jadwal_by_semester(self, semester_id: UUID) -> list[JadwalResponseDTO]:
-        jadwals = await self.repo.list_jadwal_by_semester(semester_id)
+    async def list_jadwal_by_kelas(
+        self,
+        kelas_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
+        jadwals = await self.repo.list_jadwal_by_kelas_filters(
+            kelas_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
+        )
         return [self._to_jadwal_dto(j) for j in jadwals]
 
-    async def list_jadwal_by_kelas(self, kelas_id: UUID) -> list[JadwalResponseDTO]:
-        jadwals = await self.repo.list_jadwal_by_kelas(kelas_id)
+    async def list_jadwal_by_guru(
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
+        jadwals = await self.repo.list_jadwal_by_guru_filters(
+            user_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
+        )
         return [self._to_jadwal_dto(j) for j in jadwals]
 
-    async def list_jadwal_by_guru(self, user_id: UUID) -> list[JadwalResponseDTO]:
-        jadwals = await self.repo.list_jadwal_by_guru(user_id)
-        return [self._to_jadwal_dto(j) for j in jadwals]
-
-    async def get_student_jadwal(self, user_id: UUID) -> list[JadwalResponseDTO]:
+    async def get_student_jadwal(
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
         kelas_id = await self.repo.find_student_kelas_id(user_id)
         self.policy.ensure_student_has_kelas(kelas_id)
-        return await self.list_jadwal_by_kelas(kelas_id)
+        return await self.list_jadwal_by_kelas(
+            kelas_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
+        )
 
     async def update_jadwal(self, jadwal_id: UUID, request: UpdateJadwalDTO) -> JadwalResponseDTO:
         jadwal = await self.repo.find_jadwal_by_id(jadwal_id)

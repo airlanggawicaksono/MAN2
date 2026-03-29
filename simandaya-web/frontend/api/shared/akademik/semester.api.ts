@@ -3,6 +3,7 @@ import type {
   CopySemesterStructureResponse,
   CreateSemesterRequest,
   SemesterResponse,
+  StudentSemesterTimelineItem,
   UpdateSemesterRequest,
 } from "@/types/akademik/periode";
 import type { MessageResponse, UUID } from "@/types/common";
@@ -16,6 +17,10 @@ export const semesterApi = akademikBaseApi.injectEndpoints({
     }),
     listActiveSemesters: builder.query<SemesterResponse[], void>({
       query: () => "/semester/active",
+      providesTags: ["Semester"],
+    }),
+    listMySemesterTimeline: builder.query<StudentSemesterTimelineItem[], void>({
+      query: () => "/semester/my-timeline",
       providesTags: ["Semester"],
     }),
     createSemester: builder.mutation<SemesterResponse, CreateSemesterRequest>({
@@ -40,6 +45,7 @@ export const semesterApi = akademikBaseApi.injectEndpoints({
 export const {
   useListSemestersQuery,
   useListActiveSemestersQuery,
+  useListMySemesterTimelineQuery,
   useCreateSemesterMutation,
   useCopySemesterStructureMutation,
   useUpdateSemesterMutation,

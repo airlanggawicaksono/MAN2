@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Network, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useListPublicCivitasQuery } from "@/api/admin/userman";
+import { useGeneralStrukturOrganisasiController } from "./use-general-struktur-organisasi-controller";
 
 // Dynamic import for OrgChart to avoid hydration issues (SSR: false)
 const OrgChart = dynamic(
@@ -22,43 +22,16 @@ const OrgChart = dynamic(
 );
 
 export default function StrukturOrganisasiPage() {
-  const [search, setSearch] = useState("");
-  const { data, isLoading: loading, error } = useListPublicCivitasQuery({
-    limit: 100,
-  });
-  const civitas = data?.items ?? [];
-
-  // Lazy-render OrgChart: only mount when its container is in the viewport
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [chartVisible, setChartVisible] = useState(false);
-
-  useEffect(() => {
-    const el = chartRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setChartVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const filteredCivitas = useMemo(() => {
-    return civitas.filter((p) => {
-      const searchLower = search.toLowerCase();
-      const matchSearch =
-        (p.nama || "").toLowerCase().includes(searchLower) ||
-        (p.nip || "").toLowerCase().includes(searchLower) ||
-        (p.nik || "").toLowerCase().includes(searchLower) ||
-        (p.matapelajaran || "").toLowerCase().includes(searchLower);
-      return matchSearch;
-    });
-  }, [civitas, search]);
+  const {
+    chartRef,
+    chartVisible,
+    civitas,
+    error,
+    filteredCivitas,
+    loading,
+    search,
+    setSearch,
+  } = useGeneralStrukturOrganisasiController();
 
   return (
     <div className="min-h-screen bg-slate-50/50 w-full overflow-x-hidden">

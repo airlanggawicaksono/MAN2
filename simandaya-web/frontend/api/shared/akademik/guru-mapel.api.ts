@@ -1,5 +1,6 @@
 import type {
   CreateGuruMapelRequest,
+  GuruAcademicContextResponse,
   GuruMapelResponse,
   UpdateGuruMapelRequest,
 } from "@/types/akademik/jadwal";
@@ -16,9 +17,9 @@ export const guruMapelApi = akademikBaseApi.injectEndpoints({
       query: () => "/guru-mapel/active",
       providesTags: ["GuruMapel"],
     }),
-    listMyGuruMapel: builder.query<GuruMapelResponse[], void>({
-      query: () => "/guru-mapel/me",
-      providesTags: ["GuruMapel"],
+    getMyGuruAcademicContext: builder.query<GuruAcademicContextResponse, void>({
+      query: () => "/guru-mapel/my-context",
+      providesTags: ["GuruMapel", "Semester", "TahunAjaran", "Kelas"],
     }),
     createGuruMapel: builder.mutation<GuruMapelResponse, CreateGuruMapelRequest>({
       query: (body) => ({ url: "/guru-mapel", method: "POST", body }),
@@ -41,7 +42,7 @@ export const guruMapelApi = akademikBaseApi.injectEndpoints({
 export const {
   useListGuruMapelQuery,
   useListActiveGuruMapelQuery,
-  useListMyGuruMapelQuery,
+  useGetMyGuruAcademicContextQuery,
   useCreateGuruMapelMutation,
   useUpdateGuruMapelMutation,
   useDeleteGuruMapelMutation,

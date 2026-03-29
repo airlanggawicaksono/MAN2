@@ -178,14 +178,20 @@ class KelasRepository:
     async def get_student_kelas_with_wali(self, user_id: UUID) -> Kelas | None:
         result = await self.db.execute(
             select(Kelas)
-            .join(SiswaKelas)
+            .join(SiswaKelas, SiswaKelas.kelas_id == Kelas.kelas_id)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
             .where(SiswaKelas.user_id == user_id)
+            .order_by(
+                TahunAjaran.is_active.desc(),
+                TahunAjaran.tanggal_mulai.desc(),
+                Kelas.nama_kelas.asc(),
+            )
             .options(
                 selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
                 selectinload(Kelas.kategori_kelas),
             )
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def commit(self) -> None:
         await self.db.commit()

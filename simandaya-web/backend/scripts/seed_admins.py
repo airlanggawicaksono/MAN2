@@ -42,7 +42,7 @@ AUTO_STUDENTS = [
         "nama_lengkap": f"Siswa Seed {i:03d}",
         "jenis_kelamin": JenisKelamin.laki_laki if i % 2 else JenisKelamin.perempuan,
     }
-    for i in range(1, 31)
+    for i in range(1, 121)
 ]
 
 STUDENTS = [*BASE_STUDENTS, *AUTO_STUDENTS]
@@ -163,7 +163,7 @@ async def seed() -> None:
         "\nSeed complete. Credentials:\n"
         "  admin              / 1qaz2wsx3edc\n"
         "  wicaksono_student  / 1qaz2wsx3edc\n"
-        "  student_001..030   / 1qaz2wsx3edc\n"
+        "  student_001..120   / 1qaz2wsx3edc\n"
         "  wicaksono_guru     / 1qaz2wsx3edc\n"
         "  teacher_001..030   / 1qaz2wsx3edc"
     )

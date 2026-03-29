@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -26,9 +25,9 @@ import {
   Video,
 } from "lucide-react";
 import Link from "next/link";
-import type { CarouselSlide } from "@/types/cms";
 import { HomeImageCarousel } from "@/app/components/home-image-carousel";
 import { HomeSectionHeader } from "@/app/components/home-section-header";
+import { useGeneralHomeController } from "./use-general-home-controller";
 
 const layananCards = [
   {
@@ -61,58 +60,8 @@ function extractYouTubeId(url: string): string | null {
 }
 
 export default function IndexPage() {
-  const [slides, setSlides] = useState<CarouselSlide[]>([]);
-  const [flyerItems, setFlyerItems] = useState<CarouselSlide[]>([]);
-  const [mediaItems, setMediaItems] = useState<CarouselSlide[]>([]);
-  const [videoItems, setVideoItems] = useState<CarouselSlide[]>([]);
-  const [lokasiItems, setLokasiItems] = useState<CarouselSlide[]>([]);
-  const [videoTitles, setVideoTitles] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    fetch("/data.json")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => {
-        setSlides(
-          data
-            .filter((s) => s.is_active)
-            .filter((s) => !s.type || s.type === "carousel"),
-        );
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/cms/slides")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CarouselSlide[]) => {
-        const active = data.filter((s) => s.is_active);
-        setFlyerItems(active.filter((s) => s.type === "flyer"));
-        setMediaItems(active.filter((s) => s.type === "media"));
-        setVideoItems(active.filter((s) => s.type === "video"));
-        setLokasiItems(active.filter((s) => s.type === "lokasi"));
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    videoItems.forEach((video) => {
-      if (!video.link_url) return;
-      const videoId = extractYouTubeId(video.link_url);
-      if (!videoId || videoTitles[video.id]) return;
-      fetch(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(
-          video.link_url,
-        )}&format=json`,
-      )
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.title) {
-            setVideoTitles((prev) => ({ ...prev, [video.id]: data.title }));
-          }
-        })
-        .catch(() => {});
-    });
-  }, [videoItems]);
+  const { flyerItems, lokasiItems, mediaItems, slides, videoItems, videoTitles } =
+    useGeneralHomeController();
 
   return (
     <main className="flex flex-col gap-12 px-4 py-8 md:px-8 lg:px-16">

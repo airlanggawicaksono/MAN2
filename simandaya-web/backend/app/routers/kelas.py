@@ -180,5 +180,5 @@ async def remove_siswa(
 
 
 router.include_router(admin_router)
-router.include_router(guru_router)
 router.include_router(student_router)
+router.include_router(guru_router)

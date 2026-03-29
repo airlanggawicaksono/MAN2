@@ -29,7 +29,7 @@ export {
 export {
   useListGuruMapelQuery,
   useListActiveGuruMapelQuery,
-  useListMyGuruMapelQuery,
+  useGetMyGuruAcademicContextQuery,
   useCreateGuruMapelMutation,
   useUpdateGuruMapelMutation,
   useDeleteGuruMapelMutation,
@@ -37,7 +37,6 @@ export {
 
 export {
   useListJadwalByKelasQuery,
-  useListJadwalByGuruQuery,
   useCreateJadwalMutation,
   useUpdateJadwalMutation,
   useDeleteJadwalMutation,
@@ -60,6 +59,7 @@ export {
 export {
   useListSemestersQuery,
   useListActiveSemestersQuery,
+  useListMySemesterTimelineQuery,
   useCreateSemesterMutation,
   useCopySemesterStructureMutation,
   useUpdateSemesterMutation,

@@ -13,6 +13,8 @@ from app.models.rapor_bobot import RaporBobot
 from app.models.kelas import Kelas
 from app.models.guru_mapel import GuruMapel
 from app.models.kurikulum_mapel import KurikulumMapel
+from app.models.user import User
+from app.enums import TipeSemester, TingkatKelas
 from app.policy.kalender_policy import KalenderPolicy
 from app.policy.mapel_policy import MapelPolicy
 from app.policy.semester_policy import SemesterPolicy
@@ -22,6 +24,7 @@ from app.repositoriy.kalender_repository import KalenderRepository
 from app.repositoriy.mapel_repository import MapelRepository
 from app.repositoriy.semester_repository import SemesterRepository
 from app.repositoriy.slot_waktu_repository import SlotWaktuRepository
+from app.repositoriy.student_semester_repository import StudentSemesterRepository
 from app.repositoriy.tahun_ajaran_repository import TahunAjaranRepository
 from app.dto.akademik.tahun_ajaran_dto import (
     CopyTahunAjaranStructureDTO,
@@ -35,6 +38,7 @@ from app.dto.akademik.semester_dto import (
     CopySemesterStructureResponseDTO,
     CreateSemesterDTO,
     SemesterResponseDTO,
+    StudentSemesterTimelineItemDTO,
     UpdateSemesterDTO,
 )
 from app.dto.akademik.kalender_dto import (
@@ -64,6 +68,7 @@ class AkademikService:
         self.mapel_repo = MapelRepository(db)
         self.mapel_policy = MapelPolicy
         self.semester_repo = SemesterRepository(db)
+        self.student_semester_repo = StudentSemesterRepository(db)
         self.semester_policy = SemesterPolicy
         self.slot_waktu_repo = SlotWaktuRepository(db)
         self.slot_waktu_policy = SlotWaktuPolicy
@@ -275,6 +280,81 @@ class AkademikService:
     async def list_active_semesters(self) -> list[SemesterResponseDTO]:
         semesters = await self.semester_repo.list_active()
         return [self._to_semester_dto(s) for s in semesters]
+
+    async def list_my_semester_timeline(
+        self, current_user: User
+    ) -> list[StudentSemesterTimelineItemDTO]:
+        expected_slots = [
+            (1, TingkatKelas.x, TipeSemester.ganjil),
+            (2, TingkatKelas.x, TipeSemester.genap),
+            (3, TingkatKelas.xi, TipeSemester.ganjil),
+            (4, TingkatKelas.xi, TipeSemester.genap),
+            (5, TingkatKelas.xii, TipeSemester.ganjil),
+            (6, TingkatKelas.xii, TipeSemester.genap),
+        ]
+        latest_by_slot: dict[
+            tuple[TingkatKelas, TipeSemester],
+            StudentSemesterTimelineItemDTO,
+        ] = {}
+
+        rows = await self.student_semester_repo.list_student_semester_rows(current_user.user_id)
+        for (
+            tingkat,
+            tipe,
+            semester_id,
+            tahun_ajaran_id,
+            tahun_ajaran_nama,
+            kelas_id,
+            kelas_nama,
+            _tahun_mulai,
+        ) in rows:
+            if tingkat is None or tipe is None:
+                continue
+            slot_key = (tingkat, tipe)
+            if slot_key in latest_by_slot:
+                continue
+            semester_ke = next(
+                (
+                    slot_no
+                    for slot_no, slot_tingkat, slot_tipe in expected_slots
+                    if slot_tingkat == tingkat and slot_tipe == tipe
+                ),
+                None,
+            )
+            if semester_ke is None:
+                continue
+            latest_by_slot[slot_key] = StudentSemesterTimelineItemDTO(
+                semester_ke=semester_ke,
+                tingkat=tingkat,
+                tipe=tipe,
+                semester_id=semester_id,
+                tahun_ajaran_id=tahun_ajaran_id,
+                tahun_ajaran_nama=tahun_ajaran_nama,
+                kelas_id=kelas_id,
+                kelas_nama=kelas_nama,
+                is_available=True,
+            )
+
+        output: list[StudentSemesterTimelineItemDTO] = []
+        for slot_no, tingkat, tipe in expected_slots:
+            filled = latest_by_slot.get((tingkat, tipe))
+            if filled:
+                output.append(filled)
+            else:
+                output.append(
+                    StudentSemesterTimelineItemDTO(
+                        semester_ke=slot_no,
+                        tingkat=tingkat,
+                        tipe=tipe,
+                        semester_id=None,
+                        tahun_ajaran_id=None,
+                        tahun_ajaran_nama=None,
+                        kelas_id=None,
+                        kelas_nama=None,
+                        is_available=False,
+                    )
+                )
+        return output
 
     async def get_semester(self, semester_id: UUID) -> SemesterResponseDTO:
         """

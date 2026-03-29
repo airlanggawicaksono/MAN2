@@ -74,15 +74,14 @@ export const adminNav: NavItem[] = [
 export const guruNav: NavItem[] = [
   { label: "Dasbor Guru", href: "/guru" },
   { label: "Jadwal Mengajar", href: "/guru/jadwal" },
-  { label: "Penilaian Siswa", href: "/guru/penilaian" },
+  { label: "Penugasan Siswa", href: "/guru/tugas" },
   { label: "Wali Kelas (Rapor)", href: "/guru/rapor" },
 ];
 
 export const siswaNav: NavItem[] = [
   { label: "Dasbor Siswa", href: "/siswa" },
   { label: "Jadwal Pelajaran", href: "/siswa/jadwal" },
-  { label: "Nilai Saya", href: "/siswa/nilai" },
-  { label: "Rapor Digital", href: "/siswa/rapor" },
+  { label: "Tugas, Nilai & Rapor", href: "/siswa/nilai" },
 ];
 
 export function getNavForRole(role?: UserType): NavItem[] {

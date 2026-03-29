@@ -51,17 +51,13 @@ It groups endpoints by domain and labels frontend usage status.
 ## Guru Mapel
 - `GET /guru-mapel` - used by admin akademik
 - `GET /guru-mapel/active` - used by jadwal form
-- `GET /guru-mapel/me` - used by guru pages
-- `GET /guru-mapel/guru/{user_id}` - currently not used by frontend, kept for compatibility
-- `GET /guru-mapel/kelas/{kelas_id}` - currently not used by frontend, kept for compatibility
+- `GET /guru-mapel/my-context` - used by guru jadwal/penilaian filters (backend-driven)
 - `POST /guru-mapel` - used by admin akademik
 - `DELETE /guru-mapel/{guru_mapel_id}` - used by admin akademik
 
 ## Jadwal
 - `GET /jadwal/kelas/{kelas_id}` - used by admin/guru pages
-- `GET /jadwal/guru/{user_id}` - used by guru pages
-- `GET /jadwal/semester/{semester_id}` - currently not used by frontend, kept for compatibility
-- `GET /my-jadwal` - used by siswa and guru page
+- `GET /my-jadwal` - used by siswa and guru page (supports optional `tahun_ajaran_id`, `semester_id`)
 - `POST /jadwal` - used by admin akademik
 - `PATCH /jadwal/{jadwal_id}` - currently not used by frontend, kept for compatibility
 - `DELETE /jadwal/{jadwal_id}` - used by admin akademik

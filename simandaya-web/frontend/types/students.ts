@@ -14,6 +14,8 @@ export interface StudentProfile {
   kelas_nama?: string | null;
   tahun_masuk: number | null;
   status_siswa: StatusSiswa;
+  semester_aktif_tipe?: string | null;
+  semester_ke?: number | null;
   kontak: string | null;
   kewarganegaraan: string;
   is_active: boolean;

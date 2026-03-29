@@ -23,7 +23,12 @@ class NilaiResponseDTO(BaseModel):
     tugas_id: UUID
     user_id: UUID
     nilai: float
+    is_nilai_published_to_students: bool = True
     catatan: Optional[str]
+    mapel_id: Optional[UUID] = None
+    mapel_nama: Optional[str] = None
+    tugas_judul: Optional[str] = None
+    tugas_jenis: Optional[str] = None
 
 
 class NilaiByMapelDTO(BaseModel):

@@ -67,6 +67,7 @@ app = FastAPI(
         {"name": "Siswa - Rapor"},
         {"name": "Guru - Kelas"},
         {"name": "Guru - Jadwal"},
+        {"name": "Guru + Siswa - Jadwal"},
         {"name": "Root"},
         {"name": "Health"},
     ],

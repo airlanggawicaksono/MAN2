@@ -10,8 +10,10 @@ from app.dto.akademik.semester_dto import (
     CopySemesterStructureResponseDTO,
     CreateSemesterDTO,
     SemesterResponseDTO,
+    StudentSemesterTimelineItemDTO,
     UpdateSemesterDTO,
 )
+from app.models.user import User
 from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
@@ -74,6 +76,19 @@ async def list_active_semesters(
 ) -> list[SemesterResponseDTO]:
     service = AkademikService(db)
     return await service.list_active_semesters()
+
+
+@router.get(
+    "/semester/my-timeline",
+    response_model=list[StudentSemesterTimelineItemDTO],
+    summary="List My Student Semester Timeline (1-6)",
+)
+async def list_my_semester_timeline(
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> list[StudentSemesterTimelineItemDTO]:
+    service = AkademikService(db)
+    return await service.list_my_semester_timeline(current_user)
 
 
 @router.get(

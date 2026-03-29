@@ -5,6 +5,14 @@ from app.enums import UserType
 
 class NilaiPolicy:
     @staticmethod
+    def ensure_student_allowed_semester(is_allowed: bool) -> None:
+        if not is_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Semester tidak valid untuk timeline siswa ini",
+            )
+
+    @staticmethod
     def ensure_tugas_exists(tugas, tugas_id) -> None:
         if not tugas:
             raise HTTPException(

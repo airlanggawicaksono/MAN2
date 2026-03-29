@@ -7,12 +7,6 @@ export const jadwalApi = akademikBaseApi.injectEndpoints({
     listJadwalByKelas: builder.query<JadwalResponse[], UUID>({
       query: (kelasId) => `/jadwal/kelas/${kelasId}`,
       providesTags: ["Jadwal"],
-      refetchOnMountOrArgChange: true,
-    }),
-    listJadwalByGuru: builder.query<JadwalResponse[], UUID>({
-      query: (guruId) => `/jadwal/guru/${guruId}`,
-      providesTags: ["Jadwal"],
-      refetchOnMountOrArgChange: true,
     }),
     createJadwal: builder.mutation<JadwalResponse, CreateJadwalRequest>({
       query: (body) => ({ url: "/jadwal", method: "POST", body }),
@@ -26,17 +20,24 @@ export const jadwalApi = akademikBaseApi.injectEndpoints({
       query: (id) => ({ url: `/jadwal/${id}`, method: "DELETE" }),
       invalidatesTags: ["Jadwal"],
     }),
-    getMyJadwal: builder.query<JadwalResponse[], void>({
-      query: () => "/my-jadwal",
+    getMyJadwal: builder.query<
+      JadwalResponse[],
+      { semesterId?: UUID; tahunAjaranId?: UUID } | void
+    >({
+      query: (args) => ({
+        url: "/my-jadwal",
+        params: {
+          semester_id: args?.semesterId,
+          tahun_ajaran_id: args?.tahunAjaranId,
+        },
+      }),
       providesTags: ["Jadwal"],
-      refetchOnMountOrArgChange: true,
     }),
   }),
 });
 
 export const {
   useListJadwalByKelasQuery,
-  useListJadwalByGuruQuery,
   useCreateJadwalMutation,
   useUpdateJadwalMutation,
   useDeleteJadwalMutation,

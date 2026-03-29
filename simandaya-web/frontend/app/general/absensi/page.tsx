@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
@@ -27,21 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDebounce } from "@/hooks/useDebounce";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  setAbsensiDate,
-  shiftAbsensiDate,
-  setAbsensiSearch,
-  setIzinKeluarDate,
-  shiftIzinKeluarDate,
-  setIzinKeluarSearch,
-  todayStr,
-} from "@/store/slices/absensi";
-import {
-  useListPublicAttendanceQuery,
-  useListPublicIzinKeluarQuery,
-} from "@/api/public/absensi";
+import { useGeneralAbsensiController } from "./use-general-absensi-controller";
 
 const STATUS_VARIANT: Record<
   string,
@@ -108,43 +93,24 @@ function DateNav({
 }
 
 export default function AbsensiPage() {
-  const dispatch = useAppDispatch();
   const {
     absensiDate,
     absensiSearch,
+    attendance,
+    debouncedAbsensiSearch,
+    debouncedIzinSearch,
+    fetchingAtt,
+    fetchingIzin,
+    izinKeluar,
     izinKeluarDate,
     izinKeluarSearch,
-  } = useAppSelector((s) => s.absensi);
-
-  useEffect(() => {
-    if (!absensiDate) dispatch(setAbsensiDate(todayStr()));
-    if (!izinKeluarDate) dispatch(setIzinKeluarDate(todayStr()));
-  }, [dispatch, absensiDate, izinKeluarDate]);
-
-  const debouncedAbsensiSearch = useDebounce(absensiSearch, 400);
-  const debouncedIzinSearch = useDebounce(izinKeluarSearch, 400);
-
-  const {
-    data: attendance = [],
-    isFetching: fetchingAtt,
-  } = useListPublicAttendanceQuery(
-    {
-      tanggal: absensiDate,
-      search: debouncedAbsensiSearch || undefined,
-    },
-    { skip: !absensiDate },
-  );
-
-  const {
-    data: izinKeluar = [],
-    isFetching: fetchingIzin,
-  } = useListPublicIzinKeluarQuery(
-    {
-      tanggal: izinKeluarDate,
-      search: debouncedIzinSearch || undefined,
-    },
-    { skip: !izinKeluarDate },
-  );
+    setAbsensiDateValue,
+    setAbsensiSearchValue,
+    setIzinKeluarDateValue,
+    setIzinKeluarSearchValue,
+    shiftAbsensiDateBy,
+    shiftIzinKeluarDateBy,
+  } = useGeneralAbsensiController();
 
   return (
     <div className="p-2">
@@ -162,8 +128,8 @@ export default function AbsensiPage() {
               <CardTitle className="text-lg">Data Absensi</CardTitle>
               <DateNav
                 date={absensiDate}
-                onDateChange={(d) => dispatch(setAbsensiDate(d))}
-                onShift={(n) => dispatch(shiftAbsensiDate(n))}
+                onDateChange={setAbsensiDateValue}
+                onShift={shiftAbsensiDateBy}
               />
             </div>
             <div className="relative">
@@ -171,7 +137,7 @@ export default function AbsensiPage() {
               <Input
                 placeholder="Cari nama siswa..."
                 value={absensiSearch}
-                onChange={(e) => dispatch(setAbsensiSearch(e.target.value))}
+                onChange={(e) => setAbsensiSearchValue(e.target.value)}
                 className="pl-9"
               />
             </div>
@@ -231,8 +197,8 @@ export default function AbsensiPage() {
               <CardTitle className="text-lg">Izin Keluar</CardTitle>
               <DateNav
                 date={izinKeluarDate}
-                onDateChange={(d) => dispatch(setIzinKeluarDate(d))}
-                onShift={(n) => dispatch(shiftIzinKeluarDate(n))}
+                onDateChange={setIzinKeluarDateValue}
+                onShift={shiftIzinKeluarDateBy}
               />
             </div>
             <div className="relative">
@@ -240,7 +206,7 @@ export default function AbsensiPage() {
               <Input
                 placeholder="Cari nama siswa..."
                 value={izinKeluarSearch}
-                onChange={(e) => dispatch(setIzinKeluarSearch(e.target.value))}
+                onChange={(e) => setIzinKeluarSearchValue(e.target.value)}
                 className="pl-9"
               />
             </div>

@@ -84,18 +84,26 @@ class NilaiRepository:
         return list(result.scalars().all())
 
     async def list_nilai_by_user_with_mapel(
-        self, user_id: UUID, semester_id: UUID | None = None
-    ) -> list[tuple[Nilai, UUID, str]]:
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        kelas_id: UUID | None = None,
+        published_tugas_only: bool = False,
+    ) -> list[tuple[Nilai, Tugas, MataPelajaran]]:
         stmt = (
-            select(Nilai, MataPelajaran.mapel_id, MataPelajaran.nama_mapel)
+            select(Nilai, Tugas, MataPelajaran)
             .join(Tugas, Nilai.tugas_id == Tugas.tugas_id)
             .join(MataPelajaran, Tugas.mapel_id == MataPelajaran.mapel_id)
             .where(Nilai.user_id == user_id)
         )
         if semester_id:
             stmt = stmt.where(Tugas.semester_id == semester_id)
+        if kelas_id:
+            stmt = stmt.where(Tugas.kelas_id == kelas_id)
+        if published_tugas_only:
+            stmt = stmt.where(Tugas.is_published_to_students.is_(True))
 
-        result = await self.db.execute(stmt.order_by(MataPelajaran.nama_mapel))
+        result = await self.db.execute(stmt.order_by(MataPelajaran.nama_mapel, Tugas.created_at.desc()))
         return list(result.all())
 
     async def add_nilai(self, nilai: Nilai) -> None:

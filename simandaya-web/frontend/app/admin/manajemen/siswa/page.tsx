@@ -46,7 +46,7 @@ export default function DataSiswaPage() {
         <h2 className="text-lg font-semibold">Daftar Siswa</h2>
 
         <EntitySearchInput
-          placeholder="Cari siswa..."
+          placeholder="Cari siswa (NIS/NIM/Nama)..."
           value={crud.searchInput}
           onChange={crud.handleSearchChange}
         />

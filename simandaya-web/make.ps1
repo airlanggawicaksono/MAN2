@@ -43,7 +43,7 @@ Simandaya Web (Windows)
 Dev  (.env):
   .\make.ps1 dev-up         Start all services in background
   .\make.ps1 dev-down       Stop all services
-  .\make.ps1 dev-reset-seed Reset volumes, restart dev, and seed admins
+  .\make.ps1 dev-reset-seed Reset PostgreSQL volume only, restart services, and seed admins
   .\make.ps1 dev-nuke-seed  Down + prune Docker cache + remove volumes + seed admins
   .\make.ps1 dev-backend    Start backend only (background)
   .\make.ps1 dev-frontend   Start frontend only (background)
@@ -97,15 +97,30 @@ Ports:
     "dev-up"       { Invoke-Dev "up -d" }
     "dev-down"     { Invoke-Dev "stop" }
     "dev-reset-seed" {
-        Write-Host "Resetting dev environment and seeding demo data..."
-        Invoke-Dev "down -v"
-        Invoke-Dev "up -d"
+        Write-Host "Resetting PostgreSQL volume only, then restarting services and seeding demo data..."
+        Invoke-Dev "stop backend frontend postgres-db"
+        # Remove postgres service container so the data volume is no longer referenced.
+        Invoke-Dev "rm -fsv postgres-db"
+
+        # Remove only postgres data volumes (project-scoped and plain name).
+        $pgVolumes = docker volume ls -q | Where-Object { $_ -match '(^|_)postgres_data$' }
+        if ($pgVolumes) {
+            Write-Host "Removing PostgreSQL volumes:"
+            $pgVolumes | ForEach-Object {
+                Write-Host " - $_"
+                docker volume rm -f $_ | Out-Host
+            }
+        } else {
+            Write-Host "No postgres_data volume found (already clean)."
+        }
+
+        Invoke-Dev "up -d postgres-db backend frontend"
         Write-Host "Waiting for services to initialize (10s)..."
         Start-Sleep -Seconds 10
         Write-Host "Seeding admins + academic demo..."
         Invoke-Dev "exec backend python scripts/seed_admins.py"
         Invoke-Dev "exec backend python scripts/seed_academic_demo.py"
-        Write-Host "Reset and demo seed complete!"
+        Write-Host "PostgreSQL reset and demo seed complete!"
     }
     "dev-nuke-seed" {
         Write-Host "Nuking dev Docker state and seeding demo data..."
@@ -161,8 +176,12 @@ Ports:
     }
 
     # ── Scripts ───────────────────────────────────────────────────────────
-    "seed-admins"  { Invoke-Dev "exec backend python scripts/seed_admins.py" }
-    "seed-academic-demo" { Invoke-Dev "exec backend python scripts/seed_academic_demo.py" }
+    "seed-admins"  {
+        Invoke-Dev "exec backend python scripts/seed_admins.py"
+    }
+    "seed-academic-demo" {
+        Invoke-Dev "exec backend python scripts/seed_academic_demo.py"
+    }
     "seed-all" {
         Invoke-Dev "exec backend python scripts/seed_admins.py"
         Invoke-Dev "exec backend python scripts/seed_academic_demo.py"

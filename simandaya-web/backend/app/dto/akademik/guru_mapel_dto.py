@@ -27,5 +27,31 @@ class GuruMapelResponseDTO(BaseModel):
     kelas_nama: Optional[str] = None
 
 
+class GuruAcademicContextTahunAjaranDTO(BaseModel):
+    tahun_ajaran_id: UUID
+    nama: str
+    is_active: bool
+
+
+class GuruAcademicContextSemesterDTO(BaseModel):
+    semester_id: UUID
+    tahun_ajaran_id: UUID
+    tipe: str
+    is_active: bool
+
+
+class GuruAcademicContextKelasDTO(BaseModel):
+    kelas_id: UUID
+    tahun_ajaran_id: UUID
+    nama_kelas: str
+
+
+class GuruAcademicContextResponseDTO(BaseModel):
+    assignments: list[GuruMapelResponseDTO]
+    tahun_ajaran: list[GuruAcademicContextTahunAjaranDTO]
+    semesters: list[GuruAcademicContextSemesterDTO]
+    kelas: list[GuruAcademicContextKelasDTO]
+
+
 class MessageResponseDTO(BaseModel):
     message: str

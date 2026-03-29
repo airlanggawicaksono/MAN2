@@ -102,6 +102,11 @@ export function createBaseQuery(path: string): BaseQueryFn<string | FetchArgs, u
     let result = await baseQuery(args, api, extraOptions);
 
     if (result.error && result.error.status === 401) {
+      const tokenAfter = (api.getState() as RootState).auth.token;
+      if (!tokenAfter) {
+        return result;
+      }
+
       const refreshed = await ensureFreshToken(api);
       if (refreshed) {
         result = await baseQuery(args, api, extraOptions);

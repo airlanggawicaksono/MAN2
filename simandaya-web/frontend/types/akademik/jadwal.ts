@@ -64,3 +64,29 @@ export interface UpdateGuruMapelRequest {
   mapel_id?: UUID;
   kelas_id?: UUID;
 }
+
+export interface GuruAcademicContextTahunAjaran {
+  tahun_ajaran_id: UUID;
+  nama: string;
+  is_active: boolean;
+}
+
+export interface GuruAcademicContextSemester {
+  semester_id: UUID;
+  tahun_ajaran_id: UUID;
+  tipe: string;
+  is_active: boolean;
+}
+
+export interface GuruAcademicContextKelas {
+  kelas_id: UUID;
+  tahun_ajaran_id: UUID;
+  nama_kelas: string;
+}
+
+export interface GuruAcademicContextResponse {
+  assignments: GuruMapelResponse[];
+  tahun_ajaran: GuruAcademicContextTahunAjaran[];
+  semesters: GuruAcademicContextSemester[];
+  kelas: GuruAcademicContextKelas[];
+}

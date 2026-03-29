@@ -234,6 +234,15 @@ export function TeacherEditDialog({
           await onSaved?.();
           return;
         }
+        if (!assignResult.data) {
+          notifyError("Profil tersimpan, tapi data jabatan tidak lengkap.");
+          setStatusNotice({
+            type: "error",
+            message: "Profil tersimpan, tapi data jabatan tidak lengkap.",
+          });
+          await onSaved?.();
+          return;
+        }
         newAssignmentId = assignResult.data.assignment_id;
       }
 

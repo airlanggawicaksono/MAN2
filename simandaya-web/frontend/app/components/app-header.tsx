@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getNavForRole, roleRoutePrefix } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout, setCredentials } from "@/store/slices/auth";
 import { useLoginMutation, useLogoutMutation } from "@/api/public/auth";
+import { resetAllApiState } from "@/store/reset-api-state";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,13 @@ export default function AppHeader() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+    router.prefetch("/admin");
+    router.prefetch("/guru");
+    router.prefetch("/siswa");
+  }, [mounted, router]);
+
   const navItems = mounted ? getNavForRole(user?.user_type) : getNavForRole(undefined);
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -43,6 +51,7 @@ export default function AppHeader() {
     try {
       await logoutApi().unwrap();
     } finally {
+      resetAllApiState(dispatch);
       dispatch(logout());
       setShowLogoutDialog(false);
       router.push("/general");
@@ -63,7 +72,14 @@ export default function AppHeader() {
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
-      router.push(roleRoutePrefix[result.user.user_type] ?? "/general");
+      const targetRoute = roleRoutePrefix[result.user.user_type] ?? "/general";
+      startTransition(() => {
+        router.replace(targetRoute);
+      });
+      // Clear stale RTK Query cache after route transition starts to avoid blocking redirect.
+      setTimeout(() => {
+        resetAllApiState(dispatch);
+      }, 0);
     } catch (err: any) {
       setLoginError(err.data?.detail || "Login gagal. Silakan coba lagi.");
     }

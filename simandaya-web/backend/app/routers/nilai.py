@@ -7,10 +7,12 @@ from app.dependencies import require_role
 from app.enums import UserType
 from app.models.user import User
 from app.services.nilai_service import NilaiService
+from app.services.siswa_overview_service import SiswaOverviewService
 from app.dto.penilaian.nilai_dto import (
     CreateNilaiDTO, BulkCreateNilaiDTO, UpdateNilaiDTO,
     NilaiResponseDTO, BulkNilaiResponseDTO, MessageResponseDTO, NilaiByMapelDTO,
 )
+from app.dto.penilaian.siswa_overview_dto import SiswaOverviewResponseDTO
 
 router = APIRouter(prefix="/api/v1/penilaian")
 teacher_router = APIRouter(tags=["Admin + Guru - Nilai"])
@@ -60,6 +62,25 @@ async def list_nilai_by_tugas(
 ) -> list[NilaiResponseDTO]:
     service = NilaiService(db)
     return await service.list_nilai_by_tugas(tugas_id, current_user)
+
+
+@student_router.get(
+    "/siswa/overview",
+    response_model=SiswaOverviewResponseDTO,
+    summary="Get My Academic Overview (Rapor + Nilai + Tugas)",
+)
+async def get_my_academic_overview(
+    semester_id: Optional[UUID] = Query(default=None),
+    semester_ke: Optional[int] = Query(default=None, ge=1, le=6),
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> SiswaOverviewResponseDTO:
+    service = SiswaOverviewService(db)
+    return await service.get_my_overview(
+        current_user=current_user,
+        semester_id=semester_id,
+        semester_ke=semester_ke,
+    )
 
 
 @student_router.get(

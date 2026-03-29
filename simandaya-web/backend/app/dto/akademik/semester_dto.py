@@ -2,7 +2,7 @@ from typing import Optional
 from datetime import date
 from pydantic import BaseModel, Field
 from uuid import UUID
-from app.enums import TipeSemester
+from app.enums import TipeSemester, TingkatKelas
 
 
 class CreateSemesterDTO(BaseModel):
@@ -40,3 +40,15 @@ class CopySemesterStructureResponseDTO(BaseModel):
     semester: SemesterResponseDTO
     copied_jadwal: int
     copied_rapor_bobot: int
+
+
+class StudentSemesterTimelineItemDTO(BaseModel):
+    semester_ke: int
+    tingkat: TingkatKelas
+    tipe: TipeSemester
+    semester_id: Optional[UUID] = None
+    tahun_ajaran_id: Optional[UUID] = None
+    tahun_ajaran_nama: Optional[str] = None
+    kelas_id: Optional[UUID] = None
+    kelas_nama: Optional[str] = None
+    is_available: bool = False

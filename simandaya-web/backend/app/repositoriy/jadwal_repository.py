@@ -125,18 +125,6 @@ class JadwalRepository:
         )
         return list(result.scalars().all())
 
-    async def list_guru_mapel_by_kelas(self, kelas_id: UUID) -> list[GuruMapel]:
-        result = await self.db.execute(
-            select(GuruMapel)
-            .where(GuruMapel.kelas_id == kelas_id)
-            .options(
-                selectinload(GuruMapel.user).selectinload(User.guru_profile),
-                selectinload(GuruMapel.mapel),
-                selectinload(GuruMapel.kelas),
-            )
-        )
-        return list(result.scalars().all())
-
     async def delete_guru_mapel(self, guru_mapel: GuruMapel) -> None:
         await self.db.delete(guru_mapel)
 
@@ -265,23 +253,19 @@ class JadwalRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_jadwal_by_semester(self, semester_id: UUID) -> list[Jadwal]:
-        result = await self.db.execute(
-            select(Jadwal)
-            .where(Jadwal.semester_id == semester_id)
-            .options(
-                selectinload(Jadwal.mapel),
-                selectinload(Jadwal.kelas),
-                selectinload(Jadwal.slot_waktu),
-                selectinload(Jadwal.guru).selectinload(User.guru_profile),
-            )
-        )
-        return list(result.scalars().all())
-
     async def list_jadwal_by_kelas(self, kelas_id: UUID) -> list[Jadwal]:
-        result = await self.db.execute(
+        return await self.list_jadwal_by_kelas_filters(kelas_id)
+
+    async def list_jadwal_by_kelas_filters(
+        self,
+        kelas_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[Jadwal]:
+        filters = [Jadwal.kelas_id == kelas_id]
+        query = (
             select(Jadwal)
-            .where(Jadwal.kelas_id == kelas_id)
+            .join(Semester, Semester.semester_id == Jadwal.semester_id)
             .options(
                 selectinload(Jadwal.mapel),
                 selectinload(Jadwal.kelas),
@@ -289,26 +273,83 @@ class JadwalRepository:
                 selectinload(Jadwal.guru).selectinload(User.guru_profile),
             )
         )
+        if semester_id:
+            filters.append(Jadwal.semester_id == semester_id)
+        if tahun_ajaran_id:
+            filters.append(Semester.tahun_ajaran_id == tahun_ajaran_id)
+        result = await self.db.execute(query.where(and_(*filters)))
         return list(result.scalars().all())
 
     async def list_jadwal_by_guru(self, user_id: UUID) -> list[Jadwal]:
-        result = await self.db.execute(
+        return await self.list_jadwal_by_guru_filters(user_id)
+
+    async def list_jadwal_by_guru_filters(
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[Jadwal]:
+        filters = [Jadwal.guru_user_id == user_id]
+        query = (
             select(Jadwal)
-            .where(Jadwal.guru_user_id == user_id)
+            .join(Semester, Semester.semester_id == Jadwal.semester_id)
             .options(
                 selectinload(Jadwal.mapel),
                 selectinload(Jadwal.kelas),
                 selectinload(Jadwal.slot_waktu),
                 selectinload(Jadwal.guru).selectinload(User.guru_profile),
             )
+        )
+        if semester_id:
+            filters.append(Jadwal.semester_id == semester_id)
+        if tahun_ajaran_id:
+            filters.append(Semester.tahun_ajaran_id == tahun_ajaran_id)
+        result = await self.db.execute(query.where(and_(*filters)))
+        return list(result.scalars().all())
+
+    async def list_tahun_ajaran_by_ids(self, tahun_ajaran_ids: list[UUID]) -> list[TahunAjaran]:
+        if not tahun_ajaran_ids:
+            return []
+        result = await self.db.execute(
+            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id.in_(tahun_ajaran_ids))
+        )
+        return list(result.scalars().all())
+
+    async def list_semesters_by_tahun_ajaran_ids(
+        self,
+        tahun_ajaran_ids: list[UUID],
+    ) -> list[Semester]:
+        if not tahun_ajaran_ids:
+            return []
+        result = await self.db.execute(
+            select(Semester).where(Semester.tahun_ajaran_id.in_(tahun_ajaran_ids))
         )
         return list(result.scalars().all())
 
     async def find_student_kelas_id(self, user_id: UUID) -> UUID | None:
-        result = await self.db.execute(
-            select(SiswaKelas.kelas_id).where(SiswaKelas.user_id == user_id)
+        active_result = await self.db.execute(
+            select(SiswaKelas.kelas_id)
+            .join(Kelas, Kelas.kelas_id == SiswaKelas.kelas_id)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
+            .where(
+                SiswaKelas.user_id == user_id,
+                TahunAjaran.is_active.is_(True),
+            )
+            .limit(1)
         )
-        return result.scalar_one_or_none()
+        active_kelas_id = active_result.scalar_one_or_none()
+        if active_kelas_id:
+            return active_kelas_id
+
+        latest_result = await self.db.execute(
+            select(SiswaKelas.kelas_id)
+            .join(Kelas, Kelas.kelas_id == SiswaKelas.kelas_id)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
+            .where(SiswaKelas.user_id == user_id)
+            .order_by(TahunAjaran.tanggal_mulai.desc())
+            .limit(1)
+        )
+        return latest_result.scalar_one_or_none()
 
     async def delete_jadwal(self, jadwal: Jadwal) -> None:
         await self.db.delete(jadwal)

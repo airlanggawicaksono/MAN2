@@ -15,8 +15,11 @@ from app.dto.penilaian.nilai_dto import (
     UpdateNilaiDTO,
 )
 from app.models.nilai import Nilai
+from app.models.mata_pelajaran import MataPelajaran
+from app.models.tugas import Tugas
 from app.models.user import User
 from app.policy.nilai_policy import NilaiPolicy
+from app.repositoriy.student_semester_repository import StudentSemesterRepository
 from app.repositoriy.nilai_repository import NilaiRepository
 
 
@@ -28,15 +31,26 @@ class NilaiService:
         policy: type[NilaiPolicy] = NilaiPolicy,
     ):
         self.repo = repo or NilaiRepository(db)
+        self.student_semester_repo = StudentSemesterRepository(db)
         self.policy = policy
 
-    def _to_dto(self, nilai: Nilai) -> NilaiResponseDTO:
+    def _to_dto(
+        self,
+        nilai: Nilai,
+        tugas: Tugas | None = None,
+        mapel: MataPelajaran | None = None,
+    ) -> NilaiResponseDTO:
         return NilaiResponseDTO(
             nilai_id=nilai.nilai_id,
             tugas_id=nilai.tugas_id,
             user_id=nilai.user_id,
             nilai=float(nilai.nilai),
+            is_nilai_published_to_students=tugas.is_nilai_published_to_students if tugas else True,
             catatan=nilai.catatan,
+            mapel_id=mapel.mapel_id if mapel else None,
+            mapel_nama=mapel.nama_mapel if mapel else None,
+            tugas_judul=tugas.judul if tugas else None,
+            tugas_jenis=tugas.jenis if tugas else None,
         )
 
     async def _get_tugas_or_404(self, tugas_id: UUID):
@@ -145,18 +159,56 @@ class NilaiService:
     async def list_my_scores(
         self, current_user: User, semester_id: Optional[UUID] = None
     ) -> list[NilaiResponseDTO]:
-        nilai_list = await self.repo.list_nilai_by_user(current_user.user_id, semester_id)
-        return [self._to_dto(n) for n in nilai_list]
+        kelas_id: UUID | None = None
+        if semester_id:
+            is_allowed = await self.student_semester_repo.is_student_allowed_semester(
+                current_user.user_id, semester_id
+            )
+            self.policy.ensure_student_allowed_semester(is_allowed)
+            kelas_id = await self.student_semester_repo.get_primary_kelas_for_semester(
+                current_user.user_id, semester_id
+            )
+            if not kelas_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Kelas siswa untuk semester ini tidak ditemukan",
+                )
+        rows = await self.repo.list_nilai_by_user_with_mapel(
+            current_user.user_id,
+            semester_id=semester_id,
+            kelas_id=kelas_id,
+            published_tugas_only=True,
+        )
+        return [self._to_dto(nilai, tugas, mapel) for nilai, tugas, mapel in rows]
 
     async def list_my_scores_by_mapel(
         self, current_user: User, semester_id: Optional[UUID] = None
     ) -> list[NilaiByMapelDTO]:
-        rows = await self.repo.list_nilai_by_user_with_mapel(current_user.user_id, semester_id)
+        kelas_id: UUID | None = None
+        if semester_id:
+            is_allowed = await self.student_semester_repo.is_student_allowed_semester(
+                current_user.user_id, semester_id
+            )
+            self.policy.ensure_student_allowed_semester(is_allowed)
+            kelas_id = await self.student_semester_repo.get_primary_kelas_for_semester(
+                current_user.user_id, semester_id
+            )
+            if not kelas_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Kelas siswa untuk semester ini tidak ditemukan",
+                )
+        rows = await self.repo.list_nilai_by_user_with_mapel(
+            current_user.user_id,
+            semester_id=semester_id,
+            kelas_id=kelas_id,
+            published_tugas_only=True,
+        )
         grouped: dict[UUID, dict] = defaultdict(lambda: {"mapel_nama": "", "scores": []})
 
-        for nilai, mapel_id, mapel_nama in rows:
-            grouped[mapel_id]["mapel_nama"] = mapel_nama
-            grouped[mapel_id]["scores"].append(self._to_dto(nilai))
+        for nilai, tugas, mapel in rows:
+            grouped[mapel.mapel_id]["mapel_nama"] = mapel.nama_mapel
+            grouped[mapel.mapel_id]["scores"].append(self._to_dto(nilai, tugas, mapel))
 
         response: list[NilaiByMapelDTO] = []
         for mapel_id, payload in grouped.items():

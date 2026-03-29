@@ -1,10 +1,11 @@
 """
 Seed demo data for:
 - Structural role assignments
-- Manajemen akademik (tahun ajaran, semester, kategori kelas, kelas, mapel, kurikulum)
+- Manajemen akademik (multi tahun ajaran + semester, kategori kelas, kelas, mapel, kurikulum)
 - Penugasan guru-mapel
 - Jadwal pelajaran
-- Assign siswa ke kelas
+- Assign siswa ke kelas + histori kelas (terutama XI/XII)
+- Tugas, nilai, submission, dan rapor historis lintas semester
 
 Run inside backend container:
     python scripts/seed_academic_demo.py
@@ -12,11 +13,12 @@ Run inside backend container:
 
 import asyncio
 import sys
-from datetime import date, time
+from uuid import UUID
+from datetime import date, datetime, time, timedelta, timezone
 from itertools import cycle
 from pathlib import Path
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, delete, select, update
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -24,6 +26,7 @@ from app.config.database import async_session_maker, engine
 from app.enums import (
     HariSekolah,
     KelompokMapel,
+    JenisTugas,
     StructuralRole,
     TipeSemester,
     TingkatKelas,
@@ -43,9 +46,19 @@ from app.models.siswa_profile import SiswaProfile
 from app.models.slot_waktu import SlotWaktu
 from app.models.structural_role_ref import StructuralRoleRef
 from app.models.tahun_ajaran import TahunAjaran
+from app.models.tugas import Tugas
+from app.models.tugas_submission import TugasSubmission
+from app.models.nilai import Nilai
+from app.models.rapor import Rapor
 from app.models.user import User
+from app.services.rapor_service import RaporService
+from app.dto.rapor.rapor_dto import GenerateRaporDTO
 
-TA_NAME = "2026/2027"
+TA_SEED = [
+    ("2024/2025", date(2024, 7, 1), date(2025, 6, 30), False),
+    ("2025/2026", date(2025, 7, 1), date(2026, 6, 30), False),
+    ("2026/2027", date(2026, 7, 1), date(2027, 6, 30), True),
+]
 
 KATEGORI_SEED = [
     ("IPA", "Ilmu Pengetahuan Alam"),
@@ -87,20 +100,35 @@ ROLE_ASSIGN_SEED = [
     StructuralRole.bimbingan_konseling,
 ]
 
+SEED_LINK_SUBMISSION = (
+    "https://docs.google.com/forms/d/e/"
+    "1FAIpQLSd3lgYP_fdsjQrVqin1zREbARMi3U_pokjhUzLUGzzkaneIbg/viewform?usp=dialog"
+)
+SEED_LINK_TUGAS = (
+    "https://drive.google.com/file/d/1gOE6ivff6umch-OI5ai5KQlptntnfo7o/view?usp=sharing"
+)
 
-async def get_or_create_tahun_ajaran(session) -> TahunAjaran:
-    result = await session.execute(select(TahunAjaran).where(TahunAjaran.nama == TA_NAME))
+
+async def get_or_create_tahun_ajaran(
+    session,
+    name: str,
+    mulai: date,
+    selesai: date,
+    is_active: bool,
+) -> TahunAjaran:
+    result = await session.execute(select(TahunAjaran).where(TahunAjaran.nama == name))
     ta = result.scalar_one_or_none()
     if ta:
-        ta.is_active = True
+        ta.tanggal_mulai = mulai
+        ta.tanggal_selesai = selesai
+        ta.is_active = is_active
         return ta
 
-    await session.execute(update(TahunAjaran).values(is_active=False))
     ta = TahunAjaran(
-        nama=TA_NAME,
-        tanggal_mulai=date(2026, 7, 1),
-        tanggal_selesai=date(2027, 6, 30),
-        is_active=True,
+        nama=name,
+        tanggal_mulai=mulai,
+        tanggal_selesai=selesai,
+        is_active=is_active,
     )
     session.add(ta)
     await session.flush()
@@ -134,8 +162,23 @@ async def get_or_create_semester(session, ta: TahunAjaran) -> tuple[Semester, Se
         print(f"  CREATED semester: {tipe.value}")
         return row
 
-    ganjil = await _upsert(TipeSemester.ganjil, date(2026, 7, 1), date(2026, 12, 31), True)
-    genap = await _upsert(TipeSemester.genap, date(2027, 1, 1), date(2027, 6, 30), False)
+    ganjil_mulai = date(ta.tanggal_mulai.year, 7, 1)
+    ganjil_selesai = date(ta.tanggal_mulai.year, 12, 31)
+    genap_mulai = date(ta.tanggal_selesai.year, 1, 1)
+    genap_selesai = ta.tanggal_selesai
+
+    ganjil = await _upsert(
+        TipeSemester.ganjil,
+        ganjil_mulai,
+        ganjil_selesai,
+        bool(ta.is_active),
+    )
+    genap = await _upsert(
+        TipeSemester.genap,
+        genap_mulai,
+        genap_selesai,
+        False,
+    )
     return ganjil, genap
 
 
@@ -342,41 +385,150 @@ async def seed_guru_mapel(
     return created
 
 
-async def assign_students_to_classes(session, classes: list[Kelas], students: list[User]) -> None:
+def infer_kategori_from_kelas_name(nama_kelas: str) -> str:
+    upper = nama_kelas.upper()
+    if " IPA " in f" {upper} ":
+        return "IPA"
+    if " IPS " in f" {upper} ":
+        return "IPS"
+    if " AGAMA " in f" {upper} ":
+        return "AGAMA"
+    return "IPA"
+
+
+async def assign_students_to_classes(
+    session,
+    classes: list[Kelas],
+    students: list[User],
+) -> dict[UUID, Kelas]:
     by_tingkat = {
         TingkatKelas.x: [k for k in classes if k.tingkat == TingkatKelas.x],
         TingkatKelas.xi: [k for k in classes if k.tingkat == TingkatKelas.xi],
         TingkatKelas.xii: [k for k in classes if k.tingkat == TingkatKelas.xii],
     }
+    class_id_set = {k.kelas_id for k in classes}
+    assigned_active: dict[UUID, Kelas] = {}
 
-    split = max(1, len(students) // 3)
+    async def assign_one(user: User, kelas: Kelas) -> None:
+        result = await session.execute(
+            select(SiswaKelas)
+            .where(SiswaKelas.user_id == user.user_id)
+            .where(SiswaKelas.kelas_id.in_(class_id_set))
+        )
+        existing_rows = result.scalars().all()
+        current_row = next((row for row in existing_rows if row.kelas_id == kelas.kelas_id), None)
+        if not current_row:
+            session.add(SiswaKelas(kelas_id=kelas.kelas_id, user_id=user.user_id))
+        for row in existing_rows:
+            if row.kelas_id != kelas.kelas_id:
+                await session.delete(row)
+
+        profile_result = await session.execute(
+            select(SiswaProfile).where(SiswaProfile.user_id == user.user_id)
+        )
+        profile = profile_result.scalar_one_or_none()
+        if profile:
+            profile.kelas_jurusan = kelas.nama_kelas
+        assigned_active[user.user_id] = kelas
+
+    # Force one dense class with at least 40 students for UI/performance testing.
+    xii_classes = by_tingkat[TingkatKelas.xii]
+    dense_target = next(
+        (k for k in xii_classes if " IPA " in f" {k.nama_kelas.upper()} "),
+        xii_classes[0] if xii_classes else classes[0],
+    )
+    dense_count = min(40, len(students))
+    preferred_student = next(
+        (user for user in students if user.username == "wicaksono_student"),
+        None,
+    )
+    dense_students: list[User] = []
+    if preferred_student is not None:
+        dense_students.append(preferred_student)
+    for user in students:
+        if preferred_student is not None and user.user_id == preferred_student.user_id:
+            continue
+        if len(dense_students) >= dense_count:
+            break
+        dense_students.append(user)
+    dense_student_ids = {user.user_id for user in dense_students}
+    for user in dense_students:
+        await assign_one(user, dense_target)
+
+    remaining_students = [user for user in students if user.user_id not in dense_student_ids]
+    split = max(1, len(remaining_students) // 3) if remaining_students else 0
     groups = [
-        (students[:split], TingkatKelas.x),
-        (students[split : split * 2], TingkatKelas.xi),
-        (students[split * 2 :], TingkatKelas.xii),
+        (remaining_students[:split], TingkatKelas.x),
+        (remaining_students[split : split * 2], TingkatKelas.xi),
+        (remaining_students[split * 2 :], TingkatKelas.xii),
     ]
 
     for group_students, tingkat in groups:
         kelas_group = by_tingkat[tingkat]
+        if tingkat == dense_target.tingkat:
+            without_dense = [k for k in kelas_group if k.kelas_id != dense_target.kelas_id]
+            if without_dense:
+                kelas_group = without_dense
         if not kelas_group:
             continue
         class_cycle = cycle(kelas_group)
         for user in group_students:
             kelas = next(class_cycle)
-            result = await session.execute(select(SiswaKelas).where(SiswaKelas.user_id == user.user_id))
-            existing = result.scalar_one_or_none()
-            if existing:
-                existing.kelas_id = kelas.kelas_id
-            else:
-                session.add(SiswaKelas(kelas_id=kelas.kelas_id, user_id=user.user_id))
+            await assign_one(user, kelas)
 
-            profile_result = await session.execute(
-                select(SiswaProfile).where(SiswaProfile.user_id == user.user_id)
+    print(f"  SEEDED siswa_kelas assignments (dense class: {dense_target.nama_kelas} = {dense_count} siswa)")
+    return assigned_active
+
+
+async def seed_student_history_assignments(
+    session,
+    assigned_active: dict[UUID, Kelas],
+    classes_by_ta_name: dict[str, list[Kelas]],
+) -> None:
+    seed_user_ids = list(assigned_active.keys())
+    history_class_ids = [
+        kelas.kelas_id
+        for ta_name, ta_classes in classes_by_ta_name.items()
+        if ta_name in {"2024/2025", "2025/2026"}
+        for kelas in ta_classes
+    ]
+    if seed_user_ids and history_class_ids:
+        await session.execute(
+            delete(SiswaKelas).where(
+                SiswaKelas.user_id.in_(seed_user_ids),
+                SiswaKelas.kelas_id.in_(history_class_ids),
             )
-            profile = profile_result.scalar_one_or_none()
-            if profile:
-                profile.kelas_jurusan = kelas.nama_kelas
-    print("  SEEDED siswa_kelas assignments")
+        )
+
+    class_index: dict[tuple[str, TingkatKelas, str], Kelas] = {}
+    for ta_name, ta_classes in classes_by_ta_name.items():
+        for kelas in ta_classes:
+            kategori = infer_kategori_from_kelas_name(kelas.nama_kelas)
+            class_index[(ta_name, kelas.tingkat, kategori)] = kelas
+
+    for user_id, active_kelas in assigned_active.items():
+        kategori = infer_kategori_from_kelas_name(active_kelas.nama_kelas)
+        if active_kelas.tingkat == TingkatKelas.x:
+            continue
+
+        if active_kelas.tingkat == TingkatKelas.xi:
+            hist_class = class_index.get(("2025/2026", TingkatKelas.x, kategori))
+            if hist_class:
+                session.add(SiswaKelas(kelas_id=hist_class.kelas_id, user_id=user_id))
+            continue
+
+        # Tingkat XII gets XI (2025/2026) + X (2024/2025) history.
+        hist_specs = [
+            ("2025/2026", TingkatKelas.xi),
+            ("2024/2025", TingkatKelas.x),
+        ]
+        for ta_name, tingkat in hist_specs:
+            hist_class = class_index.get((ta_name, tingkat, kategori))
+            if not hist_class:
+                continue
+            session.add(SiswaKelas(kelas_id=hist_class.kelas_id, user_id=user_id))
+
+    print("  SEEDED historical siswa_kelas rows for XI/XII")
 
 
 async def seed_jadwal(
@@ -385,6 +537,11 @@ async def seed_jadwal(
     classes: list[Kelas],
     slots: list[SlotWaktu],
 ) -> None:
+    # Idempotent and safe against uq_jadwal_guru_slot:
+    # wipe jadwal for target semester, then insert fresh rows.
+    await session.execute(delete(Jadwal).where(Jadwal.semester_id == semester.semester_id))
+    await session.flush()
+
     weekdays = [
         HariSekolah.senin,
         HariSekolah.selasa,
@@ -419,30 +576,147 @@ async def seed_jadwal(
                 if not selected:
                     continue
 
-                result = await session.execute(
-                    select(Jadwal).where(
-                        Jadwal.semester_id == semester.semester_id,
-                        Jadwal.kelas_id == kelas.kelas_id,
-                        Jadwal.hari == day,
-                        Jadwal.slot_waktu_id == slot.slot_id,
+                session.add(
+                    Jadwal(
+                        semester_id=semester.semester_id,
+                        kelas_id=kelas.kelas_id,
+                        mapel_id=selected.mapel_id,
+                        guru_user_id=selected.user_id,
+                        hari=day,
+                        slot_waktu_id=slot.slot_id,
                     )
                 )
-                existing = result.scalar_one_or_none()
-                if existing:
-                    existing.mapel_id = selected.mapel_id
-                    existing.guru_user_id = selected.user_id
-                else:
+    print("  SEEDED jadwal")
+
+
+async def seed_penilaian_and_rapor(
+    session,
+    ta: TahunAjaran,
+    semester: Semester,
+    classes: list[Kelas],
+    publish_rapor: bool,
+) -> None:
+    # Reset seeded tugas for this semester so reruns stay deterministic.
+    await session.execute(
+        delete(Tugas).where(
+            and_(
+                Tugas.semester_id == semester.semester_id,
+                Tugas.judul.like("[SEED RAPOR]%"),
+            )
+        )
+    )
+    # Reset rapor for this semester so pre-seed can regenerate from fresh nilai.
+    await session.execute(delete(Rapor).where(Rapor.semester_id == semester.semester_id))
+    await session.flush()
+
+    jenis_order = [JenisTugas.tugas, JenisTugas.uts, JenisTugas.uas]
+    semester_start_dt = datetime.combine(semester.tanggal_mulai, time(7, 0), tzinfo=timezone.utc)
+    semester_end_dt = datetime.combine(semester.tanggal_selesai, time(15, 0), tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    eligible_kelas_ids: set[UUID] = set()
+
+    for kelas_idx, kelas in enumerate(classes):
+        gm_result = await session.execute(
+            select(GuruMapel).where(
+                GuruMapel.kelas_id == kelas.kelas_id,
+                GuruMapel.tahun_ajaran_id == ta.tahun_ajaran_id,
+            )
+        )
+        assignments = gm_result.scalars().all()
+        if not assignments:
+            continue
+
+        student_rows = await session.execute(
+            select(SiswaKelas.user_id).where(SiswaKelas.kelas_id == kelas.kelas_id)
+        )
+        student_ids = list(student_rows.scalars().all())
+        if not student_ids:
+            continue
+        eligible_kelas_ids.add(kelas.kelas_id)
+
+        # Keep seed size moderate but complete for rapor demo.
+        for mapel_idx, gm in enumerate(assignments[:6]):
+            for jenis_idx, jenis in enumerate(jenis_order):
+                total_days = max(10, (semester.tanggal_selesai - semester.tanggal_mulai).days)
+                deadline_offset = min(total_days - 1, 14 + jenis_idx * 10 + mapel_idx)
+                deadline_dt = semester_start_dt + timedelta(days=deadline_offset)
+
+                tugas = Tugas(
+                    semester_id=semester.semester_id,
+                    kelas_id=kelas.kelas_id,
+                    mapel_id=gm.mapel_id,
+                    created_by=gm.user_id,
+                    jenis=jenis,
+                    judul=f"[SEED RAPOR] {kelas.nama_kelas} {jenis.value} {mapel_idx + 1}",
+                    deskripsi="Data seed otomatis untuk simulasi rapor.",
+                    link_tugas=SEED_LINK_TUGAS,
+                    link_submission=SEED_LINK_SUBMISSION,
+                    deadline=deadline_dt,
+                    is_published_to_students=True,
+                    is_nilai_published_to_students=True,
+                )
+                session.add(tugas)
+                await session.flush()
+
+                for student_idx, student_id in enumerate(student_ids):
+                    score = 65 + ((kelas_idx * 7 + mapel_idx * 5 + jenis_idx * 11 + student_idx * 3) % 31)
                     session.add(
-                        Jadwal(
-                            semester_id=semester.semester_id,
-                            kelas_id=kelas.kelas_id,
-                            mapel_id=selected.mapel_id,
-                            guru_user_id=selected.user_id,
-                            hari=day,
-                            slot_waktu_id=slot.slot_id,
+                        Nilai(
+                            tugas_id=tugas.tugas_id,
+                            user_id=student_id,
+                            nilai=float(score),
+                            catatan=f"Seed {jenis.value}",
                         )
                     )
-    print("  SEEDED jadwal")
+                    if (student_idx + jenis_idx + mapel_idx) % 2 == 0:
+                        session.add(
+                            TugasSubmission(
+                                tugas_id=tugas.tugas_id,
+                                user_id=student_id,
+                                submission_link=SEED_LINK_SUBMISSION,
+                                jawaban_text=None,
+                                submitted_at=min(deadline_dt, semester_end_dt),
+                                updated_at=min(deadline_dt, semester_end_dt),
+                            )
+                        )
+
+    await session.flush()
+
+    admin_result = await session.execute(
+        select(User).where(
+            User.user_type == UserType.admin,
+            User.is_active.is_(True),
+        )
+    )
+    admin = admin_result.scalar_one_or_none()
+    if not admin:
+        raise RuntimeError("Admin user tidak ditemukan untuk pre-seed rapor.")
+
+    rapor_service = RaporService(session)
+    generated = 0
+    for kelas in classes:
+        if kelas.kelas_id not in eligible_kelas_ids:
+            continue
+        await rapor_service.generate_rapor(
+            GenerateRaporDTO(kelas_id=kelas.kelas_id, semester_id=semester.semester_id),
+            admin,
+        )
+        generated += 1
+
+    if publish_rapor:
+        await session.execute(
+            update(Rapor)
+            .where(Rapor.semester_id == semester.semester_id)
+            .values(
+                is_published=True,
+                published_at=now,
+                published_by=admin.user_id,
+            )
+        )
+
+    print(
+        f"  SEEDED tugas, nilai, dan {'published' if publish_rapor else 'draft'} rapor untuk {generated} kelas"
+    )
 
 
 async def seed() -> None:
@@ -461,17 +735,67 @@ async def seed() -> None:
                 "Guru/siswa belum ada. Jalankan seed_admins dulu (python scripts/seed_admins.py)."
             )
 
-        ta = await get_or_create_tahun_ajaran(session)
-        ganjil, _ = await get_or_create_semester(session, ta)
-        await seed_structural_roles_and_assignments(session, ta, teachers)
+        await session.execute(update(TahunAjaran).values(is_active=False))
+
+        ta_states: list[dict] = []
+        for ta_name, mulai, selesai, is_active in TA_SEED:
+            ta = await get_or_create_tahun_ajaran(
+                session,
+                ta_name,
+                mulai,
+                selesai,
+                is_active,
+            )
+            ganjil, genap = await get_or_create_semester(session, ta)
+            ta_states.append(
+                {
+                    "name": ta_name,
+                    "ta": ta,
+                    "ganjil": ganjil,
+                    "genap": genap,
+                    "classes": [],
+                }
+            )
+
+        active_state = next((state for state in ta_states if state["ta"].is_active), None)
+        if not active_state:
+            raise RuntimeError("Tidak ada tahun ajaran aktif pada konfigurasi seed.")
+
+        await seed_structural_roles_and_assignments(session, active_state["ta"], teachers)
         kategori_map = await seed_kategori_kelas(session)
         mapel_map = await seed_mapel(session)
         slots = await seed_slot_waktu(session)
-        classes = await seed_kelas(session, ta, kategori_map, teachers)
-        await seed_kurikulum(session, ta, kategori_map, mapel_map)
-        await seed_guru_mapel(session, ta, classes, teachers, mapel_map)
-        await assign_students_to_classes(session, classes, students)
-        await seed_jadwal(session, ganjil, classes, slots)
+
+        for state in ta_states:
+            classes = await seed_kelas(session, state["ta"], kategori_map, teachers)
+            state["classes"] = classes
+            await seed_kurikulum(session, state["ta"], kategori_map, mapel_map)
+            await seed_guru_mapel(session, state["ta"], classes, teachers, mapel_map)
+            await seed_jadwal(session, state["ganjil"], classes, slots)
+
+        assigned_active = await assign_students_to_classes(
+            session,
+            active_state["classes"],
+            students,
+        )
+        classes_by_ta_name = {state["name"]: state["classes"] for state in ta_states}
+        await seed_student_history_assignments(session, assigned_active, classes_by_ta_name)
+
+        for state in ta_states:
+            await seed_penilaian_and_rapor(
+                session,
+                state["ta"],
+                state["ganjil"],
+                state["classes"],
+                publish_rapor=True,
+            )
+            await seed_penilaian_and_rapor(
+                session,
+                state["ta"],
+                state["genap"],
+                state["classes"],
+                publish_rapor=True,
+            )
 
         await session.commit()
 

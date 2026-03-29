@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
@@ -8,7 +8,9 @@ from app.enums import UserType
 from app.models.user import User
 from app.services.jadwal_service import JadwalService
 from app.dto.akademik.guru_mapel_dto import (
-    CreateGuruMapelDTO, GuruMapelResponseDTO,
+    CreateGuruMapelDTO,
+    GuruAcademicContextResponseDTO,
+    GuruMapelResponseDTO,
     MessageResponseDTO,
     UpdateGuruMapelDTO,
 )
@@ -67,44 +69,16 @@ async def list_guru_mapel_active(
 
 
 @guru_router.get(
-    "/guru-mapel/me",
-    response_model=list[GuruMapelResponseDTO],
-    summary="List My Teacher Assignments",
+    "/guru-mapel/my-context",
+    response_model=GuruAcademicContextResponseDTO,
+    summary="Get My Academic Context for Jadwal/Penilaian",
 )
-async def list_my_guru_mapel(
+async def get_my_guru_academic_context(
     current_user: User = Depends(require_role(UserType.guru)),
     db: AsyncSession = Depends(get_db),
-) -> list[GuruMapelResponseDTO]:
+) -> GuruAcademicContextResponseDTO:
     service = JadwalService(db)
-    return await service.list_guru_mapel_by_guru(current_user.user_id)
-
-
-@guru_router.get(
-    "/guru-mapel/guru/{user_id}",
-    response_model=list[GuruMapelResponseDTO],
-    summary="List Assignments for a Teacher",
-    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
-)
-async def list_guru_mapel_by_guru(
-    user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-) -> list[GuruMapelResponseDTO]:
-    service = JadwalService(db)
-    return await service.list_guru_mapel_by_guru(user_id)
-
-
-@guru_router.get(
-    "/guru-mapel/kelas/{kelas_id}",
-    response_model=list[GuruMapelResponseDTO],
-    summary="List Assignments for a Class",
-    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
-)
-async def list_guru_mapel_by_kelas(
-    kelas_id: UUID,
-    db: AsyncSession = Depends(get_db),
-) -> list[GuruMapelResponseDTO]:
-    service = JadwalService(db)
-    return await service.list_guru_mapel_by_kelas(kelas_id)
+    return await service.get_my_guru_academic_context(current_user.user_id)
 
 
 @admin_router.delete(
@@ -155,20 +129,6 @@ async def create_jadwal(
     return await service.create_jadwal(request)
 
 
-@admin_router.get(
-    "/jadwal/semester/{semester_id}",
-    response_model=list[JadwalResponseDTO],
-    summary="List Timetable by Semester",
-    dependencies=[Depends(require_role(UserType.admin))]
-)
-async def list_jadwal_by_semester(
-    semester_id: UUID,
-    db: AsyncSession = Depends(get_db),
-) -> list[JadwalResponseDTO]:
-    service = JadwalService(db)
-    return await service.list_jadwal_by_semester(semester_id)
-
-
 @guru_router.get(
     "/jadwal/kelas/{kelas_id}",
     response_model=list[JadwalResponseDTO],
@@ -183,34 +143,31 @@ async def list_jadwal_by_kelas(
     return await service.list_jadwal_by_kelas(kelas_id)
 
 
-@guru_router.get(
-    "/jadwal/guru/{user_id}",
-    response_model=list[JadwalResponseDTO],
-    summary="Get Timetable for a Teacher",
-    dependencies=[Depends(require_role(UserType.admin, UserType.guru))]
-)
-async def list_jadwal_by_guru(
-    user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-) -> list[JadwalResponseDTO]:
-    service = JadwalService(db)
-    return await service.list_jadwal_by_guru(user_id)
-
-
 @student_router.get(
     "/my-jadwal",
     response_model=list[JadwalResponseDTO],
     summary="Get My Timetable (Student or Teacher)",
+    tags=["Guru + Siswa - Jadwal"],
 )
 async def get_my_jadwal(
     current_user: User = Depends(require_role(UserType.siswa, UserType.guru)),
+    semester_id: UUID | None = Query(default=None),
+    tahun_ajaran_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[JadwalResponseDTO]:
     service = JadwalService(db)
     if current_user.user_type == UserType.guru:
-        return await service.list_jadwal_by_guru(current_user.user_id)
+        return await service.list_jadwal_by_guru(
+            current_user.user_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
+        )
     else:
-        return await service.get_student_jadwal(current_user.user_id)
+        return await service.get_student_jadwal(
+            current_user.user_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
+        )
 
 
 @admin_router.patch(

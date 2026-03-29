@@ -78,3 +78,15 @@ export interface CopySemesterStructureResponse {
   copied_jadwal: number;
   copied_rapor_bobot: number;
 }
+
+export interface StudentSemesterTimelineItem {
+  semester_ke: number;
+  tingkat: "X" | "XI" | "XII";
+  tipe: "Ganjil" | "Genap";
+  semester_id: UUID | null;
+  tahun_ajaran_id: UUID | null;
+  tahun_ajaran_nama: string | null;
+  kelas_id: UUID | null;
+  kelas_nama: string | null;
+  is_available: boolean;
+}

@@ -25,6 +25,7 @@ class UserManagementRepository:
         query = select(func.count()).select_from(SiswaProfile)
         search_filter = self._student_search_filter(search)
         if search_filter is not None:
+            query = query.join(User, User.user_id == SiswaProfile.user_id)
             query = query.where(search_filter)
         result = await self.db.execute(query)
         return result.scalar_one()
@@ -35,6 +36,7 @@ class UserManagementRepository:
         query = select(SiswaProfile).options(selectinload(SiswaProfile.user))
         search_filter = self._student_search_filter(search)
         if search_filter is not None:
+            query = query.join(User, User.user_id == SiswaProfile.user_id)
             query = query.where(search_filter)
         result = await self.db.execute(query.offset(skip).limit(limit))
         return list(result.scalars().all())
@@ -258,6 +260,7 @@ class UserManagementRepository:
         pattern = f"%{search}%"
         return or_(
             SiswaProfile.nis.ilike(pattern),
+            User.username.ilike(pattern),
             SiswaProfile.nama_lengkap.ilike(pattern),
             SiswaProfile.kelas_jurusan.ilike(pattern),
             SiswaProfile.kontak.ilike(pattern),

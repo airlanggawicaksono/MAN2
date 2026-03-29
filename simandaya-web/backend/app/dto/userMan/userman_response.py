@@ -23,6 +23,8 @@ class StudentProfileResponseDTO(BaseModel):
     kelas_nama: Optional[str] = None
     tahun_masuk: Optional[int] = None
     status_siswa: StatusSiswa
+    semester_aktif_tipe: Optional[str] = None
+    semester_ke: Optional[int] = None
     kontak: Optional[str] = None
     kewarganegaraan: str
     is_active: bool = False

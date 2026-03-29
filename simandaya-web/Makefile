@@ -20,7 +20,7 @@ help:
 	@echo "Dev  (.env):"
 	@echo "  make dev-up         Start all services in background"
 	@echo "  make dev-down       Stop all services"
-	@echo "  make dev-reset-seed Reset volumes, restart dev, and seed admins"
+	@echo "  make dev-reset-seed Reset PostgreSQL volume only, restart services, and seed admins"
 	@echo "  make dev-nuke-seed  Down + prune Docker cache + remove volumes + seed admins"
 	@echo "  make dev-backend    Start backend only (background)"
 	@echo "  make dev-frontend   Start frontend only (background)"
@@ -69,13 +69,15 @@ dev-down:
 	$(DEV) stop
 
 dev-reset-seed:
-	@echo "Resetting dev environment and seeding demo data..."
-	$(DEV) down -v
-	$(DEV) up -d
+	@echo "Resetting PostgreSQL volume only, then restarting services and seeding demo data..."
+	$(DEV) stop backend frontend postgres-db
+	$(DEV) rm -fsv postgres-db
+	@docker volume ls -q | grep -E '(^|_)postgres_data$$' | xargs -r docker volume rm -f
+	$(DEV) up -d postgres-db backend frontend
 	@sleep 10
 	$(DEV) exec backend python scripts/seed_admins.py
 	$(DEV) exec backend python scripts/seed_academic_demo.py
-	@echo "Reset and demo seed complete"
+	@echo "PostgreSQL reset and demo seed complete"
 
 dev-nuke-seed:
 	@echo "Nuking dev Docker state and seeding demo data..."
