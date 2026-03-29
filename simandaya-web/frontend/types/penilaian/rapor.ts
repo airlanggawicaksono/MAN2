@@ -64,12 +64,12 @@ export interface OverrideNilaiRequest {
 export interface SaveRaporNilaiEditorRequest {
   rapor_nilai_id?: UUID;
   mapel_id: UUID;
-  nilai_override?: number;
-  catatan?: string;
+  nilai_override?: number | null;
+  catatan?: string | null;
 }
 
 export interface SaveRaporEditorRequest {
-  catatan_wali_kelas?: string;
+  catatan_wali_kelas?: string | null;
   entries: SaveRaporNilaiEditorRequest[];
 }
 

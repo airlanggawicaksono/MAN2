@@ -998,7 +998,8 @@ class RaporService:
             await self._check_rapor_edit_access(rapor, current_user)
 
             if request.catatan_wali_kelas is not None:
-                rapor.catatan_wali_kelas = request.catatan_wali_kelas
+                cleaned_catatan_wali = request.catatan_wali_kelas.strip()
+                rapor.catatan_wali_kelas = cleaned_catatan_wali or None
 
             rn_result = await self.db.execute(
                 select(RaporNilai).where(RaporNilai.rapor_id == rapor.rapor_id)
@@ -1024,7 +1025,11 @@ class RaporService:
                     rn.nilai_override = entry.nilai_override
                     rn.nilai_akhir = entry.nilai_override
                     rn.is_manual_override = True
-                rn.catatan = entry.catatan
+                if entry.catatan is None:
+                    rn.catatan = None
+                else:
+                    cleaned_catatan = entry.catatan.strip()
+                    rn.catatan = cleaned_catatan or None
 
             # Keep publication status stable while editing.
             # Unpublish should be an explicit action, not side-effect of save.

@@ -82,6 +82,20 @@ export function useGuruRaporController() {
   >({});
   const [message, setMessage] = useState<string>("");
 
+  const extractErrorMessage = (error: unknown, fallback: string): string => {
+    if (
+      error &&
+      typeof error === "object" &&
+      "data" in error &&
+      typeof (error as { data?: unknown }).data === "object"
+    ) {
+      const data = (error as { data?: { detail?: string; message?: string } }).data;
+      if (data?.detail) return data.detail;
+      if (data?.message) return data.message;
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     if (!reports?.length) return;
     if (!selectedSiswaId || !reports.some((r) => r.user_id === selectedSiswaId)) {
@@ -114,26 +128,39 @@ export function useGuruRaporController() {
 
   const handleSaveDraft = async () => {
     if (!editor) return;
-    const entries = Object.values(draftByRaporNilaiId).map((entry) => ({
-      rapor_nilai_id: entry.rapor_nilai_id,
-      mapel_id: entry.mapel_id,
-      nilai_override:
-        entry.nilai_override.trim() === "" ? undefined : Number(entry.nilai_override),
-      catatan: entry.catatan.trim() === "" ? undefined : entry.catatan,
-    }));
-
     try {
+      const entries = Object.values(draftByRaporNilaiId).map((entry) => {
+        const rawOverride = entry.nilai_override.trim();
+        let parsedOverride: number | null = null;
+        if (rawOverride !== "") {
+          const normalized = rawOverride.replace(",", ".");
+          const asNumber = Number(normalized);
+          if (Number.isNaN(asNumber) || asNumber < 0 || asNumber > 100) {
+            throw new Error("Nilai override harus angka 0-100.");
+          }
+          parsedOverride = asNumber;
+        }
+        const trimmedCatatan = entry.catatan.trim();
+        return {
+          rapor_nilai_id: entry.rapor_nilai_id,
+          mapel_id: entry.mapel_id,
+          nilai_override: parsedOverride,
+          catatan: trimmedCatatan === "" ? null : trimmedCatatan,
+        };
+      });
+
       await saveEditor({
         raporId: editor.rapor_id,
         body: {
-          catatan_wali_kelas: catatanWaliKelas.trim() === "" ? undefined : catatanWaliKelas,
+          catatan_wali_kelas:
+            catatanWaliKelas.trim() === "" ? null : catatanWaliKelas.trim(),
           entries,
         },
       }).unwrap();
       setMessage("Draft rapor berhasil disimpan.");
       await Promise.all([refetchEditor(), refetchReports()]);
-    } catch {
-      setMessage("Gagal menyimpan draft rapor.");
+    } catch (error) {
+      setMessage(extractErrorMessage(error, "Gagal menyimpan draft rapor."));
     }
   };
 
@@ -143,8 +170,8 @@ export function useGuruRaporController() {
       await publishOne(editor.rapor_id).unwrap();
       setMessage("Rapor berhasil dipublikasikan.");
       await Promise.all([refetchEditor(), refetchReports()]);
-    } catch {
-      setMessage("Gagal mempublikasikan rapor.");
+    } catch (error) {
+      setMessage(extractErrorMessage(error, "Gagal mempublikasikan rapor."));
     }
   };
 
@@ -154,8 +181,8 @@ export function useGuruRaporController() {
       await unpublishOne(editor.rapor_id).unwrap();
       setMessage("Rapor ditarik dari publikasi.");
       await Promise.all([refetchEditor(), refetchReports()]);
-    } catch {
-      setMessage("Gagal menarik publikasi rapor.");
+    } catch (error) {
+      setMessage(extractErrorMessage(error, "Gagal menarik publikasi rapor."));
     }
   };
 
@@ -193,4 +220,3 @@ export function useGuruRaporController() {
     unpublishing,
   };
 }
-

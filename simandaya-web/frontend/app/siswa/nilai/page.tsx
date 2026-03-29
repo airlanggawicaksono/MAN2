@@ -238,15 +238,18 @@ export default function SiswaNilaiPage() {
                         ];
                     return [
                       <TableRow key={`header-${group.mapel_id}`} className="bg-slate-50/70">
-                        <TableCell colSpan={4}>
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-900">
-                              {group.mapel_nama}
-                            </span>
-                            <Badge variant="secondary" className="font-semibold">
-                              Total Rapor: {group.nilai_akhir}
-                            </Badge>
-                          </div>
+                        <TableCell colSpan={2} className="font-semibold text-slate-900">
+                          {group.mapel_nama}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="font-semibold">
+                            {group.nilai_akhir}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 break-words">
+                          {group.catatan || (
+                            <span className="text-slate-300 italic">Tidak ada catatan.</span>
+                          )}
                         </TableCell>
                       </TableRow>,
                       ...rows,
