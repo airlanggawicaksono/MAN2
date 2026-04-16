@@ -45,6 +45,7 @@ export interface CopyTahunAjaranStructureResponse {
 export interface SemesterResponse {
   semester_id: UUID;
   tahun_ajaran_id: UUID;
+  tahun_ajaran_nama?: string | null;
   tipe: string;
   tanggal_mulai: string;
   tanggal_selesai: string;

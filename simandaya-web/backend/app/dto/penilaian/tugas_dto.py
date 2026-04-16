@@ -43,6 +43,7 @@ class TugasResponseDTO(BaseModel):
     guru_pengajar: Optional[str] = None
     link_tugas: Optional[str]
     link_submission: Optional[str]
+    is_archived_context: bool
     is_published_to_students: bool
     is_nilai_published_to_students: bool
     deadline: Optional[datetime]

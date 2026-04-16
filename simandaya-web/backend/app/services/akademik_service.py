@@ -1,6 +1,7 @@
 from uuid import UUID
 from datetime import date
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.tahun_ajaran import TahunAjaran
@@ -11,6 +12,7 @@ from app.models.slot_waktu import SlotWaktu
 from app.models.jadwal import Jadwal
 from app.models.rapor_bobot import RaporBobot
 from app.models.kelas import Kelas
+from app.models.kategori_kelas import KategoriKelas
 from app.models.guru_mapel import GuruMapel
 from app.models.kurikulum_mapel import KurikulumMapel
 from app.models.user import User
@@ -45,12 +47,20 @@ from app.dto.akademik.kalender_dto import (
     CreateKalenderDTO, UpdateKalenderDTO, KalenderResponseDTO
 )
 from app.dto.akademik.mapel_dto import (
-    CreateMapelDTO, UpdateMapelDTO, MapelResponseDTO
+    CreateMapelDTO, MapelArchiveImpactDTO, MapelResponseDTO, UpdateMapelDTO
 )
 from app.dto.akademik.slot_waktu_dto import (
     CreateSlotWaktuDTO, UpdateSlotWaktuDTO, SlotWaktuResponseDTO
 )
 from app.dto.akademik.kelas_dto import MessageResponseDTO
+from app.utils.db_error_utils import build_integrity_http_exception
+
+
+AKADEMIK_INTEGRITY_MESSAGES = {
+    "uq_semester_tahun_tipe": "Semester dengan tipe yang sama sudah ada pada tahun ajaran ini.",
+    "uq_mapel_tahun_kode": "Kode mata pelajaran sudah dipakai pada tahun ajaran ini.",
+    "tahun_ajaran_nama_key": "Nama tahun ajaran sudah dipakai.",
+}
 
 
 class AkademikService:
@@ -113,6 +123,13 @@ class AkademikService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.tahun_ajaran_repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat tahun ajaran karena konflik data.",
+                constraint_messages=AKADEMIK_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.tahun_ajaran_repo.rollback()
             raise HTTPException(
@@ -194,9 +211,9 @@ class AkademikService:
         await self.tahun_ajaran_repo.refresh(tahun_ajaran)
         return self._to_tahun_ajaran_dto(tahun_ajaran)
 
-    async def delete_tahun_ajaran(self, tahun_ajaran_id: UUID) -> MessageResponseDTO:
+    async def archive_tahun_ajaran(self, tahun_ajaran_id: UUID) -> MessageResponseDTO:
         """
-        Delete an academic year.
+        Archive an academic year.
 
         Raises:
             HTTPException: 404 if academic year not found
@@ -205,9 +222,16 @@ class AkademikService:
         tahun_ajaran = await self.tahun_ajaran_repo.find_by_id(tahun_ajaran_id)
         self.tahun_ajaran_policy.ensure_exists(tahun_ajaran)
 
-        await self.tahun_ajaran_repo.delete(tahun_ajaran)
+        if tahun_ajaran.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tahun ajaran aktif tidak bisa diarsipkan. Aktifkan tahun ajaran lain dulu.",
+            )
+
+        # Non-destructive archive behavior: keep historical references intact.
+        tahun_ajaran.is_active = False
         await self.tahun_ajaran_repo.commit()
-        return MessageResponseDTO(message="Academic year deleted successfully")
+        return MessageResponseDTO(message="Tahun ajaran berhasil diarsipkan")
 
     # ── Semester CRUD ────────────────────────────────────────────────────────
 
@@ -256,10 +280,17 @@ class AkademikService:
             await self.semester_repo.commit()
             await self.semester_repo.refresh(semester)
 
-            return self._to_semester_dto(semester)
+            return self._to_semester_dto(semester, tahun_ajaran_nama=tahun_ajaran.nama)
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.semester_repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat semester karena konflik data.",
+                constraint_messages=AKADEMIK_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.semester_repo.rollback()
             raise HTTPException(
@@ -275,11 +306,27 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         semesters = await self.semester_repo.list_all()
-        return [self._to_semester_dto(s) for s in semesters]
+        tahun_ajaran_name_by_id = await self._build_tahun_ajaran_name_map(
+            [s.tahun_ajaran_id for s in semesters]
+        )
+        return [
+            self._to_semester_dto(
+                s, tahun_ajaran_nama=tahun_ajaran_name_by_id.get(s.tahun_ajaran_id)
+            )
+            for s in semesters
+        ]
 
     async def list_active_semesters(self) -> list[SemesterResponseDTO]:
         semesters = await self.semester_repo.list_active()
-        return [self._to_semester_dto(s) for s in semesters]
+        tahun_ajaran_name_by_id = await self._build_tahun_ajaran_name_map(
+            [s.tahun_ajaran_id for s in semesters]
+        )
+        return [
+            self._to_semester_dto(
+                s, tahun_ajaran_nama=tahun_ajaran_name_by_id.get(s.tahun_ajaran_id)
+            )
+            for s in semesters
+        ]
 
     async def list_my_semester_timeline(
         self, current_user: User
@@ -365,7 +412,11 @@ class AkademikService:
         """
         semester = await self.semester_repo.find_by_id(semester_id)
         self.semester_policy.ensure_exists(semester)
-        return self._to_semester_dto(semester)
+        tahun_ajaran = await self.semester_repo.find_tahun_ajaran_by_id(semester.tahun_ajaran_id)
+        return self._to_semester_dto(
+            semester,
+            tahun_ajaran_nama=tahun_ajaran.nama if tahun_ajaran else None,
+        )
 
     async def list_semesters_by_tahun_ajaran(self, tahun_ajaran_id: UUID) -> list[SemesterResponseDTO]:
         """
@@ -375,7 +426,9 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         semesters = await self.semester_repo.list_by_tahun_ajaran(tahun_ajaran_id)
-        return [self._to_semester_dto(s) for s in semesters]
+        tahun_ajaran = await self.semester_repo.find_tahun_ajaran_by_id(tahun_ajaran_id)
+        tahun_ajaran_nama = tahun_ajaran.nama if tahun_ajaran else None
+        return [self._to_semester_dto(s, tahun_ajaran_nama=tahun_ajaran_nama) for s in semesters]
 
     async def update_semester(
         self, semester_id: UUID, request: UpdateSemesterDTO
@@ -417,7 +470,7 @@ class AkademikService:
 
         await self.semester_repo.commit()
         await self.semester_repo.refresh(semester)
-        return self._to_semester_dto(semester)
+        return self._to_semester_dto(semester, tahun_ajaran_nama=tahun_ajaran.nama)
 
     async def delete_semester(self, semester_id: UUID) -> MessageResponseDTO:
         """
@@ -534,6 +587,25 @@ class AkademikService:
 
     # ── MataPelajaran CRUD ───────────────────────────────────────────────────
 
+    async def _resolve_target_tahun_ajaran_id(
+        self,
+        tahun_ajaran_id: UUID | None,
+        required: bool = True,
+    ) -> UUID | None:
+        if tahun_ajaran_id:
+            ta = await self.tahun_ajaran_repo.find_by_id(tahun_ajaran_id)
+            self.tahun_ajaran_policy.ensure_exists(ta)
+            return tahun_ajaran_id
+        active = await self.tahun_ajaran_repo.find_active()
+        if not active:
+            if not required:
+                return None
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active tahun ajaran found. Provide tahun_ajaran_id explicitly.",
+            )
+        return active.tahun_ajaran_id
+
     async def create_mapel(self, request: CreateMapelDTO) -> MapelResponseDTO:
         """
         Create a new subject (mata pelajaran).
@@ -543,13 +615,20 @@ class AkademikService:
             HTTPException: 500 if database error
         """
         try:
-            existing = await self.mapel_repo.find_by_kode(request.kode_mapel)
+            target_tahun_ajaran_id = await self._resolve_target_tahun_ajaran_id(
+                request.tahun_ajaran_id
+            )
+            existing = await self.mapel_repo.find_by_kode(
+                request.kode_mapel,
+                target_tahun_ajaran_id,
+            )
             self.mapel_policy.ensure_kode_available(
                 is_taken=existing is not None,
                 kode_mapel=request.kode_mapel,
             )
 
             mapel = MataPelajaran(
+                tahun_ajaran_id=target_tahun_ajaran_id,
                 kode_mapel=request.kode_mapel,
                 nama_mapel=request.nama_mapel,
                 kelompok=request.kelompok,
@@ -563,6 +642,13 @@ class AkademikService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.mapel_repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat mata pelajaran karena konflik data.",
+                constraint_messages=AKADEMIK_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.mapel_repo.rollback()
             raise HTTPException(
@@ -570,14 +656,27 @@ class AkademikService:
                 detail=f"Failed to create subject: {str(e)}"
             )
 
-    async def list_mapel(self) -> list[MapelResponseDTO]:
+    async def list_mapel(
+        self,
+        status: str = "available",
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[MapelResponseDTO]:
         """
         List all subjects.
 
         Raises:
             HTTPException: 500 if database error
         """
-        mapel_list = await self.mapel_repo.list_all()
+        target_tahun_ajaran_id = await self._resolve_target_tahun_ajaran_id(
+            tahun_ajaran_id,
+            required=False,
+        )
+        if not target_tahun_ajaran_id:
+            return []
+        mapel_list = await self.mapel_repo.list_all(
+            status=status,
+            tahun_ajaran_id=target_tahun_ajaran_id,
+        )
         return [self._to_mapel_dto(m) for m in mapel_list]
 
     async def get_mapel(self, mapel_id: UUID) -> MapelResponseDTO:
@@ -602,26 +701,49 @@ class AkademikService:
             HTTPException: 400 if kode_mapel conflict or no fields to update
             HTTPException: 500 if database error
         """
-        mapel = await self.mapel_repo.find_by_id(mapel_id)
-        self.mapel_policy.ensure_exists(mapel)
+        try:
+            mapel = await self.mapel_repo.find_by_id(mapel_id)
+            self.mapel_policy.ensure_exists(mapel)
 
-        update_data = request.model_dump(exclude_unset=True)
-        self.mapel_policy.ensure_update_payload(update_data)
+            update_data = request.model_dump(exclude_unset=True)
+            self.mapel_policy.ensure_update_payload(update_data)
+            was_active = mapel.is_active
 
-        # Check kode_mapel uniqueness if being changed
-        if "kode_mapel" in update_data and update_data["kode_mapel"] != mapel.kode_mapel:
-            kode_check = await self.mapel_repo.find_by_kode(update_data["kode_mapel"])
-            self.mapel_policy.ensure_kode_available(
-                is_taken=kode_check is not None,
-                kode_mapel=update_data["kode_mapel"],
+            # Check kode_mapel uniqueness if being changed
+            if "kode_mapel" in update_data and update_data["kode_mapel"] != mapel.kode_mapel:
+                kode_check = await self.mapel_repo.find_by_kode(
+                    update_data["kode_mapel"],
+                    mapel.tahun_ajaran_id,
+                )
+                self.mapel_policy.ensure_kode_available(
+                    is_taken=kode_check is not None,
+                    kode_mapel=update_data["kode_mapel"],
+                )
+
+            for field, value in update_data.items():
+                setattr(mapel, field, value)
+
+            if was_active and mapel.is_active is False:
+                await self.mapel_repo.detach_active_relations_for_archived_mapel(mapel)
+
+            await self.mapel_repo.commit()
+            await self.mapel_repo.refresh(mapel)
+            return self._to_mapel_dto(mapel)
+        except HTTPException:
+            raise
+        except IntegrityError as e:
+            await self.mapel_repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui mata pelajaran karena konflik data.",
+                constraint_messages=AKADEMIK_INTEGRITY_MESSAGES,
+            ) from e
+        except Exception as e:
+            await self.mapel_repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update subject: {str(e)}"
             )
-
-        for field, value in update_data.items():
-            setattr(mapel, field, value)
-
-        await self.mapel_repo.commit()
-        await self.mapel_repo.refresh(mapel)
-        return self._to_mapel_dto(mapel)
 
     async def delete_mapel(self, mapel_id: UUID) -> MessageResponseDTO:
         """
@@ -631,12 +753,46 @@ class AkademikService:
             HTTPException: 404 if subject not found
             HTTPException: 500 if database error
         """
+        try:
+            mapel = await self.mapel_repo.find_by_id(mapel_id)
+            self.mapel_policy.ensure_exists(mapel)
+            if mapel.is_active:
+                mapel.is_active = False
+                await self.mapel_repo.detach_active_relations_for_archived_mapel(mapel)
+            else:
+                return MessageResponseDTO(message="Subject is already archived")
+            await self.mapel_repo.commit()
+            return MessageResponseDTO(
+                message="Subject archived successfully. Related active assignments were detached."
+            )
+        except HTTPException:
+            raise
+        except IntegrityError as e:
+            await self.mapel_repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal mengarsipkan mata pelajaran karena konflik data.",
+                constraint_messages=AKADEMIK_INTEGRITY_MESSAGES,
+            ) from e
+        except Exception as e:
+            await self.mapel_repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to archive subject: {str(e)}"
+            )
+
+    async def get_mapel_archive_impact(self, mapel_id: UUID) -> MapelArchiveImpactDTO:
         mapel = await self.mapel_repo.find_by_id(mapel_id)
         self.mapel_policy.ensure_exists(mapel)
-
-        await self.mapel_repo.delete(mapel)
-        await self.mapel_repo.commit()
-        return MessageResponseDTO(message="Subject deleted successfully")
+        return MapelArchiveImpactDTO(
+            mapel_id=mapel_id,
+            kurikulum_count=await self.mapel_repo.count_kurikulum_usage(mapel_id),
+            guru_mapel_count=await self.mapel_repo.count_guru_mapel_usage(mapel_id),
+            jadwal_count=await self.mapel_repo.count_jadwal_usage(mapel_id),
+            tugas_count=await self.mapel_repo.count_tugas_usage(mapel_id),
+            rapor_nilai_count=await self.mapel_repo.count_rapor_nilai_usage(mapel_id),
+            rapor_bobot_count=await self.mapel_repo.count_rapor_bobot_usage(mapel_id),
+        )
 
     # ── SlotWaktu CRUD ───────────────────────────────────────────────────────
 
@@ -768,6 +924,7 @@ class AkademikService:
                         guru_user_id=row.guru_user_id,
                         hari=row.hari,
                         slot_waktu_id=row.slot_waktu_id,
+                        is_active=row.is_active,
                     )
                 )
                 copied_jadwal += 1
@@ -791,7 +948,9 @@ class AkademikService:
             await self.db.refresh(target_semester)
 
             return CopySemesterStructureResponseDTO(
-                semester=self._to_semester_dto(target_semester),
+                semester=self._to_semester_dto(
+                    target_semester, tahun_ajaran_nama=tahun_ajaran.nama
+                ),
                 copied_jadwal=copied_jadwal,
                 copied_rapor_bobot=copied_rapor_bobot,
             )
@@ -839,8 +998,43 @@ class AkademikService:
             copied_kurikulum = 0
 
             kelas_map: dict[UUID, UUID] = {}
+            kategori_map: dict[UUID, UUID] = {}
+            mapel_map: dict[UUID, UUID] = {}
 
             year_shift = request.tanggal_mulai.year - source_tahun_ajaran.tanggal_mulai.year
+
+            source_kategori_result = await self.db.execute(
+                select(KategoriKelas).where(
+                    KategoriKelas.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id
+                )
+            )
+            for source_kategori in source_kategori_result.scalars().all():
+                new_kategori = KategoriKelas(
+                    tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                    kode=source_kategori.kode,
+                    nama=source_kategori.nama,
+                    is_active=source_kategori.is_active,
+                )
+                self.db.add(new_kategori)
+                await self.db.flush()
+                kategori_map[source_kategori.kategori_kelas_id] = new_kategori.kategori_kelas_id
+
+            source_mapel_result = await self.db.execute(
+                select(MataPelajaran).where(
+                    MataPelajaran.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id
+                )
+            )
+            for source_mapel in source_mapel_result.scalars().all():
+                new_mapel = MataPelajaran(
+                    tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                    kode_mapel=source_mapel.kode_mapel,
+                    nama_mapel=source_mapel.nama_mapel,
+                    kelompok=source_mapel.kelompok,
+                    is_active=source_mapel.is_active,
+                )
+                self.db.add(new_mapel)
+                await self.db.flush()
+                mapel_map[source_mapel.mapel_id] = new_mapel.mapel_id
 
             if request.copy_semester:
                 source_semesters = await self.semester_repo.list_by_tahun_ajaran(source_tahun_ajaran.tahun_ajaran_id)
@@ -861,14 +1055,17 @@ class AkademikService:
                     select(Kelas).where(Kelas.tahun_ajaran_id == source_tahun_ajaran.tahun_ajaran_id)
                 )
                 for source_kelas in source_kelas_result.scalars().all():
+                    new_kategori_id = kategori_map.get(source_kelas.kategori_kelas_id)
+                    if not new_kategori_id:
+                        continue
                     new_kelas = Kelas(
                         tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
                         nama_kelas=source_kelas.nama_kelas,
                         tingkat=source_kelas.tingkat,
-                        kategori_kelas_id=source_kelas.kategori_kelas_id,
-                        jurusan=source_kelas.jurusan,
+                        kategori_kelas_id=new_kategori_id,
                         wali_kelas_id=source_kelas.wali_kelas_id,
                         kapasitas=source_kelas.kapasitas,
+                        is_active=source_kelas.is_active,
                     )
                     self.db.add(new_kelas)
                     await self.db.flush()
@@ -881,14 +1078,16 @@ class AkademikService:
                 )
                 for row in source_gm_result.scalars().all():
                     new_kelas_id = kelas_map.get(row.kelas_id)
-                    if not new_kelas_id:
+                    new_mapel_id = mapel_map.get(row.mapel_id)
+                    if not new_kelas_id or not new_mapel_id:
                         continue
                     self.db.add(
                         GuruMapel(
                             user_id=row.user_id,
-                            mapel_id=row.mapel_id,
+                            mapel_id=new_mapel_id,
                             kelas_id=new_kelas_id,
                             tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
+                            is_active=row.is_active,
                         )
                     )
                     copied_guru_mapel += 1
@@ -900,12 +1099,17 @@ class AkademikService:
                     )
                 )
                 for row in source_kurikulum_result.scalars().all():
+                    new_mapel_id = mapel_map.get(row.mapel_id)
+                    new_kategori_id = kategori_map.get(row.kategori_kelas_id)
+                    if not new_mapel_id or not new_kategori_id:
+                        continue
                     self.db.add(
                         KurikulumMapel(
-                            mapel_id=row.mapel_id,
+                            mapel_id=new_mapel_id,
                             tahun_ajaran_id=new_tahun_ajaran.tahun_ajaran_id,
                             tingkat=row.tingkat,
-                            kategori_kelas_id=row.kategori_kelas_id,
+                            kategori_kelas_id=new_kategori_id,
+                            is_active=row.is_active,
                             is_wajib=row.is_wajib,
                             jam_override=row.jam_override,
                         )
@@ -951,10 +1155,24 @@ class AkademikService:
             is_active=tahun_ajaran.is_active,
         )
 
-    def _to_semester_dto(self, semester: Semester) -> SemesterResponseDTO:
+    async def _build_tahun_ajaran_name_map(
+        self, tahun_ajaran_ids: list[UUID]
+    ) -> dict[UUID, str]:
+        unique_ids = list(dict.fromkeys(tahun_ajaran_ids))
+        if not unique_ids:
+            return {}
+        result = await self.db.execute(
+            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id.in_(unique_ids))
+        )
+        return {row.tahun_ajaran_id: row.nama for row in result.scalars().all()}
+
+    def _to_semester_dto(
+        self, semester: Semester, tahun_ajaran_nama: str | None = None
+    ) -> SemesterResponseDTO:
         return SemesterResponseDTO(
             semester_id=semester.semester_id,
             tahun_ajaran_id=semester.tahun_ajaran_id,
+            tahun_ajaran_nama=tahun_ajaran_nama,
             tipe=semester.tipe,
             tanggal_mulai=semester.tanggal_mulai,
             tanggal_selesai=semester.tanggal_selesai,
@@ -973,6 +1191,7 @@ class AkademikService:
     def _to_mapel_dto(self, mapel: MataPelajaran) -> MapelResponseDTO:
         return MapelResponseDTO(
             mapel_id=mapel.mapel_id,
+            tahun_ajaran_id=mapel.tahun_ajaran_id,
             kode_mapel=mapel.kode_mapel,
             nama_mapel=mapel.nama_mapel,
             kelompok=mapel.kelompok,

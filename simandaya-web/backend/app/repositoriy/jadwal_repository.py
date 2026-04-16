@@ -62,6 +62,25 @@ class JadwalRepository:
                     GuruMapel.mapel_id == mapel_id,
                     GuruMapel.kelas_id == kelas_id,
                     GuruMapel.tahun_ajaran_id == tahun_ajaran_id,
+                    GuruMapel.is_active.is_(True),
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def find_active_assignment_for_mapel_kelas_tahun(
+        self,
+        mapel_id: UUID,
+        kelas_id: UUID,
+        tahun_ajaran_id: UUID,
+    ) -> GuruMapel | None:
+        result = await self.db.execute(
+            select(GuruMapel).where(
+                and_(
+                    GuruMapel.mapel_id == mapel_id,
+                    GuruMapel.kelas_id == kelas_id,
+                    GuruMapel.tahun_ajaran_id == tahun_ajaran_id,
+                    GuruMapel.is_active.is_(True),
                 )
             )
         )
@@ -92,7 +111,9 @@ class JadwalRepository:
 
     async def list_guru_mapel_all(self) -> list[GuruMapel]:
         result = await self.db.execute(
-            select(GuruMapel).options(
+            select(GuruMapel)
+            .where(GuruMapel.is_active.is_(True))
+            .options(
                 selectinload(GuruMapel.user).selectinload(User.guru_profile),
                 selectinload(GuruMapel.mapel),
                 selectinload(GuruMapel.kelas),
@@ -104,7 +125,7 @@ class JadwalRepository:
         result = await self.db.execute(
             select(GuruMapel)
             .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == GuruMapel.tahun_ajaran_id)
-            .where(TahunAjaran.is_active.is_(True))
+            .where(TahunAjaran.is_active.is_(True), GuruMapel.is_active.is_(True))
             .options(
                 selectinload(GuruMapel.user).selectinload(User.guru_profile),
                 selectinload(GuruMapel.mapel),
@@ -116,7 +137,7 @@ class JadwalRepository:
     async def list_guru_mapel_by_guru(self, user_id: UUID) -> list[GuruMapel]:
         result = await self.db.execute(
             select(GuruMapel)
-            .where(GuruMapel.user_id == user_id)
+            .where(GuruMapel.user_id == user_id, GuruMapel.is_active.is_(True))
             .options(
                 selectinload(GuruMapel.user).selectinload(User.guru_profile),
                 selectinload(GuruMapel.mapel),
@@ -149,9 +170,56 @@ class JadwalRepository:
                 Jadwal.kelas_id == kelas_id,
                 Jadwal.mapel_id == mapel_id,
                 Jadwal.guru_user_id == old_user_id,
+                Jadwal.is_active.is_(True),
             )
             .values(guru_user_id=new_user_id)
         )
+
+    async def find_teacher_transfer_conflict(
+        self,
+        tahun_ajaran_id: UUID,
+        kelas_id: UUID,
+        mapel_id: UUID,
+        old_user_id: UUID,
+        new_user_id: UUID,
+    ) -> Jadwal | None:
+        semester_ids_subq = select(Semester.semester_id).where(
+            Semester.tahun_ajaran_id == tahun_ajaran_id
+        )
+
+        source_slots = (
+            select(
+                Jadwal.semester_id.label("semester_id"),
+                Jadwal.hari.label("hari"),
+                Jadwal.slot_waktu_id.label("slot_waktu_id"),
+            )
+            .where(
+                Jadwal.semester_id.in_(semester_ids_subq),
+                Jadwal.kelas_id == kelas_id,
+                Jadwal.mapel_id == mapel_id,
+                Jadwal.guru_user_id == old_user_id,
+                Jadwal.is_active.is_(True),
+            )
+            .subquery()
+        )
+
+        result = await self.db.execute(
+            select(Jadwal)
+            .join(
+                source_slots,
+                and_(
+                    Jadwal.semester_id == source_slots.c.semester_id,
+                    Jadwal.hari == source_slots.c.hari,
+                    Jadwal.slot_waktu_id == source_slots.c.slot_waktu_id,
+                ),
+            )
+            .where(
+                Jadwal.guru_user_id == new_user_id,
+                Jadwal.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def find_class_clash(
         self,
@@ -166,6 +234,7 @@ class JadwalRepository:
             Jadwal.hari == hari,
             Jadwal.slot_waktu_id == slot_waktu_id,
             Jadwal.kelas_id == kelas_id,
+            Jadwal.is_active.is_(True),
         ]
         if exclude_jadwal_id:
             filters.append(Jadwal.jadwal_id != exclude_jadwal_id)
@@ -185,6 +254,7 @@ class JadwalRepository:
             Jadwal.hari == hari,
             Jadwal.slot_waktu_id == slot_waktu_id,
             Jadwal.guru_user_id == guru_user_id,
+            Jadwal.is_active.is_(True),
         ]
         if exclude_jadwal_id:
             filters.append(Jadwal.jadwal_id != exclude_jadwal_id)
@@ -204,6 +274,7 @@ class JadwalRepository:
             Jadwal.semester_id == semester_id,
             Jadwal.hari == hari,
             Jadwal.kelas_id == kelas_id,
+            Jadwal.is_active.is_(True),
             SlotWaktu.jam_mulai < jam_selesai,
             SlotWaktu.jam_selesai > jam_mulai,
         ]
@@ -227,6 +298,7 @@ class JadwalRepository:
             Jadwal.semester_id == semester_id,
             Jadwal.hari == hari,
             Jadwal.guru_user_id == guru_user_id,
+            Jadwal.is_active.is_(True),
             SlotWaktu.jam_mulai < jam_selesai,
             SlotWaktu.jam_selesai > jam_mulai,
         ]
@@ -262,7 +334,7 @@ class JadwalRepository:
         semester_id: UUID | None = None,
         tahun_ajaran_id: UUID | None = None,
     ) -> list[Jadwal]:
-        filters = [Jadwal.kelas_id == kelas_id]
+        filters = [Jadwal.kelas_id == kelas_id, Jadwal.is_active.is_(True)]
         query = (
             select(Jadwal)
             .join(Semester, Semester.semester_id == Jadwal.semester_id)
@@ -289,7 +361,7 @@ class JadwalRepository:
         semester_id: UUID | None = None,
         tahun_ajaran_id: UUID | None = None,
     ) -> list[Jadwal]:
-        filters = [Jadwal.guru_user_id == user_id]
+        filters = [Jadwal.guru_user_id == user_id, Jadwal.is_active.is_(True)]
         query = (
             select(Jadwal)
             .join(Semester, Semester.semester_id == Jadwal.semester_id)
@@ -334,6 +406,7 @@ class JadwalRepository:
             .where(
                 SiswaKelas.user_id == user_id,
                 TahunAjaran.is_active.is_(True),
+                Kelas.is_active.is_(True),
             )
             .limit(1)
         )
@@ -345,7 +418,7 @@ class JadwalRepository:
             select(SiswaKelas.kelas_id)
             .join(Kelas, Kelas.kelas_id == SiswaKelas.kelas_id)
             .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
-            .where(SiswaKelas.user_id == user_id)
+            .where(SiswaKelas.user_id == user_id, Kelas.is_active.is_(True))
             .order_by(TahunAjaran.tanggal_mulai.desc())
             .limit(1)
         )

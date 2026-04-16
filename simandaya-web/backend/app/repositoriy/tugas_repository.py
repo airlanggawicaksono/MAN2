@@ -43,6 +43,7 @@ class TugasRepository:
                     GuruMapel.user_id == user_id,
                     GuruMapel.kelas_id == kelas_id,
                     GuruMapel.mapel_id == mapel_id,
+                    GuruMapel.is_active.is_(True),
                 )
             )
         )
@@ -59,6 +60,7 @@ class TugasRepository:
                 and_(
                     SiswaKelas.user_id == user_id,
                     Semester.semester_id == semester_id,
+                    Kelas.is_active.is_(True),
                 )
             )
             .order_by(Kelas.nama_kelas.asc())
@@ -83,11 +85,14 @@ class TugasRepository:
         semester_id: UUID,
         mapel_id: UUID | None = None,
         published_only: bool = False,
+        include_archived_context: bool = False,
     ) -> list[Tugas]:
         conditions = [
             Tugas.kelas_id == kelas_id,
             Tugas.semester_id == semester_id,
         ]
+        if not include_archived_context:
+            conditions.append(Tugas.is_archived_context.is_(False))
         if mapel_id:
             conditions.append(Tugas.mapel_id == mapel_id)
         if published_only:
@@ -109,6 +114,7 @@ class TugasRepository:
                 and_(
                     GuruMapel.kelas_id == kelas_id,
                     GuruMapel.mapel_id == mapel_id,
+                    GuruMapel.is_active.is_(True),
                 )
             )
             .limit(1)

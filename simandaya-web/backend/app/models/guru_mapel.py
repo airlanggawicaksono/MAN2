@@ -1,15 +1,20 @@
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import UUID as SQLAlchemyUUID, ForeignKey, UniqueConstraint
+from sqlalchemy import Boolean, UUID as SQLAlchemyUUID, ForeignKey, Index, text
 from app.config.database import Base
 
 
 class GuruMapel(Base):
     __tablename__ = "guru_mapel"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "mapel_id", "kelas_id", "tahun_ajaran_id",
-            name="uq_guru_mapel_assignment"
+        Index(
+            "ux_guru_mapel_active_assignment",
+            "user_id",
+            "mapel_id",
+            "kelas_id",
+            "tahun_ajaran_id",
+            unique=True,
+            postgresql_where=text("is_active"),
         ),
     )
 
@@ -36,6 +41,7 @@ class GuruMapel(Base):
         ForeignKey("tahun_ajaran.tahun_ajaran_id", ondelete="CASCADE"),
         nullable=False
     )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     user: Mapped["User"] = relationship()
     mapel: Mapped["MataPelajaran"] = relationship()

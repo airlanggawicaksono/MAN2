@@ -43,9 +43,30 @@ export default function AppHeader() {
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [postLoginRedirect, setPostLoginRedirect] = useState<string | null>(null);
 
   const [logoutApi] = useLogoutMutation();
   const [login, { isLoading: loginLoading }] = useLoginMutation();
+  const isRouteAllowedForRole = (target: string, roleRoute: string) =>
+    target === roleRoute || target.startsWith(`${roleRoute}/`);
+
+  useEffect(() => {
+    const onOpenLogin = (event: Event) => {
+      if (isAuthenticated) return;
+      const detail = (
+        event as CustomEvent<{ targetPath?: string }>
+      ).detail;
+      setPostLoginRedirect(detail?.targetPath ?? null);
+      setLoginUsername("");
+      setLoginPassword("");
+      setLoginError("");
+      setShowLoginDialog(true);
+    };
+    window.addEventListener("simandaya:open-login", onOpenLogin);
+    return () => {
+      window.removeEventListener("simandaya:open-login", onOpenLogin);
+    };
+  }, [isAuthenticated]);
 
   const handleLogout = async () => {
     try {
@@ -72,7 +93,12 @@ export default function AppHeader() {
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
-      const targetRoute = roleRoutePrefix[result.user.user_type] ?? "/general";
+      const roleHomeRoute = roleRoutePrefix[result.user.user_type] ?? "/general";
+      const targetRoute =
+        postLoginRedirect && isRouteAllowedForRole(postLoginRedirect, roleHomeRoute)
+          ? postLoginRedirect
+          : roleHomeRoute;
+      setPostLoginRedirect(null);
       startTransition(() => {
         router.replace(targetRoute);
       });
@@ -86,6 +112,7 @@ export default function AppHeader() {
   };
 
   const openLoginDialog = () => {
+    setPostLoginRedirect(null);
     setLoginUsername("");
     setLoginPassword("");
     setLoginError("");
@@ -104,7 +131,13 @@ export default function AppHeader() {
         onActionClick={onActionClick}
       />
 
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+      <Dialog
+        open={showLoginDialog}
+        onOpenChange={(open) => {
+          setShowLoginDialog(open);
+          if (!open) setPostLoginRedirect(null);
+        }}
+      >
         <DialogContent
           onInteractOutside={(e: Event) => e.preventDefault()}
           onEscapeKeyDown={() => setShowLoginDialog(false)}

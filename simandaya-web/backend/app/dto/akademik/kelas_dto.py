@@ -28,10 +28,10 @@ class KelasResponseDTO(BaseModel):
     tingkat: TingkatKelas
     kategori_kelas_id: UUID
     kategori_kelas_nama: Optional[str] = None
-    jurusan: Optional[str]
     wali_kelas_id: Optional[UUID]
     wali_kelas_nama: Optional[str] = None
     kapasitas: int
+    is_active: bool
 
 
 class AssignSiswaDTO(BaseModel):

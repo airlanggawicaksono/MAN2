@@ -29,8 +29,8 @@ export const tahunAjaranApi = akademikBaseApi.injectEndpoints({
       query: ({ id, body }) => ({ url: `/tahun-ajaran/${id}`, method: "PATCH", body }),
       invalidatesTags: (_result, _error, { id }) => ["TahunAjaran", { type: "TahunAjaran", id }],
     }),
-    deleteTahunAjaran: builder.mutation<MessageResponse, UUID>({
-      query: (id) => ({ url: `/tahun-ajaran/${id}`, method: "DELETE" }),
+    archiveTahunAjaran: builder.mutation<MessageResponse, UUID>({
+      query: (id) => ({ url: `/tahun-ajaran/${id}/archive`, method: "PATCH" }),
       invalidatesTags: ["TahunAjaran"],
     }),
   }),
@@ -41,5 +41,5 @@ export const {
   useCreateTahunAjaranMutation,
   useCopyTahunAjaranStructureMutation,
   useUpdateTahunAjaranMutation,
-  useDeleteTahunAjaranMutation,
+  useArchiveTahunAjaranMutation,
 } = tahunAjaranApi;

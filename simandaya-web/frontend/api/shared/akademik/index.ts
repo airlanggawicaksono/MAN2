@@ -2,6 +2,7 @@ export { akademikBaseApi as akademikApi } from "./base";
 
 export {
   useListKategoriKelasQuery,
+  useGetKategoriKelasArchiveImpactQuery,
   useCreateKategoriKelasMutation,
   useUpdateKategoriKelasMutation,
   useDeleteKategoriKelasMutation,
@@ -9,6 +10,7 @@ export {
 
 export {
   useListMapelQuery,
+  useGetMapelArchiveImpactQuery,
   useCreateMapelMutation,
   useUpdateMapelMutation,
   useDeleteMapelMutation,
@@ -53,7 +55,7 @@ export {
   useCreateTahunAjaranMutation,
   useCopyTahunAjaranStructureMutation,
   useUpdateTahunAjaranMutation,
-  useDeleteTahunAjaranMutation,
+  useArchiveTahunAjaranMutation,
 } from "./tahun-ajaran.api";
 
 export {

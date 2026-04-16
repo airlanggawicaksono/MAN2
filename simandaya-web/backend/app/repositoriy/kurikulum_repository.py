@@ -45,6 +45,7 @@ class KurikulumRepository:
                 KurikulumMapel.tingkat == tingkat,
                 KurikulumMapel.tahun_ajaran_id == tahun_ajaran_id,
                 KurikulumMapel.kategori_kelas_id == kategori_kelas_id,
+                KurikulumMapel.is_active.is_(True),
             )
         )
         return result.scalar_one_or_none()
@@ -67,6 +68,7 @@ class KurikulumRepository:
         query = select(KurikulumMapel).where(
             KurikulumMapel.tahun_ajaran_id == tahun_ajaran_id,
             KurikulumMapel.tingkat == tingkat,
+            KurikulumMapel.is_active.is_(True),
         )
         if kategori_kelas_id:
             query = query.where(KurikulumMapel.kategori_kelas_id == kategori_kelas_id)
@@ -76,7 +78,10 @@ class KurikulumRepository:
     async def list_by_tahun_ajaran(
         self, tahun_ajaran_id: UUID, kategori_kelas_id: UUID | None = None
     ) -> list[KurikulumMapel]:
-        query = select(KurikulumMapel).where(KurikulumMapel.tahun_ajaran_id == tahun_ajaran_id)
+        query = select(KurikulumMapel).where(
+            KurikulumMapel.tahun_ajaran_id == tahun_ajaran_id,
+            KurikulumMapel.is_active.is_(True),
+        )
         if kategori_kelas_id:
             query = query.where(KurikulumMapel.kategori_kelas_id == kategori_kelas_id)
         result = await self.db.execute(query)

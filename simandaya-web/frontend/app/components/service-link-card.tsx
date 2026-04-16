@@ -1,3 +1,5 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +15,7 @@ interface ServiceLinkCardProps {
   buttonHoverClassName: string;
   icon?: LucideIcon;
   overlayLabel?: string;
+  onActionClick?: () => void;
 }
 
 export function ServiceLinkCard({
@@ -24,6 +27,7 @@ export function ServiceLinkCard({
   buttonHoverClassName,
   icon: Icon,
   overlayLabel,
+  onActionClick,
 }: ServiceLinkCardProps) {
   const isExternal = link.startsWith("http");
   const target = isExternal ? "_blank" : "_self";
@@ -62,7 +66,17 @@ export function ServiceLinkCard({
       </CardContent>
 
       <CardFooter className="pb-8 pt-2">
-        {isExternal ? (
+        {onActionClick ? (
+          <Button
+            onClick={onActionClick}
+            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+          >
+            <span className="flex items-center justify-center gap-2">
+              Buka Layanan
+              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+            </span>
+          </Button>
+        ) : isExternal ? (
           <Button
             asChild
             className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}

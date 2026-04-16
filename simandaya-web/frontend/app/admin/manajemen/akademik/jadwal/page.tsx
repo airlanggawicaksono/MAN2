@@ -8,7 +8,6 @@ import {
   useListActiveGuruMapelQuery,
   useListActiveKelasQuery,
   useListJadwalByKelasQuery,
-  useListMapelQuery,
   useListSlotWaktuQuery,
   useUpdateJadwalMutation,
 } from "@/api/shared/akademik";
@@ -39,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { JadwalForm } from "./jadwal-form";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 const HARI_OPTIONS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
 
@@ -51,7 +51,6 @@ type EditJadwalForm = {
 
 export default function ManajemenJadwalPage() {
   const { data: classes } = useListActiveKelasQuery();
-  const { data: mapelList = [] } = useListMapelQuery();
   const { data: guruMapelList = [] } = useListActiveGuruMapelQuery();
   const { data: slotWaktuList = [] } = useListSlotWaktuQuery();
 
@@ -82,7 +81,6 @@ export default function ManajemenJadwalPage() {
 
   const enrichedSchedules: JadwalResponse[] = useMemo(() => {
     return (schedules ?? []).map((s) => {
-      const resolvedMapel = mapelList.find((m) => m.mapel_id === s.mapel_id);
       const resolvedKelas = classes?.find((k) => k.kelas_id === s.kelas_id);
       const resolvedSlot = s.slot_waktu_id
         ? slotWaktuList.find((slot) => slot.slot_id === s.slot_waktu_id)
@@ -95,14 +93,14 @@ export default function ManajemenJadwalPage() {
       );
       return {
         ...s,
-        resolved_mapel_nama: resolvedMapel?.nama_mapel,
+        resolved_mapel_nama: s.mapel_nama,
         resolved_nama_kelas: resolvedKelas?.nama_kelas,
         resolved_guru_nama: resolvedGuruMapel?.guru_nama,
         resolved_jam_mulai: resolvedSlot?.jam_mulai?.slice(0, 5),
         resolved_jam_selesai: resolvedSlot?.jam_selesai?.slice(0, 5),
       };
     });
-  }, [schedules, mapelList, classes, slotWaktuList, guruMapelList]);
+  }, [schedules, classes, slotWaktuList, guruMapelList]);
 
   const gridEvents: ScheduleGridEvent[] = useMemo(
     () =>
@@ -165,7 +163,7 @@ export default function ManajemenJadwalPage() {
       notifySuccess("Jadwal berhasil diperbarui.");
     } catch (err) {
       console.error(err);
-      notifyError("Gagal memperbarui jadwal.");
+      notifyError(getApiErrorMessage(err) || "Gagal memperbarui jadwal.");
     }
   };
 
@@ -175,8 +173,8 @@ export default function ManajemenJadwalPage() {
     try {
       await deleteJadwal(row.jadwal_id).unwrap();
       notifySuccess("Jadwal berhasil dihapus.");
-    } catch {
-      notifyError("Gagal menghapus jadwal.");
+    } catch (error) {
+      notifyError(getApiErrorMessage(error) || "Gagal menghapus jadwal.");
     }
   };
 
@@ -187,6 +185,7 @@ export default function ManajemenJadwalPage() {
       return;
     }
     const currentIdx = SCHEDULE_DAYS.indexOf(row.hari as ScheduleDay);
+    let lastError: unknown = null;
     for (let i = 1; i <= SCHEDULE_DAYS.length; i += 1) {
       const nextDay = SCHEDULE_DAYS[(Math.max(0, currentIdx) + i) % SCHEDULE_DAYS.length];
       try {
@@ -200,11 +199,15 @@ export default function ManajemenJadwalPage() {
         }).unwrap();
         notifySuccess(`Jadwal berhasil dicopy ke ${nextDay}.`);
         return;
-      } catch {
+      } catch (error) {
+        lastError = error;
         // try next day
       }
     }
-    notifyError("Tidak ada hari tersedia untuk copy jadwal (semua bentrok).");
+    notifyError(
+      getApiErrorMessage(lastError) ||
+        "Tidak ada hari tersedia untuk copy jadwal (semua bentrok).",
+    );
   };
 
   const handleOpenEdit = (eventId: string) => {
@@ -258,8 +261,8 @@ export default function ManajemenJadwalPage() {
       }).unwrap();
       setEditTargetId(null);
       notifySuccess("Jadwal berhasil diperbarui.");
-    } catch {
-      notifyError("Gagal menyimpan perubahan jadwal.");
+    } catch (error) {
+      notifyError(getApiErrorMessage(error) || "Gagal menyimpan perubahan jadwal.");
     }
   };
 
@@ -299,7 +302,11 @@ export default function ManajemenJadwalPage() {
           ) : (
             <>
               {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
-              {error && <p className="text-destructive">Gagal memuat data jadwal.</p>}
+              {error && (
+                <p className="text-destructive">
+                  {getApiErrorMessage(error) || "Gagal memuat data jadwal."}
+                </p>
+              )}
               {!isLoading && !error && (
                 <ScheduleGrid
                   events={gridEvents}

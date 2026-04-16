@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.akademik.kelas_dto import (
@@ -15,6 +16,14 @@ from app.models.kelas import Kelas
 from app.models.siswa_kelas import SiswaKelas
 from app.policy.kelas_policy import KelasPolicy
 from app.repositoriy.kelas_repository import KelasRepository
+from app.utils.db_error_utils import build_integrity_http_exception
+
+
+KELAS_INTEGRITY_MESSAGES = {
+    "ux_kelas_active_tahun_nama": "Nomor/nama kelas sudah terbuat pada tahun ajaran ini.",
+    "uq_kelas_tahun_nama": "Nomor/nama kelas sudah terbuat pada tahun ajaran ini.",
+    "uq_siswa_kelas": "Siswa sudah terdaftar pada kelas tersebut.",
+}
 
 
 class KelasService:
@@ -39,10 +48,10 @@ class KelasService:
             tingkat=kelas.tingkat,
             kategori_kelas_id=kelas.kategori_kelas_id,
             kategori_kelas_nama=kategori_nama,
-            jurusan=kelas.jurusan,
             wali_kelas_id=kelas.wali_kelas_id,
             wali_kelas_nama=wali_nama,
             kapasitas=kelas.kapasitas,
+            is_active=kelas.is_active,
         )
 
     def _to_siswa_kelas_dto(self, siswa_kelas: SiswaKelas) -> SiswaKelasResponseDTO:
@@ -66,6 +75,7 @@ class KelasService:
             kategori = await self.repo.find_kategori_by_id(request.kategori_kelas_id)
             self.policy.ensure_kategori_exists(kategori, request.kategori_kelas_id)
             self.policy.ensure_kategori_active(kategori)
+            self.policy.ensure_kategori_in_tahun_ajaran(kategori, request.tahun_ajaran_id)
 
             if request.wali_kelas_id:
                 wali_kelas = await self.repo.find_user_by_id(request.wali_kelas_id)
@@ -88,9 +98,9 @@ class KelasService:
                 nama_kelas=request.nama_kelas,
                 tingkat=request.tingkat,
                 kategori_kelas_id=request.kategori_kelas_id,
-                jurusan=kategori.nama,
                 wali_kelas_id=request.wali_kelas_id,
                 kapasitas=request.kapasitas,
+                is_active=True,
             )
             await self.repo.add_kelas(kelas)
             await self.repo.commit()
@@ -99,6 +109,13 @@ class KelasService:
             return self._to_kelas_dto(kelas)
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat kelas karena konflik data.",
+                constraint_messages=KELAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -177,8 +194,9 @@ class KelasService:
                 kategori = await self.repo.find_kategori_by_id(update_data["kategori_kelas_id"])
                 self.policy.ensure_kategori_exists(kategori, update_data["kategori_kelas_id"])
                 self.policy.ensure_kategori_active(kategori)
-                # Keep legacy jurusan field in sync for old consumers.
-                update_data["jurusan"] = kategori.nama
+                self.policy.ensure_kategori_in_tahun_ajaran(
+                    kategori, kelas.tahun_ajaran_id
+                )
 
             for field, value in update_data.items():
                 setattr(kelas, field, value)
@@ -188,6 +206,13 @@ class KelasService:
             return self._to_kelas_dto(kelas)
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui kelas karena konflik data.",
+                constraint_messages=KELAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -199,9 +224,12 @@ class KelasService:
         try:
             kelas = await self.repo.find_kelas_by_id(kelas_id)
             self.policy.ensure_kelas_exists(kelas, kelas_id)
-            await self.repo.delete_kelas(kelas)
+            if kelas.is_active:
+                kelas.is_active = False
+            else:
+                return MessageResponseDTO(message="Kelas is already archived")
             await self.repo.commit()
-            return MessageResponseDTO(message=f"Kelas '{kelas.nama_kelas}' deleted successfully")
+            return MessageResponseDTO(message=f"Kelas '{kelas.nama_kelas}' archived successfully")
         except HTTPException:
             raise
         except Exception as e:
@@ -215,6 +243,7 @@ class KelasService:
         try:
             kelas = await self.repo.find_kelas_by_id(kelas_id)
             self.policy.ensure_kelas_exists(kelas, kelas_id)
+            self.policy.ensure_kelas_active(kelas)
 
             user = await self.repo.find_user_by_id(request.user_id)
             self.policy.ensure_user_exists(user, request.user_id)
@@ -246,6 +275,13 @@ class KelasService:
             return self._to_siswa_kelas_dto(siswa_kelas)
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memasukkan siswa ke kelas karena konflik data.",
+                constraint_messages=KELAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -273,6 +309,7 @@ class KelasService:
         try:
             kelas = await self.repo.find_kelas_by_id(kelas_id)
             self.policy.ensure_kelas_exists(kelas, kelas_id)
+            self.policy.ensure_kelas_active(kelas)
             siswa_kelas_list = await self.repo.list_siswa_in_kelas_with_user(kelas_id)
             return [self._to_siswa_kelas_dto(sk) for sk in siswa_kelas_list]
         except HTTPException:

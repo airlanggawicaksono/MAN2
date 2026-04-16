@@ -1,8 +1,9 @@
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
+    Boolean,
     Enum as SQLAlchemyEnum,
-    UUID as SQLAlchemyUUID, ForeignKey, UniqueConstraint
+    UUID as SQLAlchemyUUID, ForeignKey, Index, text
 )
 from app.config.database import Base
 from app.enums import HariSekolah
@@ -11,13 +12,23 @@ from app.enums import HariSekolah
 class Jadwal(Base):
     __tablename__ = "jadwal"
     __table_args__ = (
-        UniqueConstraint(
-            "semester_id", "hari", "slot_waktu_id", "kelas_id",
-            name="uq_jadwal_kelas_slot"
+        Index(
+            "ux_jadwal_active_kelas_slot",
+            "semester_id",
+            "hari",
+            "slot_waktu_id",
+            "kelas_id",
+            unique=True,
+            postgresql_where=text("is_active"),
         ),
-        UniqueConstraint(
-            "semester_id", "hari", "slot_waktu_id", "guru_user_id",
-            name="uq_jadwal_guru_slot"
+        Index(
+            "ux_jadwal_active_guru_slot",
+            "semester_id",
+            "hari",
+            "slot_waktu_id",
+            "guru_user_id",
+            unique=True,
+            postgresql_where=text("is_active"),
         ),
     )
 
@@ -53,6 +64,7 @@ class Jadwal(Base):
         ForeignKey("slot_waktu.slot_id", ondelete="CASCADE"),
         nullable=False
     )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     semester: Mapped["Semester"] = relationship()
     kelas: Mapped["Kelas"] = relationship()

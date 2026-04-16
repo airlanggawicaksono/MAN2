@@ -46,7 +46,12 @@ class RaporService:
     # â”€â”€ Permission helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async def _get_kelas_or_404(self, kelas_id: UUID) -> Kelas:
-        result = await self.db.execute(select(Kelas).where(Kelas.kelas_id == kelas_id))
+        result = await self.db.execute(
+            select(Kelas).where(
+                Kelas.kelas_id == kelas_id,
+                Kelas.is_active.is_(True),
+            )
+        )
         kelas = result.scalar_one_or_none()
         if not kelas:
             raise HTTPException(
@@ -84,6 +89,7 @@ class RaporService:
                     GuruMapel.user_id == user_id,
                     GuruMapel.kelas_id == kelas_id,
                     GuruMapel.tahun_ajaran_id == tahun_ajaran_id,
+                    GuruMapel.is_active.is_(True),
                 )
             )
         )
@@ -572,7 +578,8 @@ class RaporService:
             # Get all mapel taught in this kelas (distinct mapel_id from guru_mapel)
             mapel_result = await self.db.execute(
                 select(distinct(GuruMapel.mapel_id)).where(
-                    GuruMapel.kelas_id == request.kelas_id
+                    GuruMapel.kelas_id == request.kelas_id,
+                    GuruMapel.is_active.is_(True),
                 )
             )
             mapel_ids = [row for row in mapel_result.scalars().all()]
@@ -720,7 +727,13 @@ class RaporService:
             sem_rows = (
                 await self.db.execute(select(Semester).order_by(Semester.tanggal_mulai.desc()))
             ).scalars().all()
-            kelas_rows = (await self.db.execute(select(Kelas).order_by(Kelas.nama_kelas.asc()))).scalars().all()
+            kelas_rows = (
+                await self.db.execute(
+                    select(Kelas)
+                    .where(Kelas.is_active.is_(True))
+                    .order_by(Kelas.nama_kelas.asc())
+                )
+            ).scalars().all()
             return GuruRaporContextResponseDTO(
                 tahun_ajaran=[
                     GuruRaporContextTahunAjaranDTO(
@@ -757,11 +770,19 @@ class RaporService:
             )
 
         wali_rows = (
-            await self.db.execute(select(Kelas.kelas_id).where(Kelas.wali_kelas_id == current_user.user_id))
+            await self.db.execute(
+                select(Kelas.kelas_id).where(
+                    Kelas.wali_kelas_id == current_user.user_id,
+                    Kelas.is_active.is_(True),
+                )
+            )
         ).scalars().all()
         mapel_rows = (
             await self.db.execute(
-                select(distinct(GuruMapel.kelas_id)).where(GuruMapel.user_id == current_user.user_id)
+                select(distinct(GuruMapel.kelas_id)).where(
+                    GuruMapel.user_id == current_user.user_id,
+                    GuruMapel.is_active.is_(True),
+                )
             )
         ).scalars().all()
         kelas_ids = {row for row in wali_rows} | {row for row in mapel_rows}
@@ -770,7 +791,14 @@ class RaporService:
             return GuruRaporContextResponseDTO()
 
         kelas_rows = (
-            await self.db.execute(select(Kelas).where(Kelas.kelas_id.in_(kelas_ids)).order_by(Kelas.nama_kelas.asc()))
+            await self.db.execute(
+                select(Kelas)
+                .where(
+                    Kelas.kelas_id.in_(kelas_ids),
+                    Kelas.is_active.is_(True),
+                )
+                .order_by(Kelas.nama_kelas.asc())
+            )
         ).scalars().all()
         tahun_ajaran_ids = {kelas.tahun_ajaran_id for kelas in kelas_rows}
 
@@ -928,6 +956,7 @@ class RaporService:
                         GuruMapel.kelas_id == kelas_id,
                         GuruMapel.tahun_ajaran_id == kelas.tahun_ajaran_id,
                         GuruMapel.tahun_ajaran_id == semester.tahun_ajaran_id,
+                        GuruMapel.is_active.is_(True),
                     )
                 )
             )

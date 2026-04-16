@@ -35,12 +35,19 @@ class SemesterRepository:
         return result.scalar_one_or_none()
 
     async def list_all(self) -> list[Semester]:
-        result = await self.db.execute(select(Semester))
+        result = await self.db.execute(
+            select(Semester)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Semester.tahun_ajaran_id)
+            .order_by(Semester.tanggal_mulai, Semester.tipe)
+        )
         return list(result.scalars().all())
 
     async def list_active(self) -> list[Semester]:
         result = await self.db.execute(
-            select(Semester).where(Semester.is_active.is_(True))
+            select(Semester)
+            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Semester.tahun_ajaran_id)
+            .where(Semester.is_active.is_(True))
+            .order_by(Semester.tanggal_mulai, Semester.tipe)
         )
         return list(result.scalars().all())
 

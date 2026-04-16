@@ -34,40 +34,40 @@ const quickActions = [
     description: "Kelola data guru dan tenaga kependidikan.",
     href: "/admin/manajemen/civitas",
     icon: ShieldCheck,
-    colorClass: "text-emerald-600",
-    bgClass: "bg-emerald-100",
+    colorClass: "text-blue-600",
+    bgClass: "bg-blue-100",
   },
   {
     title: "Manajemen Akademik",
     description: "Atur tahun ajaran, semester, mapel, kurikulum.",
     href: "/admin/manajemen/akademik",
     icon: BookOpenCheck,
-    colorClass: "text-purple-600",
-    bgClass: "bg-purple-100",
+    colorClass: "text-blue-600",
+    bgClass: "bg-blue-100",
   },
   {
     title: "Jadwal",
     description: "Atur jadwal pembelajaran per kelas.",
     href: "/admin/manajemen/akademik/jadwal",
     icon: CalendarDays,
-    colorClass: "text-amber-600",
-    bgClass: "bg-amber-100",
+    colorClass: "text-blue-600",
+    bgClass: "bg-blue-100",
   },
   {
     title: "Konten CMS",
     description: "Kelola carousel, flyer, dan media website.",
     href: "/admin/manajemen/pengaturan-cms",
     icon: Megaphone,
-    colorClass: "text-rose-600",
-    bgClass: "bg-rose-100",
+    colorClass: "text-blue-600",
+    bgClass: "bg-blue-100",
   },
   {
     title: "Kesiswaan",
     description: "Pantau absensi masuk dan izin siswa.",
     href: "/admin/kesiswaan/absensi",
     icon: Settings,
-    colorClass: "text-cyan-700",
-    bgClass: "bg-cyan-100",
+    colorClass: "text-blue-600",
+    bgClass: "bg-blue-100",
   },
 ];
 
@@ -95,22 +95,22 @@ export default function AdminDashboardPage() {
     {
       title: "Total Guru",
       value: teachers?.total ?? 0,
-      colorClass: "text-emerald-600",
-      bgClass: "bg-emerald-100",
+      colorClass: "text-blue-600",
+      bgClass: "bg-blue-100",
       icon: User,
     },
     {
       title: "Civitas Publik",
       value: civitas?.total ?? 0,
-      colorClass: "text-purple-600",
-      bgClass: "bg-purple-100",
+      colorClass: "text-blue-600",
+      bgClass: "bg-blue-100",
       icon: ShieldCheck,
     },
     {
       title: "Konten CMS",
       value: slides?.length ?? 0,
-      colorClass: "text-amber-600",
-      bgClass: "bg-amber-100",
+      colorClass: "text-blue-600",
+      bgClass: "bg-blue-100",
       icon: Megaphone,
     },
   ];
@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-8 p-8">
       <DashboardHeader
         icon={LayoutDashboard}
-        title={hydrated && user?.username ? `Dasbor Admin, ${user.username}` : "Dasbor Admin"}
+        title={hydrated && user?.username ? `Dasbor Admin,` : "Dasbor Admin"}
         subtitle="Ringkasan sistem dan akses cepat pengelolaan SIMANDAYA."
       />
 

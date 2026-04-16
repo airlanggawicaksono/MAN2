@@ -22,7 +22,11 @@ const INITIAL_STATE: CreateMapelRequest = {
   kelompok: "Wajib",
 };
 
-export function MapelForm() {
+type MapelFormProps = {
+  tahunAjaranId?: string;
+};
+
+export function MapelForm({ tahunAjaranId }: MapelFormProps) {
   const [form, setForm] = useState<CreateMapelRequest>({ ...INITIAL_STATE });
   const [createMapel, { isLoading, error, reset }] = useCreateMapelMutation();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -33,16 +37,26 @@ export function MapelForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tahunAjaranId) {
+      notifyError("Pilih tahun ajaran setup terlebih dahulu.");
+      return;
+    }
     reset();
     setSuccessMessage(null);
 
-    const result = await createMapel(form);
+    const result = await createMapel({
+      ...form,
+      tahun_ajaran_id: tahunAjaranId,
+    });
     if ("data" in result && result.data) {
       setSuccessMessage("Mata pelajaran berhasil ditambahkan.");
       setForm({ ...INITIAL_STATE });
       notifySuccess("Mata pelajaran berhasil ditambahkan.");
     } else {
-      notifyError("Gagal menambahkan mata pelajaran.");
+      notifyError(
+        getApiErrorMessage("error" in result ? result.error : null) ||
+          "Gagal menambahkan mata pelajaran.",
+      );
     }
   };
 
@@ -95,7 +109,7 @@ export function MapelForm() {
       {errorText && <p className="text-sm text-destructive">{errorText}</p>}
       {successMessage && <p className="text-sm text-primary font-medium">{successMessage}</p>}
 
-      <Button type="submit" disabled={isLoading}>
+      <Button type="submit" disabled={isLoading || !tahunAjaranId}>
         {isLoading ? "Menyimpan..." : "Simpan Mata Pelajaran"}
       </Button>
     </form>

@@ -33,6 +33,7 @@ class KurikulumMapelResponseDTO(BaseModel):
     tingkat: TingkatKelas
     kategori_kelas_id: UUID
     kategori_kelas_nama: Optional[str] = None
+    is_active: bool
     is_wajib: bool
     jam_override: Optional[int] = None
     # Enriched fields from relationships

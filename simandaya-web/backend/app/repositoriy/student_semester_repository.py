@@ -44,6 +44,7 @@ class StudentSemesterRepository:
                 and_(
                     SiswaKelas.user_id == user_id,
                     Semester.semester_id == semester_id,
+                    Kelas.is_active.is_(True),
                 )
             )
             .limit(1)
@@ -59,6 +60,7 @@ class StudentSemesterRepository:
                 and_(
                     SiswaKelas.user_id == user_id,
                     Semester.is_active.is_(True),
+                    Kelas.is_active.is_(True),
                 )
             )
             .order_by(Semester.tanggal_mulai.desc())

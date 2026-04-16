@@ -35,7 +35,7 @@ export const generalNav: NavItem[] = [
       { label: "Layanan PTK", href: "/general/layanan-ptk" },
     ],
   },
-  { label: "Absensi", href: "/general/absensi" },
+  { label: "SIJINAK", href: "/general/absensi" },
 ];
 
 export const adminNav: NavItem[] = [

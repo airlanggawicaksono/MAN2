@@ -2,11 +2,19 @@
 
 import {
   useListTahunAjaranQuery, useListSemestersQuery,
-  useDeleteTahunAjaranMutation, useDeleteSemesterMutation,
+  useArchiveTahunAjaranMutation, useDeleteSemesterMutation,
   useUpdateTahunAjaranMutation, useUpdateSemesterMutation,
 } from "@/api/shared/akademik";
+import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -18,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { TahunAjaranForm, SemesterForm } from "./periode-forms";
 import { TahunAjaranResponse, SemesterResponse } from "@/types/akademik/periode";
@@ -26,10 +34,12 @@ import { formatIsoToIdDate } from "@/lib/date-id";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
 
 export default function ManajemenPeriodePage() {
+  const PAGE_LIMIT = 10;
+
   const { data: tahunAjarans, isLoading: loadingTA } = useListTahunAjaranQuery();
   const { data: semesters, isLoading: loadingSem } = useListSemestersQuery();
 
-  const [deleteTA] = useDeleteTahunAjaranMutation();
+  const [archiveTA] = useArchiveTahunAjaranMutation();
   const [deleteSem] = useDeleteSemesterMutation();
   const [updateTA] = useUpdateTahunAjaranMutation();
   const [updateSem] = useUpdateSemesterMutation();
@@ -38,6 +48,10 @@ export default function ManajemenPeriodePage() {
   const [semToDelete, setSemToDelete] = useState<SemesterResponse | null>(null);
   const [taToActivate, setTaToActivate] = useState<TahunAjaranResponse | null>(null);
   const [semToActivate, setSemToActivate] = useState<SemesterResponse | null>(null);
+  const [taFilter, setTaFilter] = useState<"all" | "active" | "archived">("all");
+  const [semFilter, setSemFilter] = useState<"all" | "active" | "archived">("all");
+  const [taSkip, setTaSkip] = useState(0);
+  const [semSkip, setSemSkip] = useState(0);
 
   const tahunAjaranNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -46,6 +60,62 @@ export default function ManajemenPeriodePage() {
     }
     return map;
   }, [tahunAjarans]);
+
+  const filteredTahunAjarans = useMemo(() => {
+    const rows = tahunAjarans || [];
+    const filtered =
+      taFilter === "active"
+        ? rows.filter((item) => item.is_active)
+        : taFilter === "archived"
+          ? rows.filter((item) => !item.is_active)
+          : rows;
+    return [...filtered].sort(
+      (a, b) => new Date(b.tanggal_mulai).getTime() - new Date(a.tanggal_mulai).getTime()
+    );
+  }, [tahunAjarans, taFilter]);
+
+  const filteredSemesters = useMemo(() => {
+    const rows = semesters || [];
+    const filtered =
+      semFilter === "active"
+        ? rows.filter((item) => item.is_active)
+        : semFilter === "archived"
+          ? rows.filter((item) => !item.is_active)
+          : rows;
+    return [...filtered].sort(
+      (a, b) => new Date(b.tanggal_mulai).getTime() - new Date(a.tanggal_mulai).getTime()
+    );
+  }, [semesters, semFilter]);
+
+  useEffect(() => {
+    setTaSkip(0);
+  }, [taFilter]);
+
+  useEffect(() => {
+    setSemSkip(0);
+  }, [semFilter]);
+
+  useEffect(() => {
+    if (taSkip >= filteredTahunAjarans.length && taSkip > 0) {
+      setTaSkip(Math.max(0, Math.floor((filteredTahunAjarans.length - 1) / PAGE_LIMIT) * PAGE_LIMIT));
+    }
+  }, [filteredTahunAjarans.length, taSkip, PAGE_LIMIT]);
+
+  useEffect(() => {
+    if (semSkip >= filteredSemesters.length && semSkip > 0) {
+      setSemSkip(Math.max(0, Math.floor((filteredSemesters.length - 1) / PAGE_LIMIT) * PAGE_LIMIT));
+    }
+  }, [filteredSemesters.length, semSkip, PAGE_LIMIT]);
+
+  const pagedTahunAjarans = useMemo(
+    () => filteredTahunAjarans.slice(taSkip, taSkip + PAGE_LIMIT),
+    [filteredTahunAjarans, taSkip, PAGE_LIMIT]
+  );
+
+  const pagedSemesters = useMemo(
+    () => filteredSemesters.slice(semSkip, semSkip + PAGE_LIMIT),
+    [filteredSemesters, semSkip, PAGE_LIMIT]
+  );
 
   const handleActivateTA = async () => {
     if (!taToActivate) return;
@@ -157,7 +227,11 @@ export default function ManajemenPeriodePage() {
       header: "Tahun Ajaran",
       cell: ({ row }) => {
         const sem = row.original;
-        return tahunAjaranNameById.get(sem.tahun_ajaran_id) ?? sem.tahun_ajaran_id;
+        return (
+          sem.tahun_ajaran_nama ??
+          tahunAjaranNameById.get(sem.tahun_ajaran_id) ??
+          "Tahun ajaran tidak ditemukan"
+        );
       },
     },
     {
@@ -193,16 +267,72 @@ export default function ManajemenPeriodePage() {
         <div className="space-y-6">
           <TahunAjaranForm />
           <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Daftar Tahun Ajaran</h2>
-            {loadingTA ? <p>Memuat...</p> : tahunAjarans && <DataTable columns={taColumns} data={tahunAjarans} />}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Daftar Tahun Ajaran</h2>
+              <Select
+                value={taFilter}
+                onValueChange={(value: "all" | "active" | "archived") => setTaFilter(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="archived">Arsip</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {loadingTA ? (
+              <p>Memuat...</p>
+            ) : (
+              <>
+                <DataTable columns={taColumns} data={pagedTahunAjarans} />
+                <EntityTablePagination
+                  skip={taSkip}
+                  limit={PAGE_LIMIT}
+                  total={filteredTahunAjarans.length}
+                  itemLabel="tahun ajaran"
+                  onSkipChange={setTaSkip}
+                />
+              </>
+            )}
           </div>
         </div>
 
         <div className="space-y-6">
           <SemesterForm />
           <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Daftar Semester</h2>
-            {loadingSem ? <p>Memuat...</p> : semesters && <DataTable columns={semColumns} data={semesters} />}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Daftar Semester</h2>
+              <Select
+                value={semFilter}
+                onValueChange={(value: "all" | "active" | "archived") => setSemFilter(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="active">Aktif</SelectItem>
+                  <SelectItem value="archived">Arsip</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {loadingSem ? (
+              <p>Memuat...</p>
+            ) : (
+              <>
+                <DataTable columns={semColumns} data={pagedSemesters} />
+                <EntityTablePagination
+                  skip={semSkip}
+                  limit={PAGE_LIMIT}
+                  total={filteredSemesters.length}
+                  itemLabel="semester"
+                  onSkipChange={setSemSkip}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -253,23 +383,16 @@ export default function ManajemenPeriodePage() {
       <AlertDialog open={!!taToDelete} onOpenChange={() => setTaToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">Hapus Tahun Ajaran?</AlertDialogTitle>
+            <AlertDialogTitle className="text-destructive">Arsipkan Tahun Ajaran?</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
               <span className="block">
-                Anda akan menghapus tahun ajaran <strong>{taToDelete?.nama}</strong>.
+                Anda akan mengarsipkan tahun ajaran <strong>{taToDelete?.nama}</strong>.
               </span>
               <span className="block font-semibold text-destructive">
-                PERINGATAN: Semua data yang terkait akan ikut terhapus secara permanen, termasuk:
+                Data tidak dihapus permanen. Tahun ajaran akan dinonaktifkan (mode arsip).
               </span>
-              <ul className="list-disc list-inside text-destructive text-sm space-y-1">
-                <li>Semua semester dalam tahun ajaran ini</li>
-                <li>Semua kelas dan penempatan siswa</li>
-                <li>Semua jadwal pelajaran</li>
-                <li>Semua penugasan guru-mapel</li>
-                <li>Semua tugas, nilai, dan rapor terkait</li>
-              </ul>
               <span className="block text-sm font-medium mt-2">
-                Tindakan ini tidak dapat dibatalkan.
+                Catatan: tahun ajaran aktif tidak bisa diarsipkan.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -279,15 +402,18 @@ export default function ManajemenPeriodePage() {
               className="bg-destructive hover:bg-destructive/90"
               onClick={async () => {
                 try {
-                  if (taToDelete) await deleteTA(taToDelete.tahun_ajaran_id).unwrap();
-                  notifySuccess("Tahun ajaran berhasil dihapus.");
-                } catch {
-                  notifyError("Gagal menghapus tahun ajaran.");
+                  if (taToDelete) await archiveTA(taToDelete.tahun_ajaran_id).unwrap();
+                  notifySuccess("Tahun ajaran berhasil diarsipkan.");
+                } catch (err) {
+                  const message =
+                    (err as { data?: { detail?: string } })?.data?.detail ??
+                    "Gagal mengarsipkan tahun ajaran.";
+                  notifyError(message);
                 }
                 setTaToDelete(null);
               }}
             >
-              Saya mengerti, hapus
+              Ya, arsipkan
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

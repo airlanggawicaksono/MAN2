@@ -27,6 +27,38 @@ class TugasPolicy:
             )
 
     @staticmethod
+    def ensure_mapel_active(mapel) -> None:
+        if not mapel.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Mata pelajaran '{mapel.nama_mapel}' sedang diarsipkan",
+            )
+
+    @staticmethod
+    def ensure_mapel_in_tahun_ajaran(mapel, tahun_ajaran_id) -> None:
+        if mapel.tahun_ajaran_id != tahun_ajaran_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mata pelajaran harus berasal dari tahun ajaran yang sama",
+            )
+
+    @staticmethod
+    def ensure_kelas_in_tahun_ajaran(kelas, tahun_ajaran_id) -> None:
+        if kelas.tahun_ajaran_id != tahun_ajaran_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kelas harus berasal dari tahun ajaran yang sama",
+            )
+
+    @staticmethod
+    def ensure_kelas_active(kelas) -> None:
+        if not kelas.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Kelas '{kelas.nama_kelas}' sedang diarsipkan",
+            )
+
+    @staticmethod
     def ensure_guru_assigned(assignment) -> None:
         if not assignment:
             raise HTTPException(
@@ -59,12 +91,27 @@ class TugasPolicy:
             )
 
     @staticmethod
-    def ensure_can_modify(current_user, created_by) -> None:
-        if current_user.user_type != UserType.admin and created_by != current_user.user_id:
+    def ensure_tugas_not_archived_context(tugas) -> None:
+        if tugas.is_archived_context:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the creator or admin can modify this tugas",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tugas berada pada konteks arsip karena mapel/kelas terkait diarsipkan",
             )
+
+    @staticmethod
+    def ensure_can_modify(current_user, created_by, has_assignment: bool = False) -> None:
+        if current_user.user_type == UserType.admin:
+            return
+        if created_by == current_user.user_id:
+            return
+        if current_user.user_type == UserType.guru and has_assignment:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only admin, creator tugas, or assigned guru-mapel can modify this tugas"
+            ),
+        )
 
     @staticmethod
     def ensure_update_payload(update_data: dict) -> None:
@@ -139,24 +186,12 @@ class TugasPolicy:
             return
 
         parsed = urlparse(link_tugas)
-        host = (parsed.netloc or "").lower()
+        host = (parsed.netloc or "").strip().lower()
 
-        if parsed.scheme != "https" or not host:
+        if parsed.scheme not in {"http", "https"} or not host:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="link_tugas must be a valid HTTPS URL",
-            )
-
-        if host not in cls.ALLOWED_REFERENCE_LINK_HOSTS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="link_tugas must use Google Drive or Google Docs link",
-            )
-
-        if host == "docs.google.com" and "/forms/" in (parsed.path or ""):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="link_tugas is for material/docs, not Google Form",
+                detail="link_tugas must be a valid URL",
             )
 
     @classmethod

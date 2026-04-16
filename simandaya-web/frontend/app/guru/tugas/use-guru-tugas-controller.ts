@@ -16,6 +16,7 @@ import {
   useUpdateTugasMutation,
 } from "@/api/shared/penilaian";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
+import { getApiErrorMessage } from "@/lib/api-error";
 import type {
   GuruAcademicContextKelas,
   GuruAcademicContextSemester,
@@ -230,6 +231,8 @@ export function useGuruTugasController() {
   const [createTugas, { isLoading: isCreating }] = useCreateTugasMutation();
   const [updateTugas, { isLoading: isUpdatingTugas }] = useUpdateTugasMutation();
   const [deleteTugas, { isLoading: isDeletingTugasRequest }] = useDeleteTugasMutation();
+  const buildErrorMessage = (error: unknown, fallback: string) =>
+    getApiErrorMessage(error) || fallback;
 
   const handleSaveGrades = async () => {
     if (!selectedTugasId) return;
@@ -251,8 +254,8 @@ export function useGuruTugasController() {
         body: { entries },
       }).unwrap();
       notifySuccess("Nilai berhasil disimpan.");
-    } catch {
-      notifyError("Gagal menyimpan nilai.");
+    } catch (error) {
+      notifyError(buildErrorMessage(error, "Gagal menyimpan nilai."));
     }
   };
 
@@ -287,8 +290,8 @@ export function useGuruTugasController() {
       });
       setSelectedTugasId(data.tugas_id);
       notifySuccess("Penugasan berhasil dibuat.");
-    } catch {
-      notifyError("Gagal membuat penugasan.");
+    } catch (error) {
+      notifyError(buildErrorMessage(error, "Gagal membuat penugasan."));
     }
   };
 
@@ -329,8 +332,8 @@ export function useGuruTugasController() {
       }).unwrap();
       setIsEditingTugas(false);
       notifySuccess("Tugas berhasil diperbarui.");
-    } catch {
-      notifyError("Gagal memperbarui tugas.");
+    } catch (error) {
+      notifyError(buildErrorMessage(error, "Gagal memperbarui tugas."));
     }
   };
 
@@ -341,8 +344,8 @@ export function useGuruTugasController() {
       setIsDeletingTugas(false);
       setSelectedTugasId("");
       notifySuccess("Tugas berhasil dihapus.");
-    } catch {
-      notifyError("Gagal menghapus tugas.");
+    } catch (error) {
+      notifyError(buildErrorMessage(error, "Gagal menghapus tugas."));
     }
   };
 
@@ -396,4 +399,3 @@ export function useGuruTugasController() {
     tahunAjaranList,
   };
 }
-

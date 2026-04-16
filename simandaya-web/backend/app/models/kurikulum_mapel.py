@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     Boolean, Integer, DateTime, ForeignKey,
     Enum as SQLAlchemyEnum, UUID as SQLAlchemyUUID,
-    UniqueConstraint,
+    Index, text,
 )
 from app.config.database import Base
 from app.enums import TingkatKelas
@@ -13,12 +13,14 @@ from app.enums import TingkatKelas
 class KurikulumMapel(Base):
     __tablename__ = "kurikulum_mapel"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "ux_kurikulum_mapel_active",
             "mapel_id",
             "tingkat",
             "tahun_ajaran_id",
             "kategori_kelas_id",
-            name="uq_kurikulum_mapel",
+            unique=True,
+            postgresql_where=text("is_active"),
         ),
     )
 
@@ -44,6 +46,7 @@ class KurikulumMapel(Base):
         ForeignKey("kategori_kelas.kategori_kelas_id", ondelete="RESTRICT"),
         nullable=False,
     )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_wajib: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     jam_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

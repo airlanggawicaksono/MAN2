@@ -7,6 +7,7 @@ export interface KurikulumMapelResponse {
   tingkat: string; // "X" | "XI" | "XII"
   kategori_kelas_id: UUID;
   kategori_kelas_nama?: string;
+  is_active: boolean;
   is_wajib: boolean;
   jam_override?: number | null;
   mapel_nama?: string;

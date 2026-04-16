@@ -1,8 +1,10 @@
 from typing import Optional
 from datetime import datetime, timezone
 from uuid import UUID
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.penilaian.tugas_dto import (
@@ -21,6 +23,12 @@ from app.models.user import User
 from app.policy.tugas_policy import TugasPolicy
 from app.repositoriy.student_semester_repository import StudentSemesterRepository
 from app.repositoriy.tugas_repository import TugasRepository
+from app.utils.db_error_utils import build_integrity_http_exception
+
+
+TUGAS_INTEGRITY_MESSAGES = {
+    "uq_tugas_submission": "Siswa sudah memiliki status pengumpulan untuk tugas ini.",
+}
 
 
 class TugasService:
@@ -61,6 +69,7 @@ class TugasService:
             guru_pengajar=guru_name,
             link_tugas=tugas.link_tugas,
             link_submission=tugas.link_submission,
+            is_archived_context=tugas.is_archived_context,
             is_published_to_students=tugas.is_published_to_students,
             is_nilai_published_to_students=tugas.is_nilai_published_to_students,
             deadline=tugas.deadline,
@@ -99,6 +108,8 @@ class TugasService:
         link_tugas: str | None,
         link_submission: str | None,
     ) -> tuple[str | None, str | None]:
+        link_tugas = self._normalize_url(link_tugas)
+        link_submission = self._normalize_url(link_submission)
         # Be forgiving: if teacher pastes Google Form in link_tugas by mistake,
         # move it to link_submission automatically.
         if self.policy.is_google_form_url(link_tugas):
@@ -106,6 +117,21 @@ class TugasService:
                 return None, link_tugas
             return None, link_submission
         return link_tugas, link_submission
+
+    @staticmethod
+    def _normalize_url(link: str | None) -> str | None:
+        if not link:
+            return None
+        value = link.strip()
+        if not value:
+            return None
+
+        parsed = urlparse(value)
+        if not parsed.scheme and parsed.netloc:
+            return f"https://{parsed.netloc}{parsed.path or ''}{f'?{parsed.query}' if parsed.query else ''}{f'#{parsed.fragment}' if parsed.fragment else ''}"
+        if not parsed.scheme and not parsed.netloc:
+            return f"https://{value}"
+        return value
 
     async def create_tugas(
         self, request: CreateTugasDTO, current_user: User
@@ -116,9 +142,13 @@ class TugasService:
 
             kelas = await self.repo.find_kelas_by_id(request.kelas_id)
             self.policy.ensure_entity_exists(kelas, "Kelas", request.kelas_id)
+            self.policy.ensure_kelas_in_tahun_ajaran(kelas, semester.tahun_ajaran_id)
+            self.policy.ensure_kelas_active(kelas)
 
             mapel = await self.repo.find_mapel_by_id(request.mapel_id)
             self.policy.ensure_entity_exists(mapel, "Mata pelajaran", request.mapel_id)
+            self.policy.ensure_mapel_active(mapel)
+            self.policy.ensure_mapel_in_tahun_ajaran(mapel, semester.tahun_ajaran_id)
 
             if current_user.user_type == UserType.guru:
                 assignment = await self.repo.find_guru_mapel_assignment(
@@ -143,6 +173,7 @@ class TugasService:
                 deskripsi=request.deskripsi,
                 link_tugas=normalized_link_tugas,
                 link_submission=normalized_link_submission,
+                is_archived_context=False,
                 is_published_to_students=request.is_published_to_students,
                 is_nilai_published_to_students=request.is_nilai_published_to_students,
                 deadline=request.deadline,
@@ -155,6 +186,13 @@ class TugasService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat penugasan karena konflik data.",
+                constraint_messages=TUGAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -179,6 +217,7 @@ class TugasService:
             semester_id=semester_id,
             mapel_id=mapel_id,
             published_only=published_only,
+            include_archived_context=False,
         )
         guru_name_cache: dict[tuple[UUID, UUID], str | None] = {}
         return [await self._to_dto(t, guru_name_cache) for t in tugas_list]
@@ -206,7 +245,20 @@ class TugasService:
         try:
             tugas = await self.repo.find_tugas_by_id(tugas_id)
             self.policy.ensure_tugas_exists(tugas, tugas_id)
-            self.policy.ensure_can_modify(current_user, tugas.created_by)
+            self.policy.ensure_tugas_not_archived_context(tugas)
+            has_assignment = False
+            if current_user.user_type == UserType.guru:
+                assignment = await self.repo.find_guru_mapel_assignment(
+                    current_user.user_id,
+                    tugas.kelas_id,
+                    tugas.mapel_id,
+                )
+                has_assignment = assignment is not None
+            self.policy.ensure_can_modify(
+                current_user,
+                tugas.created_by,
+                has_assignment=has_assignment,
+            )
 
             update_data = request.model_dump(exclude_unset=True)
             self.policy.ensure_update_payload(update_data)
@@ -231,6 +283,13 @@ class TugasService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui penugasan karena konflik data.",
+                constraint_messages=TUGAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -244,7 +303,19 @@ class TugasService:
         try:
             tugas = await self.repo.find_tugas_by_id(tugas_id)
             self.policy.ensure_tugas_exists(tugas, tugas_id)
-            self.policy.ensure_can_modify(current_user, tugas.created_by)
+            has_assignment = False
+            if current_user.user_type == UserType.guru:
+                assignment = await self.repo.find_guru_mapel_assignment(
+                    current_user.user_id,
+                    tugas.kelas_id,
+                    tugas.mapel_id,
+                )
+                has_assignment = assignment is not None
+            self.policy.ensure_can_modify(
+                current_user,
+                tugas.created_by,
+                has_assignment=has_assignment,
+            )
 
             await self.repo.delete_tugas(tugas)
             await self.repo.commit()
@@ -268,6 +339,7 @@ class TugasService:
         try:
             tugas = await self.repo.find_tugas_by_id(tugas_id)
             self.policy.ensure_tugas_exists(tugas, tugas_id)
+            self.policy.ensure_tugas_not_archived_context(tugas)
 
             student_kelas_id = await self.repo.find_student_kelas_for_semester(
                 current_user.user_id, tugas.semester_id
@@ -299,6 +371,13 @@ class TugasService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal menyimpan status pengumpulan karena konflik data.",
+                constraint_messages=TUGAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -315,6 +394,7 @@ class TugasService:
         try:
             tugas = await self.repo.find_tugas_by_id(tugas_id)
             self.policy.ensure_tugas_exists(tugas, tugas_id)
+            self.policy.ensure_tugas_not_archived_context(tugas)
 
             student_kelas_id = await self.repo.find_student_kelas_for_semester(
                 current_user.user_id, tugas.semester_id
@@ -344,6 +424,13 @@ class TugasService:
 
         except HTTPException:
             raise
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui pengumpulan karena konflik data.",
+                constraint_messages=TUGAS_INTEGRITY_MESSAGES,
+            ) from e
         except Exception as e:
             await self.repo.rollback()
             raise HTTPException(
@@ -356,6 +443,7 @@ class TugasService:
     ) -> TugasSubmissionResponseDTO | None:
         tugas = await self.repo.find_tugas_by_id(tugas_id)
         self.policy.ensure_tugas_exists(tugas, tugas_id)
+        self.policy.ensure_tugas_not_archived_context(tugas)
 
         student_kelas_id = await self.repo.find_student_kelas_for_semester(
             current_user.user_id, tugas.semester_id
@@ -375,6 +463,7 @@ class TugasService:
     ) -> list[TugasSubmissionResponseDTO]:
         tugas = await self.repo.find_tugas_by_id(tugas_id)
         self.policy.ensure_tugas_exists(tugas, tugas_id)
+        self.policy.ensure_tugas_not_archived_context(tugas)
 
         if current_user.user_type == UserType.guru:
             assignment = await self.repo.find_guru_mapel_assignment(
@@ -407,6 +496,7 @@ class TugasService:
         try:
             tugas = await self.repo.find_tugas_by_id(tugas_id)
             self.policy.ensure_tugas_exists(tugas, tugas_id)
+            self.policy.ensure_tugas_not_archived_context(tugas)
 
             student_kelas_id = await self.repo.find_student_kelas_for_semester(
                 current_user.user_id, tugas.semester_id

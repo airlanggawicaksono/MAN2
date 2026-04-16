@@ -2,8 +2,8 @@ from uuid import UUID, uuid4
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
-    String, Integer, Enum as SQLAlchemyEnum,
-    UUID as SQLAlchemyUUID, ForeignKey, UniqueConstraint
+    String, Integer, Boolean, Enum as SQLAlchemyEnum,
+    UUID as SQLAlchemyUUID, ForeignKey, Index, text
 )
 from app.config.database import Base
 from app.enums import TingkatKelas
@@ -12,7 +12,13 @@ from app.enums import TingkatKelas
 class Kelas(Base):
     __tablename__ = "kelas"
     __table_args__ = (
-        UniqueConstraint("tahun_ajaran_id", "nama_kelas", name="uq_kelas_tahun_nama"),
+        Index(
+            "ux_kelas_active_tahun_nama",
+            "tahun_ajaran_id",
+            "nama_kelas",
+            unique=True,
+            postgresql_where=text("is_active"),
+        ),
     )
 
     kelas_id: Mapped[UUID] = mapped_column(
@@ -33,13 +39,13 @@ class Kelas(Base):
         ForeignKey("kategori_kelas.kategori_kelas_id", ondelete="RESTRICT"),
         nullable=False,
     )
-    jurusan: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     wali_kelas_id: Mapped[Optional[UUID]] = mapped_column(
         SQLAlchemyUUID(as_uuid=True),
         ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True
     )
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False, default=36)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     tahun_ajaran: Mapped["TahunAjaran"] = relationship()
     kategori_kelas: Mapped["KategoriKelas"] = relationship()

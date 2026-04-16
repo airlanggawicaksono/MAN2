@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy import text
 from typing import AsyncGenerator
 from app.config.settings import settings
 
@@ -100,37 +99,6 @@ async def init_db(drop_existing: bool = False):
 
         print("Creating/updating database tables...")
         await conn.run_sync(Base.metadata.create_all)
-        # Dev compatibility: add new tugas visibility column without full migration flow.
-        await conn.execute(
-            text(
-                "ALTER TABLE tugas "
-                "ADD COLUMN IF NOT EXISTS is_nilai_published_to_students BOOLEAN NOT NULL DEFAULT TRUE"
-            )
-        )
-        await conn.execute(
-            text(
-                "ALTER TABLE rapor_nilai "
-                "ADD COLUMN IF NOT EXISTS nilai_sumber NUMERIC(5,2)"
-            )
-        )
-        await conn.execute(
-            text(
-                "ALTER TABLE rapor_nilai "
-                "ADD COLUMN IF NOT EXISTS nilai_override NUMERIC(5,2)"
-            )
-        )
-        await conn.execute(
-            text(
-                "UPDATE rapor_nilai "
-                "SET nilai_sumber = COALESCE(nilai_sumber, nilai_akhir)"
-            )
-        )
-        await conn.execute(
-            text(
-                "ALTER TABLE rapor_nilai "
-                "ALTER COLUMN nilai_sumber SET NOT NULL"
-            )
-        )
         print("Database initialized successfully")
 
 

@@ -522,13 +522,18 @@ export default function GuruTugasPage() {
               }
             />
             <Input
+              type="url"
               placeholder="Link tugas materi (Drive/Docs, opsional)"
               value={newTugasForm.link_tugas}
               onChange={(e) =>
                 setNewTugasForm((p) => ({ ...p, link_tugas: e.target.value }))
               }
             />
+            <p className="text-xs text-slate-500">
+              Isi URL lengkap materi (contoh: https://...).
+            </p>
             <Input
+              type="url"
               placeholder="Link pengumpulan (Google Form)"
               value={newTugasForm.link_submission}
               onChange={(e) =>
@@ -538,6 +543,9 @@ export default function GuruTugasPage() {
                 }))
               }
             />
+            <p className="text-xs text-slate-500">
+              Isi URL lengkap link pengumpulan (contoh: https://...).
+            </p>
             <Input
               type="datetime-local"
               value={newTugasForm.deadline_local}
@@ -620,13 +628,18 @@ export default function GuruTugasPage() {
               }
             />
             <Input
+              type="url"
               placeholder="Link tugas materi (Drive/Docs, opsional)"
               value={editTugasForm.link_tugas}
               onChange={(e) =>
                 setEditTugasForm((p) => ({ ...p, link_tugas: e.target.value }))
               }
             />
+            <p className="text-xs text-slate-500">
+              Isi URL lengkap materi (contoh: https://...).
+            </p>
             <Input
+              type="url"
               placeholder="Link pengumpulan (Google Form)"
               value={editTugasForm.link_submission}
               onChange={(e) =>
@@ -636,6 +649,9 @@ export default function GuruTugasPage() {
                 }))
               }
             />
+            <p className="text-xs text-slate-500">
+              Isi URL lengkap link pengumpulan (contoh: https://...).
+            </p>
             <Input
               type="datetime-local"
               value={editTugasForm.deadline_local}

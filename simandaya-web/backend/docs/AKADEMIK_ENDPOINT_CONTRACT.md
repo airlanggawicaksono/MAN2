@@ -4,17 +4,19 @@ This document is the current API contract for `"/api/v1/akademik"`.
 It groups endpoints by domain and labels frontend usage status.
 
 ## Kategori Kelas
-- `GET /kategori-kelas` - used by admin akademik
-- `POST /kategori-kelas` - used by admin akademik
+- `GET /kategori-kelas?status=available|archived|all&tahun_ajaran_id=<uuid>` - used by admin akademik (`tahun_ajaran_id` optional, defaults to active tahun ajaran)
+- `POST /kategori-kelas` - used by admin akademik (`tahun_ajaran_id` optional in payload, defaults to active tahun ajaran)
 - `PATCH /kategori-kelas/{kategori_kelas_id}` - used by admin akademik
-- `DELETE /kategori-kelas/{kategori_kelas_id}` - used by admin akademik
+- `DELETE /kategori-kelas/{kategori_kelas_id}` - used by admin akademik (archive / soft delete)
+- `GET /kategori-kelas/{kategori_kelas_id}/archive-impact` - used by admin akademik (archive warning preview)
 
 ## Mapel
-- `GET /mapel` - used by admin akademik
+- `GET /mapel?status=available|archived|all&tahun_ajaran_id=<uuid>` - used by admin akademik (`tahun_ajaran_id` optional, defaults to active tahun ajaran)
 - `GET /mapel/{mapel_id}` - currently not used by frontend, kept for compatibility
-- `POST /mapel` - used by admin akademik
+- `POST /mapel` - used by admin akademik (`tahun_ajaran_id` optional in payload, defaults to active tahun ajaran)
 - `PATCH /mapel/{mapel_id}` - used by admin akademik
-- `DELETE /mapel/{mapel_id}` - used by admin akademik
+- `DELETE /mapel/{mapel_id}` - used by admin akademik (archive / soft delete)
+- `GET /mapel/{mapel_id}/archive-impact` - used by admin akademik (archive warning preview)
 
 ## Tahun Ajaran
 - `GET /tahun-ajaran` - used by admin/guru/siswa pages
@@ -23,7 +25,7 @@ It groups endpoints by domain and labels frontend usage status.
 - `POST /tahun-ajaran` - used by admin akademik
 - `POST /tahun-ajaran/copy-structure` - used by admin akademik
 - `PATCH /tahun-ajaran/{tahun_ajaran_id}` - used by admin akademik
-- `DELETE /tahun-ajaran/{tahun_ajaran_id}` - used by admin akademik
+- `PATCH /tahun-ajaran/{tahun_ajaran_id}/archive` - used by admin akademik (archive / non-destructive)
 
 ## Semester
 - `GET /semester` - used by admin/guru/siswa pages

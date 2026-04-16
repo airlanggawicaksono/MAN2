@@ -22,6 +22,7 @@ class UpdateSemesterDTO(BaseModel):
 class SemesterResponseDTO(BaseModel):
     semester_id: UUID
     tahun_ajaran_id: UUID
+    tahun_ajaran_nama: Optional[str] = None
     tipe: TipeSemester
     tanggal_mulai: date
     tanggal_selesai: date

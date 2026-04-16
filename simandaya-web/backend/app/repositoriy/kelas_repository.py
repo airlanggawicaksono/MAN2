@@ -32,6 +32,7 @@ class KelasRepository:
             select(Kelas).where(
                 Kelas.tahun_ajaran_id == tahun_ajaran_id,
                 Kelas.nama_kelas == nama_kelas,
+                Kelas.is_active.is_(True),
             )
         )
         return result.scalar_one_or_none()
@@ -45,6 +46,7 @@ class KelasRepository:
         stmt = select(Kelas).where(
             Kelas.tahun_ajaran_id == tahun_ajaran_id,
             Kelas.wali_kelas_id == wali_kelas_id,
+            Kelas.is_active.is_(True),
         )
         if exclude_kelas_id:
             stmt = stmt.where(Kelas.kelas_id != exclude_kelas_id)
@@ -71,7 +73,7 @@ class KelasRepository:
             select(Kelas).options(
                 selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
                 selectinload(Kelas.kategori_kelas),
-            )
+            ).where(Kelas.is_active.is_(True))
         )
         return list(result.scalars().all())
 
@@ -79,7 +81,7 @@ class KelasRepository:
         result = await self.db.execute(
             select(Kelas)
             .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
-            .where(TahunAjaran.is_active.is_(True))
+            .where(TahunAjaran.is_active.is_(True), Kelas.is_active.is_(True))
             .options(
                 selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
                 selectinload(Kelas.kategori_kelas),
@@ -90,7 +92,7 @@ class KelasRepository:
     async def list_kelas_by_tahun_with_wali(self, tahun_ajaran_id: UUID) -> list[Kelas]:
         result = await self.db.execute(
             select(Kelas)
-            .where(Kelas.tahun_ajaran_id == tahun_ajaran_id)
+            .where(Kelas.tahun_ajaran_id == tahun_ajaran_id, Kelas.is_active.is_(True))
             .options(
                 selectinload(Kelas.wali_kelas).selectinload(User.guru_profile),
                 selectinload(Kelas.kategori_kelas),
@@ -128,6 +130,7 @@ class KelasRepository:
             .where(
                 SiswaKelas.user_id == user_id,
                 Kelas.tahun_ajaran_id == tahun_ajaran_id,
+                Kelas.is_active.is_(True),
             )
             .options(selectinload(SiswaKelas.kelas))
         )
@@ -165,7 +168,10 @@ class KelasRepository:
 
     async def list_kelas_by_tahun(self, tahun_ajaran_id: UUID) -> list[Kelas]:
         result = await self.db.execute(
-            select(Kelas).where(Kelas.tahun_ajaran_id == tahun_ajaran_id)
+            select(Kelas).where(
+                Kelas.tahun_ajaran_id == tahun_ajaran_id,
+                Kelas.is_active.is_(True),
+            )
         )
         return list(result.scalars().all())
 
@@ -180,7 +186,7 @@ class KelasRepository:
             select(Kelas)
             .join(SiswaKelas, SiswaKelas.kelas_id == Kelas.kelas_id)
             .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
-            .where(SiswaKelas.user_id == user_id)
+            .where(SiswaKelas.user_id == user_id, Kelas.is_active.is_(True))
             .order_by(
                 TahunAjaran.is_active.desc(),
                 TahunAjaran.tanggal_mulai.desc(),

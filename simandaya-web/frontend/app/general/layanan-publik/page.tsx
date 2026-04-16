@@ -1,3 +1,5 @@
+"use client";
+
 import { Globe, MessageSquare, Users } from "lucide-react";
 import { ServiceLinkCard } from "@/app/components/service-link-card";
 import { ServicePageHeader } from "@/app/components/service-page-header";

@@ -24,7 +24,7 @@ const KelasGuruSiswaPage = dynamic(() => import("./kelas-guru-siswa/page"), {
   loading: TabLoading,
 });
 
-const VALID_TABS = ["pengaturan", "periode", "kurikulum", "kelas"] as const;
+const VALID_TABS = ["periode", "pengaturan", "kurikulum", "kelas"] as const;
 type AkademikTab = (typeof VALID_TABS)[number];
 
 export default function ManajemenAkademikPage() {
@@ -35,7 +35,7 @@ export default function ManajemenAkademikPage() {
   const activeTab = useMemo<AkademikTab>(() => {
     const raw = searchParams.get("tab");
     if (raw && VALID_TABS.includes(raw as AkademikTab)) return raw as AkademikTab;
-    return "pengaturan";
+    return "periode";
   }, [searchParams]);
 
   const setActiveTab = (nextTab: string) => {
@@ -50,24 +50,25 @@ export default function ManajemenAkademikPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Manajemen Akademik</h1>
         <p className="text-muted-foreground">
-          Alur: Pengaturan Umum (kategori, mapel), lalu Periode Akademik, lalu Struktur Kurikulum, terakhir Kelas/Guru/Siswa.
+          Alur: Periode Akademik, lalu Pengaturan Kelas & Mapel, lalu Struktur
+          Kurikulum, terakhir Kelas/Guru/Siswa.
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="pengaturan">Pengaturan Umum</TabsTrigger>
           <TabsTrigger value="periode">Periode Akademik</TabsTrigger>
+          <TabsTrigger value="pengaturan">Pengaturan Kelas & Mapel</TabsTrigger>
           <TabsTrigger value="kurikulum">Struktur Kurikulum</TabsTrigger>
           <TabsTrigger value="kelas">Kelas, Guru, dan Siswa</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pengaturan">
-          {activeTab === "pengaturan" ? <KategoriKelasTab /> : null}
-        </TabsContent>
-
         <TabsContent value="periode">
           {activeTab === "periode" ? <PeriodeTab /> : null}
+        </TabsContent>
+
+        <TabsContent value="pengaturan">
+          {activeTab === "pengaturan" ? <KategoriKelasTab /> : null}
         </TabsContent>
 
         <TabsContent value="kurikulum">

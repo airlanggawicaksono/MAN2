@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Carousel,
   CarouselContent,
@@ -28,6 +30,8 @@ import Link from "next/link";
 import { HomeImageCarousel } from "@/app/components/home-image-carousel";
 import { HomeSectionHeader } from "@/app/components/home-section-header";
 import { useGeneralHomeController } from "./use-general-home-controller";
+import { useAppSelector } from "@/store/hooks";
+import { roleRoutePrefix } from "@/config/navigation";
 
 const layananCards = [
   {
@@ -60,8 +64,18 @@ function extractYouTubeId(url: string): string | null {
 }
 
 export default function IndexPage() {
+  const router = useRouter();
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const { flyerItems, lokasiItems, mediaItems, slides, videoItems, videoTitles } =
     useGeneralHomeController();
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.user_type) return;
+    const targetRoute = roleRoutePrefix[user.user_type] ?? "/general";
+    if (targetRoute !== "/general") {
+      router.replace(targetRoute);
+    }
+  }, [isAuthenticated, user?.user_type, router]);
 
   return (
     <main className="flex flex-col gap-12 px-4 py-8 md:px-8 lg:px-16">

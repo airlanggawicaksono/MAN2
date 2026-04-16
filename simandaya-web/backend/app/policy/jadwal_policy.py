@@ -29,11 +29,54 @@ class JadwalPolicy:
             )
 
     @staticmethod
+    def ensure_mapel_active(mapel) -> None:
+        if not mapel.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Mata pelajaran '{mapel.nama_mapel}' sedang diarsipkan",
+            )
+
+    @staticmethod
+    def ensure_mapel_in_tahun_ajaran(mapel, tahun_ajaran_id) -> None:
+        if mapel.tahun_ajaran_id != tahun_ajaran_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mata pelajaran harus berasal dari tahun ajaran yang sama",
+            )
+
+    @staticmethod
+    def ensure_kelas_in_tahun_ajaran(kelas, tahun_ajaran_id) -> None:
+        if kelas.tahun_ajaran_id != tahun_ajaran_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kelas harus berasal dari tahun ajaran yang sama",
+            )
+
+    @staticmethod
+    def ensure_kelas_active(kelas) -> None:
+        if not kelas.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Kelas '{kelas.nama_kelas}' sedang diarsipkan",
+            )
+
+    @staticmethod
     def ensure_guru_mapel_unique(existing_assignment) -> None:
         if existing_assignment:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This guru-mapel-kelas-tahun assignment already exists",
+            )
+
+    @staticmethod
+    def ensure_single_active_guru_for_mapel_kelas_tahun(existing_assignment, user_id) -> None:
+        if existing_assignment and existing_assignment.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Mapel ini sudah ditugaskan ke guru lain pada kelas/tahun ajaran yang sama. "
+                    "Gunakan edit penugasan untuk transfer guru."
+                ),
             )
 
     @staticmethod
@@ -82,6 +125,17 @@ class JadwalPolicy:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Jadwal guru bertabrakan dengan kelas lain pada jam tersebut",
+            )
+
+    @staticmethod
+    def ensure_teacher_transfer_available(clash) -> None:
+        if clash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Transfer penugasan gagal: guru tujuan sudah punya jadwal di slot yang sama. "
+                    "Ubah jadwal bentrok terlebih dahulu."
+                ),
             )
 
     @staticmethod

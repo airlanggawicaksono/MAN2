@@ -108,19 +108,19 @@ async def update_tahun_ajaran(
     return await service.update_tahun_ajaran(tahun_ajaran_id, request)
 
 
-@admin_router.delete(
-    "/tahun-ajaran/{tahun_ajaran_id}",
+@admin_router.patch(
+    "/tahun-ajaran/{tahun_ajaran_id}/archive",
     response_model=MessageResponseDTO,
-    summary="Delete Academic Year",
+    summary="Archive Academic Year",
 )
-async def delete_tahun_ajaran(
+async def archive_tahun_ajaran(
     tahun_ajaran_id: UUID,
     current_user = Depends(require_role(UserType.admin)),
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponseDTO:
     del current_user
     service = AkademikService(db)
-    return await service.delete_tahun_ajaran(tahun_ajaran_id)
+    return await service.archive_tahun_ajaran(tahun_ajaran_id)
 
 
 router.include_router(shared_router)

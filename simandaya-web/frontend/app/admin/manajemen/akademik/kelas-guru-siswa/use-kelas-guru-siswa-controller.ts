@@ -43,8 +43,14 @@ export function useKelasGuruSiswaController() {
   } = useListKelasByTahunAjaranQuery(selectedTA, { skip: !selectedTA });
   const { data: guruMapels } = useListGuruMapelQuery();
   const { data: teachers } = useListTeachersQuery({ skip: 0, limit: 100 });
-  const { data: mapels } = useListMapelQuery();
-  const { data: kategoriKelas = [] } = useListKategoriKelasQuery();
+  const { data: mapels } = useListMapelQuery({
+    status: "available",
+    tahunAjaranId: selectedTA || undefined,
+  });
+  const { data: kategoriKelas = [] } = useListKategoriKelasQuery({
+    status: "available",
+    tahunAjaranId: selectedTA || undefined,
+  });
   const { data: allStudents } = useListStudentsQuery({
     skip: 0,
     limit: 100,
@@ -243,8 +249,10 @@ export function useKelasGuruSiswaController() {
       }).unwrap();
       setGmForm({ user_id: "", mapel_id: "", kelas_id: "" });
       notifySuccess("Penugasan guru mapel berhasil ditambahkan.");
-    } catch {
-      notifyError("Gagal menambahkan penugasan guru mapel.");
+    } catch (error) {
+      notifyError(
+        getApiErrorMessage(error) || "Gagal menambahkan penugasan guru mapel.",
+      );
     }
   };
 
@@ -261,8 +269,10 @@ export function useKelasGuruSiswaController() {
       }).unwrap();
       setEditGMTarget(null);
       notifySuccess("Penugasan guru mapel berhasil diperbarui.");
-    } catch {
-      notifyError("Gagal memperbarui penugasan guru mapel.");
+    } catch (error) {
+      notifyError(
+        getApiErrorMessage(error) || "Gagal memperbarui penugasan guru mapel.",
+      );
     }
   };
 
@@ -354,8 +364,10 @@ export function useKelasGuruSiswaController() {
       }
       closeAddSiswaDialog();
       notifySuccess("Perubahan siswa kelas berhasil disimpan.");
-    } catch {
-      notifyError("Gagal menyimpan perubahan siswa kelas.");
+    } catch (error) {
+      notifyError(
+        getApiErrorMessage(error) || "Gagal menyimpan perubahan siswa kelas.",
+      );
     }
   };
 

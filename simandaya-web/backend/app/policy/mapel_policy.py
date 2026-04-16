@@ -19,6 +19,14 @@ class MapelPolicy:
             )
 
     @staticmethod
+    def ensure_active(mapel) -> None:
+        if not mapel.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Subject '{mapel.nama_mapel}' is archived",
+            )
+
+    @staticmethod
     def ensure_update_payload(update_data: dict) -> None:
         if not update_data:
             raise HTTPException(

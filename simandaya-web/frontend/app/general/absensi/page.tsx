@@ -114,9 +114,9 @@ export default function AbsensiPage() {
 
   return (
     <div className="p-2">
-      <h1 className="text-2xl font-bold mb-1">Absensi</h1>
+      <h1 className="text-2xl font-bold mb-1">Data SIJINAK</h1>
       <p className="text-muted-foreground mb-6">
-        Informasi absensi dan izin keluar siswa
+        SIJINAK merupakan Sistem Absensi dan Izin Kesiswaan untuk pemantauan data kehadiran siswa.
       </p>
 
       {/* Stacked on mobile, side by side on desktop */}
@@ -125,7 +125,7 @@ export default function AbsensiPage() {
         <Card className="flex flex-col lg:flex-1 min-w-0">
           <CardHeader className="pb-3 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-lg">Data Absensi</CardTitle>
+              <CardTitle className="text-lg">Data Kehadiran SIJINAK</CardTitle>
               <DateNav
                 date={absensiDate}
                 onDateChange={setAbsensiDateValue}

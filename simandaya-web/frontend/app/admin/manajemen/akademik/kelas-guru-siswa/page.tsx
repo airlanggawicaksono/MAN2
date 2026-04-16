@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Trash2, Plus, Users, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import {
 } from "@/app/components/admin/kelas-management-cards";
 import { useKelasGuruSiswaController } from "./use-kelas-guru-siswa-controller";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const TINGKAT_OPTIONS = ["X", "XI", "XII"];
@@ -47,6 +49,7 @@ type KelasGuruSiswaPageProps = {
 export default function KelasGuruSiswaPage({
   embedded = false,
 }: KelasGuruSiswaPageProps) {
+  const [confirmSaveGMOpen, setConfirmSaveGMOpen] = useState(false);
   const {
     addCandidateStudents,
     addSiswaKelasId,
@@ -112,6 +115,12 @@ export default function KelasGuruSiswaPage({
     teachers,
     activeKategori,
   } = useKelasGuruSiswaController();
+
+  const hasEditGMTransactionChange =
+    !!editGMTarget &&
+    (editGmForm.user_id !== editGMTarget.user_id ||
+      editGmForm.mapel_id !== editGMTarget.mapel_id ||
+      editGmForm.kelas_id !== editGMTarget.kelas_id);
 
   return (
     <div className={embedded ? "space-y-8" : "space-y-8 p-8"}>
@@ -285,8 +294,11 @@ export default function KelasGuruSiswaPage({
                       }).unwrap();
                       setKategoriForm({ kode: "", nama: "" });
                       notifySuccess("Kategori kelas berhasil ditambahkan.");
-                    } catch {
-                      notifyError("Gagal menambahkan kategori kelas.");
+                    } catch (error) {
+                      notifyError(
+                        getApiErrorMessage(error) ||
+                          "Gagal menambahkan kategori kelas.",
+                      );
                     }
                   }}
                 >
@@ -653,8 +665,8 @@ export default function KelasGuruSiswaPage({
                   if (deleteKelasTarget)
                     await deleteKelas(deleteKelasTarget.kelas_id).unwrap();
                   notifySuccess("Kelas berhasil dihapus.");
-                } catch {
-                  notifyError("Gagal menghapus kelas.");
+                } catch (error) {
+                  notifyError(getApiErrorMessage(error) || "Gagal menghapus kelas.");
                 }
                 setDeleteKelasTarget(null);
               }}
@@ -761,8 +773,11 @@ export default function KelasGuruSiswaPage({
                       userId: removeSiswaTarget.userId,
                     }).unwrap();
                   notifySuccess("Siswa berhasil dikeluarkan dari kelas.");
-                } catch {
-                  notifyError("Gagal mengeluarkan siswa dari kelas.");
+                } catch (error) {
+                  notifyError(
+                    getApiErrorMessage(error) ||
+                      "Gagal mengeluarkan siswa dari kelas.",
+                  );
                 }
                 setRemoveSiswaTarget(null);
               }}
@@ -774,7 +789,15 @@ export default function KelasGuruSiswaPage({
       </AlertDialog>
 
       {/* Edit Guru Mapel */}
-      <Dialog open={!!editGMTarget} onOpenChange={(open) => !open && setEditGMTarget(null)}>
+      <Dialog
+        open={!!editGMTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmSaveGMOpen(false);
+            setEditGMTarget(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Penugasan Guru Mata Pelajaran</DialogTitle>
@@ -831,7 +854,13 @@ export default function KelasGuruSiswaPage({
                 Batal
               </Button>
               <Button
-                onClick={handleSaveGMEdit}
+                onClick={() => {
+                  if (hasEditGMTransactionChange) {
+                    setConfirmSaveGMOpen(true);
+                    return;
+                  }
+                  void handleSaveGMEdit();
+                }}
                 disabled={!editGmForm.user_id || !editGmForm.mapel_id || !editGmForm.kelas_id}
               >
                 Simpan Perubahan
@@ -840,6 +869,31 @@ export default function KelasGuruSiswaPage({
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmSaveGMOpen} onOpenChange={setConfirmSaveGMOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Peringatan Perubahan Transaksi</AlertDialogTitle>
+            <AlertDialogDescription>
+              Perubahan penugasan ini akan mengalihkan konteks mengajar pada kombinasi kelas-mapel
+              ke guru yang baru. Data yang sudah ada (jadwal, tugas, submission, nilai, rapor)
+              tetap disimpan, tetapi otorisasi pengelolaan akan mengikuti penugasan terbaru.
+              Lanjutkan simpan perubahan?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setConfirmSaveGMOpen(false);
+                await handleSaveGMEdit();
+              }}
+            >
+              Ya, Simpan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Guru Mapel */}
       <AlertDialog
@@ -866,8 +920,11 @@ export default function KelasGuruSiswaPage({
                       deleteGMTarget.guru_mapel_id,
                     ).unwrap();
                   notifySuccess("Penugasan guru mapel berhasil dihapus.");
-                } catch {
-                  notifyError("Gagal menghapus penugasan guru mapel.");
+                } catch (error) {
+                  notifyError(
+                    getApiErrorMessage(error) ||
+                      "Gagal menghapus penugasan guru mapel.",
+                  );
                 }
                 setDeleteGMTarget(null);
               }}

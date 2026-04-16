@@ -22,6 +22,7 @@ class GuruMapelResponseDTO(BaseModel):
     mapel_id: UUID
     kelas_id: UUID
     tahun_ajaran_id: UUID
+    is_active: bool
     guru_nama: Optional[str] = None
     mapel_nama: Optional[str] = None
     kelas_nama: Optional[str] = None

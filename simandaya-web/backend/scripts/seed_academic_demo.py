@@ -222,30 +222,51 @@ async def seed_structural_roles_and_assignments(session, ta: TahunAjaran, teache
     print("  SEEDED jabatan struktural assignments")
 
 
-async def seed_kategori_kelas(session) -> dict[str, KategoriKelas]:
+async def seed_kategori_kelas(session, ta: TahunAjaran) -> dict[str, KategoriKelas]:
     result_map: dict[str, KategoriKelas] = {}
     for kode, nama in KATEGORI_SEED:
-        result = await session.execute(select(KategoriKelas).where(KategoriKelas.kode == kode))
+        result = await session.execute(
+            select(KategoriKelas).where(
+                KategoriKelas.tahun_ajaran_id == ta.tahun_ajaran_id,
+                KategoriKelas.kode == kode,
+            )
+        )
         row = result.scalar_one_or_none()
         if not row:
-            row = KategoriKelas(kode=kode, nama=nama, is_active=True)
+            row = KategoriKelas(
+                tahun_ajaran_id=ta.tahun_ajaran_id,
+                kode=kode,
+                nama=nama,
+                is_active=True,
+            )
             session.add(row)
             await session.flush()
         else:
             row.nama = nama
             row.is_active = True
         result_map[kode] = row
-    print("  SEEDED kategori kelas")
+    print(f"  SEEDED kategori kelas ({ta.nama})")
     return result_map
 
 
-async def seed_mapel(session) -> dict[str, MataPelajaran]:
+async def seed_mapel(session, ta: TahunAjaran) -> dict[str, MataPelajaran]:
     out: dict[str, MataPelajaran] = {}
     for kode, nama, kelompok in MAPEL_SEED:
-        result = await session.execute(select(MataPelajaran).where(MataPelajaran.kode_mapel == kode))
+        result = await session.execute(
+            select(MataPelajaran).where(
+                MataPelajaran.tahun_ajaran_id == ta.tahun_ajaran_id,
+                MataPelajaran.kode_mapel == kode,
+            )
+        )
         row = result.scalar_one_or_none()
         if not row:
-            row = MataPelajaran(kode_mapel=kode, nama_mapel=nama, kelompok=kelompok, is_active=True)
+            row = MataPelajaran(
+                tahun_ajaran_id=ta.tahun_ajaran_id,
+                kode_mapel=kode,
+                nama_mapel=nama,
+                kelompok=kelompok,
+                is_active=True,
+            )
             session.add(row)
             await session.flush()
         else:
@@ -253,7 +274,7 @@ async def seed_mapel(session) -> dict[str, MataPelajaran]:
             row.kelompok = kelompok
             row.is_active = True
         out[kode] = row
-    print("  SEEDED mata pelajaran")
+    print(f"  SEEDED mata pelajaran ({ta.nama})")
     return out
 
 
@@ -305,6 +326,7 @@ async def seed_kelas(session, ta: TahunAjaran, kategori_map: dict[str, KategoriK
                     kategori_kelas_id=kategori_map[kode].kategori_kelas_id,
                     wali_kelas_id=wali.user_id,
                     kapasitas=36,
+                    is_active=True,
                 )
                 session.add(row)
                 await session.flush()
@@ -313,6 +335,7 @@ async def seed_kelas(session, ta: TahunAjaran, kategori_map: dict[str, KategoriK
                 row.kategori_kelas_id = kategori_map[kode].kategori_kelas_id
                 row.wali_kelas_id = wali.user_id
                 row.kapasitas = 36
+                row.is_active = True
             kelas_list.append(row)
     print("  SEEDED kelas")
     return kelas_list
@@ -335,7 +358,10 @@ async def seed_kurikulum(
                         KurikulumMapel.mapel_id == mapel.mapel_id,
                     )
                 )
-                if result.scalar_one_or_none():
+                existing = result.scalar_one_or_none()
+                if existing:
+                    existing.is_active = True
+                    existing.is_wajib = mapel.kelompok == KelompokMapel.wajib
                     continue
                 session.add(
                     KurikulumMapel(
@@ -343,6 +369,7 @@ async def seed_kurikulum(
                         kategori_kelas_id=kategori.kategori_kelas_id,
                         tingkat=tingkat,
                         mapel_id=mapel.mapel_id,
+                        is_active=True,
                         is_wajib=mapel.kelompok == KelompokMapel.wajib,
                     )
                 )
@@ -377,9 +404,12 @@ async def seed_guru_mapel(
                     mapel_id=mapel.mapel_id,
                     kelas_id=kelas.kelas_id,
                     tahun_ajaran_id=ta.tahun_ajaran_id,
+                    is_active=True,
                 )
                 session.add(row)
                 await session.flush()
+            else:
+                row.is_active = True
             created.append(row)
     print("  SEEDED guru-mapel assignments")
     return created
@@ -401,13 +431,13 @@ async def assign_students_to_classes(
     classes: list[Kelas],
     students: list[User],
 ) -> dict[UUID, Kelas]:
-    by_tingkat = {
-        TingkatKelas.x: [k for k in classes if k.tingkat == TingkatKelas.x],
-        TingkatKelas.xi: [k for k in classes if k.tingkat == TingkatKelas.xi],
-        TingkatKelas.xii: [k for k in classes if k.tingkat == TingkatKelas.xii],
-    }
     class_id_set = {k.kelas_id for k in classes}
     assigned_active: dict[UUID, Kelas] = {}
+    assigned_count: dict[UUID, int] = {k.kelas_id: 0 for k in classes}
+
+    if not classes or not students:
+        print("  SEEDED siswa_kelas assignments (no classes/students)")
+        return assigned_active
 
     async def assign_one(user: User, kelas: Kelas) -> None:
         result = await session.execute(
@@ -430,53 +460,52 @@ async def assign_students_to_classes(
         if profile:
             profile.kelas_jurusan = kelas.nama_kelas
         assigned_active[user.user_id] = kelas
+        assigned_count[kelas.kelas_id] = assigned_count.get(kelas.kelas_id, 0) + 1
 
-    # Force one dense class with at least 40 students for UI/performance testing.
-    xii_classes = by_tingkat[TingkatKelas.xii]
+    sorted_classes = sorted(classes, key=lambda k: (k.tingkat.value, k.nama_kelas))
     dense_target = next(
-        (k for k in xii_classes if " IPA " in f" {k.nama_kelas.upper()} "),
-        xii_classes[0] if xii_classes else classes[0],
+        (
+            k
+            for k in sorted_classes
+            if "XII IPA" in k.nama_kelas.upper()
+        ),
+        sorted_classes[0],
     )
-    dense_count = min(40, len(students))
-    preferred_student = next(
-        (user for user in students if user.username == "wicaksono_student"),
-        None,
-    )
-    dense_students: list[User] = []
+    dense_target_size = min(40, len(students))
+
+    preferred_student = next((u for u in students if u.username == "wicaksono_student"), None)
+    ordered_students: list[User] = []
     if preferred_student is not None:
-        dense_students.append(preferred_student)
-    for user in students:
-        if preferred_student is not None and user.user_id == preferred_student.user_id:
-            continue
-        if len(dense_students) >= dense_count:
-            break
-        dense_students.append(user)
-    dense_student_ids = {user.user_id for user in dense_students}
-    for user in dense_students:
+        ordered_students.append(preferred_student)
+    ordered_students.extend([u for u in students if preferred_student is None or u.user_id != preferred_student.user_id])
+
+    class_order = [dense_target] + [k for k in sorted_classes if k.kelas_id != dense_target.kelas_id]
+
+    # Pass 1: guarantee each class gets at least one student (if possible).
+    first_pass = min(len(class_order), len(ordered_students))
+    for idx in range(first_pass):
+        await assign_one(ordered_students[idx], class_order[idx])
+
+    remaining_students = ordered_students[first_pass:]
+
+    # Pass 2: fill dense class up to target size for UI/performance testing.
+    while remaining_students and assigned_count[dense_target.kelas_id] < dense_target_size:
+        user = remaining_students.pop(0)
         await assign_one(user, dense_target)
 
-    remaining_students = [user for user in students if user.user_id not in dense_student_ids]
-    split = max(1, len(remaining_students) // 3) if remaining_students else 0
-    groups = [
-        (remaining_students[:split], TingkatKelas.x),
-        (remaining_students[split : split * 2], TingkatKelas.xi),
-        (remaining_students[split * 2 :], TingkatKelas.xii),
-    ]
+    # Pass 3: distribute remaining students evenly to non-dense classes.
+    non_dense_classes = [k for k in sorted_classes if k.kelas_id != dense_target.kelas_id]
+    distribution_pool = non_dense_classes if non_dense_classes else [dense_target]
+    class_cycle = cycle(distribution_pool)
+    for user in remaining_students:
+        await assign_one(user, next(class_cycle))
 
-    for group_students, tingkat in groups:
-        kelas_group = by_tingkat[tingkat]
-        if tingkat == dense_target.tingkat:
-            without_dense = [k for k in kelas_group if k.kelas_id != dense_target.kelas_id]
-            if without_dense:
-                kelas_group = without_dense
-        if not kelas_group:
-            continue
-        class_cycle = cycle(kelas_group)
-        for user in group_students:
-            kelas = next(class_cycle)
-            await assign_one(user, kelas)
-
-    print(f"  SEEDED siswa_kelas assignments (dense class: {dense_target.nama_kelas} = {dense_count} siswa)")
+    non_empty = sum(1 for count in assigned_count.values() if count > 0)
+    print(
+        "  SEEDED siswa_kelas assignments "
+        f"({len(ordered_students)} siswa ke {non_empty}/{len(sorted_classes)} kelas; "
+        f"dense: {dense_target.nama_kelas}={assigned_count[dense_target.kelas_id]})"
+    )
     return assigned_active
 
 
@@ -762,11 +791,11 @@ async def seed() -> None:
             raise RuntimeError("Tidak ada tahun ajaran aktif pada konfigurasi seed.")
 
         await seed_structural_roles_and_assignments(session, active_state["ta"], teachers)
-        kategori_map = await seed_kategori_kelas(session)
-        mapel_map = await seed_mapel(session)
         slots = await seed_slot_waktu(session)
 
         for state in ta_states:
+            kategori_map = await seed_kategori_kelas(session, state["ta"])
+            mapel_map = await seed_mapel(session, state["ta"])
             classes = await seed_kelas(session, state["ta"], kategori_map, teachers)
             state["classes"] = classes
             await seed_kurikulum(session, state["ta"], kategori_map, mapel_map)

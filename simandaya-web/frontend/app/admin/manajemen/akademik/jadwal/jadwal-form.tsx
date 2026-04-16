@@ -106,18 +106,16 @@ export function JadwalForm() {
     if (!matchingSlot) {
       const nextUrutan =
         slotWaktu.length > 0 ? Math.max(...slotWaktu.map((s) => s.urutan || 0)) + 1 : 1;
-      const createSlotResult = await createSlotWaktu({
-        nama: `Jam ${form.jam_mulai}-${form.jam_selesai}`,
-        jam_mulai: form.jam_mulai,
-        jam_selesai: form.jam_selesai,
-        urutan: nextUrutan,
-        is_piket: false,
-      });
-
-      if ("data" in createSlotResult && createSlotResult.data) {
-        matchingSlot = createSlotResult.data;
-      } else {
-        notifyError("Gagal membuat slot waktu otomatis.");
+      try {
+        matchingSlot = await createSlotWaktu({
+          nama: `Jam ${form.jam_mulai}-${form.jam_selesai}`,
+          jam_mulai: form.jam_mulai,
+          jam_selesai: form.jam_selesai,
+          urutan: nextUrutan,
+          is_piket: false,
+        }).unwrap();
+      } catch (error) {
+        notifyError(getApiErrorMessage(error) || "Gagal membuat slot waktu otomatis.");
         return;
       }
     }
@@ -134,12 +132,12 @@ export function JadwalForm() {
       slot_waktu_id: matchingSlot.slot_id,
     };
 
-    const result = await createJadwal(payload);
-    if ("data" in result && result.data) {
+    try {
+      await createJadwal(payload).unwrap();
       setSuccessMessage("Jadwal berhasil ditambahkan.");
       notifySuccess("Jadwal berhasil ditambahkan.");
-    } else {
-      notifyError("Gagal menambahkan jadwal.");
+    } catch (error) {
+      notifyError(getApiErrorMessage(error) || "Gagal menambahkan jadwal.");
     }
   };
 

@@ -1,12 +1,14 @@
 from uuid import UUID
+from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_db
 from app.dependencies import require_role
 from app.dto.akademik.kategori_kelas_dto import (
     CreateKategoriKelasDTO,
+    KategoriKelasArchiveImpactDTO,
     KategoriKelasResponseDTO,
     UpdateKategoriKelasDTO,
 )
@@ -24,9 +26,14 @@ router = APIRouter(prefix="/api/v1/akademik", tags=["Admin - Kategori Kelas"])
     dependencies=[Depends(require_role(UserType.admin))],
 )
 async def list_kategori_kelas(
+    status: Literal["available", "archived", "all"] = Query(default="available"),
+    tahun_ajaran_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[KategoriKelasResponseDTO]:
-    return await KategoriKelasService(db).list_kategori()
+    return await KategoriKelasService(db).list_kategori(
+        status=status,
+        tahun_ajaran_id=tahun_ajaran_id,
+    )
 
 
 @router.post(
@@ -60,7 +67,7 @@ async def update_kategori_kelas(
 @router.delete(
     "/kategori-kelas/{kategori_kelas_id}",
     response_model=MessageResponseDTO,
-    summary="Delete Kategori Kelas",
+    summary="Archive Kategori Kelas",
     dependencies=[Depends(require_role(UserType.admin))],
 )
 async def delete_kategori_kelas(
@@ -68,3 +75,16 @@ async def delete_kategori_kelas(
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponseDTO:
     return await KategoriKelasService(db).delete_kategori(kategori_kelas_id)
+
+
+@router.get(
+    "/kategori-kelas/{kategori_kelas_id}/archive-impact",
+    response_model=KategoriKelasArchiveImpactDTO,
+    summary="Get Kategori Kelas Archive Impact",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def get_kategori_kelas_archive_impact(
+    kategori_kelas_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> KategoriKelasArchiveImpactDTO:
+    return await KategoriKelasService(db).get_archive_impact(kategori_kelas_id)

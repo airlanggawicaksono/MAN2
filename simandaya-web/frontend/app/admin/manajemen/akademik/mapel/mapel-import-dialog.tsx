@@ -42,9 +42,10 @@ function mapKelompok(value: string): string | null {
 
 type MapelImportDialogProps = {
   existingMapels: MapelResponse[];
+  tahunAjaranId?: string;
 };
 
-export function MapelImportDialog({ existingMapels }: MapelImportDialogProps) {
+export function MapelImportDialog({ existingMapels, tahunAjaranId }: MapelImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -170,13 +171,20 @@ export function MapelImportDialog({ existingMapels }: MapelImportDialogProps) {
 
   const onImport = async () => {
     if (payload.length === 0) return;
+    if (!tahunAjaranId) {
+      notifyError("Pilih tahun ajaran setup terlebih dahulu.");
+      return;
+    }
 
     const failedRows: string[] = [];
     let successCount = 0;
 
     for (const row of payload) {
       try {
-        await createMapel(row).unwrap();
+        await createMapel({
+          ...row,
+          tahun_ajaran_id: tahunAjaranId,
+        }).unwrap();
         successCount += 1;
       } catch {
         failedRows.push(`${row.kode_mapel} - ${row.nama_mapel}`);
@@ -291,7 +299,11 @@ export function MapelImportDialog({ existingMapels }: MapelImportDialogProps) {
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Tutup
           </Button>
-          <Button type="button" disabled={isSaving || payload.length === 0} onClick={onImport}>
+          <Button
+            type="button"
+            disabled={isSaving || payload.length === 0 || !tahunAjaranId}
+            onClick={onImport}
+          >
             {isSaving ? "Mengimport..." : "Import Data"}
           </Button>
         </DialogFooter>

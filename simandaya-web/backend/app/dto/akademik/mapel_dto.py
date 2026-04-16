@@ -5,6 +5,10 @@ from app.enums import KelompokMapel
 
 
 class CreateMapelDTO(BaseModel):
+    tahun_ajaran_id: UUID | None = Field(
+        default=None,
+        description="If omitted, active tahun ajaran will be used",
+    )
     kode_mapel: str = Field(..., min_length=1, max_length=20, description="e.g. MTK, FQH")
     nama_mapel: str = Field(..., min_length=1, max_length=100)
     kelompok: KelompokMapel = Field(...)
@@ -20,7 +24,18 @@ class UpdateMapelDTO(BaseModel):
 
 class MapelResponseDTO(BaseModel):
     mapel_id: UUID
+    tahun_ajaran_id: UUID
     kode_mapel: str
     nama_mapel: str
     kelompok: KelompokMapel
     is_active: bool
+
+
+class MapelArchiveImpactDTO(BaseModel):
+    mapel_id: UUID
+    kurikulum_count: int
+    guru_mapel_count: int
+    jadwal_count: int
+    tugas_count: int
+    rapor_nilai_count: int
+    rapor_bobot_count: int

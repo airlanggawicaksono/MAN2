@@ -57,7 +57,10 @@ export function MapelEditDialog({ mapel, open, onClose }: MapelEditDialogProps) 
       notifySuccess("Perubahan mata pelajaran berhasil disimpan.");
       onClose();
     } else {
-      notifyError("Gagal menyimpan perubahan mata pelajaran.");
+      notifyError(
+        getApiErrorMessage("error" in result ? result.error : null) ||
+          "Gagal menyimpan perubahan mata pelajaran.",
+      );
     }
   };
 

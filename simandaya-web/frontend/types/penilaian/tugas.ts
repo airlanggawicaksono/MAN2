@@ -14,6 +14,7 @@ export interface TugasResponse {
   guru_pengajar?: string;
   link_tugas?: string;
   link_submission?: string;
+  is_archived_context: boolean;
   is_published_to_students: boolean;
   is_nilai_published_to_students: boolean;
   deadline?: string;

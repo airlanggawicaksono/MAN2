@@ -35,9 +35,6 @@ class TahunAjaranRepository:
     async def add(self, tahun_ajaran: TahunAjaran) -> None:
         self.db.add(tahun_ajaran)
 
-    async def delete(self, tahun_ajaran: TahunAjaran) -> None:
-        await self.db.delete(tahun_ajaran)
-
     async def commit(self) -> None:
         await self.db.commit()
 

@@ -86,8 +86,14 @@ export default function KurikulumTab() {
   );
 
   const { data: tahunAjarans } = useListTahunAjaranQuery();
-  const { data: kategoriKelas = [] } = useListKategoriKelasQuery();
-  const { data: allMapels } = useListMapelQuery();
+  const { data: kategoriKelas = [] } = useListKategoriKelasQuery({
+    status: "available",
+    tahunAjaranId: selectedTahunAjaranId || undefined,
+  });
+  const { data: allMapels } = useListMapelQuery({
+    status: "available",
+    tahunAjaranId: selectedTahunAjaranId || undefined,
+  });
   const [selectedKategoriKelasId, setSelectedKategoriKelasId] = useState<string>("");
   const { data: kurikulumItems, isLoading } = useListKurikulumByTahunAjaranQuery(
     { taId: selectedTahunAjaranId, kategoriKelasId: selectedKategoriKelasId || undefined },
@@ -199,7 +205,7 @@ export default function KurikulumTab() {
           <SelectContent className="max-h-64 overflow-y-auto">
             {kategoriKelas.map((k) => (
               <SelectItem key={k.kategori_kelas_id} value={k.kategori_kelas_id}>
-                {k.nama} ({k.kode}) {k.is_active ? "" : "(Nonaktif)"}
+                {k.nama} ({k.kode})
               </SelectItem>
             ))}
           </SelectContent>

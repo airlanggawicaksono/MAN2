@@ -10,6 +10,7 @@ export interface JadwalResponse {
   semester_id: UUID;
   hari: string;
   slot_waktu_id?: UUID;
+  is_active?: boolean;
   jam_mulai?: string;
   jam_selesai?: string;
   mapel?: MapelResponse;
@@ -47,6 +48,7 @@ export interface GuruMapelResponse {
   mapel_id: UUID;
   kelas_id: UUID;
   tahun_ajaran_id: UUID;
+  is_active?: boolean;
   guru_nama?: string;
   mapel_nama?: string;
   kelas_nama?: string;

@@ -29,6 +29,14 @@ class KelasPolicy:
             )
 
     @staticmethod
+    def ensure_kategori_in_tahun_ajaran(kategori, tahun_ajaran_id) -> None:
+        if kategori.tahun_ajaran_id != tahun_ajaran_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Kategori kelas harus berasal dari tahun ajaran yang sama",
+            )
+
+    @staticmethod
     def ensure_user_exists(user, user_id) -> None:
         if not user:
             raise HTTPException(
@@ -78,6 +86,14 @@ class KelasPolicy:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Kelas with ID {kelas_id} not found",
+            )
+
+    @staticmethod
+    def ensure_kelas_active(kelas) -> None:
+        if not kelas.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Kelas '{kelas.nama_kelas}' sedang diarsipkan",
             )
 
     @staticmethod
