@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/app_config.dart';
 import '../../providers/providers.dart';
 import '../../services/hikvision_service.dart';
+import '../../services/network_discovery_service.dart';
 import '../../services/server_service.dart';
 import '../../data/hikvision/isapi_client.dart';
+import '../../services/ticket_printer_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -18,15 +20,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _hikIpCtrl;
   late TextEditingController _hikUserCtrl;
   late TextEditingController _hikPassCtrl;
+  late TextEditingController _hikMacCtrl;
   late TextEditingController _serverUrlCtrl;
   late TextEditingController _apiKeyCtrl;
-  late TextEditingController _frontendUrlCtrl;
+  late TextEditingController _thermalPrinterCtrl;
+  String _thermalPrinterKey = '';
   bool _obscurePass = true;
   bool _obscureKey = true;
   bool _fieldsPopulated = false;
+  bool _scanningThermal = false;
+  bool _testingPrint = false;
 
   // Hikvision test state
   bool _testingHik = false;
+  bool _detectingHikIp = false;
   String? _hikTestResult;
   bool? _hikTestSuccess;
   String? _hikErrorField;
@@ -43,9 +50,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikIpCtrl = TextEditingController();
     _hikUserCtrl = TextEditingController();
     _hikPassCtrl = TextEditingController();
+    _hikMacCtrl = TextEditingController();
     _serverUrlCtrl = TextEditingController();
     _apiKeyCtrl = TextEditingController();
-    _frontendUrlCtrl = TextEditingController();
+    _thermalPrinterCtrl = TextEditingController();
   }
 
   @override
@@ -53,9 +61,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikIpCtrl.dispose();
     _hikUserCtrl.dispose();
     _hikPassCtrl.dispose();
+    _hikMacCtrl.dispose();
     _serverUrlCtrl.dispose();
     _apiKeyCtrl.dispose();
-    _frontendUrlCtrl.dispose();
+    _thermalPrinterCtrl.dispose();
     super.dispose();
   }
 
@@ -63,9 +72,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikIpCtrl.text = config.hikvisionIp;
     _hikUserCtrl.text = config.hikvisionUser;
     _hikPassCtrl.text = config.hikvisionPassword;
+    _hikMacCtrl.text = config.hikvisionMac;
     _serverUrlCtrl.text = config.serverUrl;
     _apiKeyCtrl.text = config.apiKey;
-    _frontendUrlCtrl.text = config.frontendUrl;
+    _thermalPrinterCtrl.text = config.thermalPrinterName;
+    _thermalPrinterKey = config.thermalPrinterKey;
     _fieldsPopulated = true;
   }
 
@@ -161,6 +172,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _autoDetectHikvisionIp() async {
+    final mac = _hikMacCtrl.text.trim();
+    if (mac.isEmpty) {
+      setState(() {
+        _clearHikTestState();
+        _hikTestResult = 'Isi MAC address dulu';
+        _hikTestSuccess = false;
+        _hikErrorField = 'ip';
+      });
+      return;
+    }
+
+    setState(() {
+      _detectingHikIp = true;
+      _clearHikTestState();
+    });
+
+    try {
+      final ip = await NetworkDiscoveryService.findIpByMac(mac);
+      if (!mounted) return;
+
+      if (ip == null) {
+        setState(() {
+          _hikTestResult =
+              'IP tidak ditemukan untuk MAC $mac.\nPastikan perangkat satu jaringan dan aktif.';
+          _hikTestSuccess = false;
+          _hikErrorField = 'ip';
+        });
+        return;
+      }
+
+      setState(() {
+        _hikIpCtrl.text = ip;
+        _hikTestResult = 'IP ditemukan: $ip (MAC: $mac)';
+        _hikTestSuccess = true;
+        _hikErrorField = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _hikTestResult = 'Gagal auto-detect IP: $e';
+        _hikTestSuccess = false;
+        _hikErrorField = 'ip';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _detectingHikIp = false);
+      }
+    }
+  }
+
   // ── Server Test ─────────────────────────────────────────────────────
 
   Future<void> _testServer() async {
@@ -194,6 +256,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ── Save ────────────────────────────────────────────────────────────
 
+  Future<void> _scanAndSelectThermalPrinter() async {
+    setState(() => _scanningThermal = true);
+    try {
+      final service = ref.read(ticketPrinterServiceProvider);
+      final printers = await service.scanUsbPrinters();
+      if (!mounted) return;
+
+      if (printers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada printer thermal USB yang terdeteksi')),
+        );
+        return;
+      }
+
+      final selected = await showDialog<TicketPrinterDevice>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pilih Printer Thermal'),
+          content: SizedBox(
+            width: 420,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: printers.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, i) {
+                final p = printers[i];
+                return ListTile(
+                  title: Text(p.name),
+                  subtitle: p.address == null || p.address!.isEmpty
+                      ? null
+                      : Text(p.address!),
+                  onTap: () => Navigator.of(ctx).pop(p),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Batal'),
+            ),
+          ],
+        ),
+      );
+
+      if (selected == null || !mounted) return;
+      setState(() {
+        _thermalPrinterKey = selected.key;
+        _thermalPrinterCtrl.text = selected.name;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal scan printer thermal: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _scanningThermal = false);
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -201,9 +325,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       hikvisionIp: _hikIpCtrl.text.trim(),
       hikvisionUser: _hikUserCtrl.text.trim(),
       hikvisionPassword: _hikPassCtrl.text,
+      hikvisionMac: _hikMacCtrl.text.trim(),
       serverUrl: _serverUrlCtrl.text.trim(),
       apiKey: _apiKeyCtrl.text.trim(),
-      frontendUrl: _frontendUrlCtrl.text.trim(),
+      thermalPrinterKey: _thermalPrinterKey,
+      thermalPrinterName: _thermalPrinterCtrl.text.trim(),
     );
 
     await ref.read(configProvider.notifier).updateConfig(config);
@@ -212,6 +338,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings saved')),
       );
+    }
+  }
+
+  Future<void> _testThermalPrinter() async {
+    if (_thermalPrinterKey.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih printer thermal dulu')),
+      );
+      return;
+    }
+
+    setState(() => _testingPrint = true);
+    try {
+      await ref.read(ticketPrinterServiceProvider).printTest(
+            preferredPrinterKey: _thermalPrinterKey,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test print berhasil dikirim')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Test print gagal: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _testingPrint = false);
+      }
     }
   }
 
@@ -359,22 +515,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     validator: (v) =>
                         v == null || v.isEmpty ? 'Required' : null,
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _testingHik ? null : _testHikvision,
-                      icon: _testingHik
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.lan),
-                      label: Text(
-                          _testingHik ? 'Testing...' : 'Test Connection'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _hikMacCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'MAC Address',
+                      hintText: '08:54:11:32:fe:5b',
+                      border: OutlineInputBorder(),
                     ),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: (_testingHik || _detectingHikIp)
+                              ? null
+                              : _autoDetectHikvisionIp,
+                          icon: _detectingHikIp
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.search),
+                          label: Text(_detectingHikIp
+                              ? 'Mencari IP...'
+                              : 'Deteksi Ulang Manual'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: (_testingHik || _detectingHikIp)
+                              ? null
+                              : _testHikvision,
+                          icon: _testingHik
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.lan),
+                          label: Text(
+                              _testingHik ? 'Testing...' : 'Test Connection'),
+                        ),
+                      ),
+                    ],
                   ),
                   if (_hikTestResult != null) ...[
                     const SizedBox(height: 8),
@@ -458,17 +648,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _serverTestResult!, _serverTestSuccess!),
                   ],
 
+                  const SizedBox(height: 32),
+
+                  Text('Printer Thermal',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _frontendUrlCtrl,
+                    controller: _thermalPrinterCtrl,
+                    readOnly: true,
                     decoration: const InputDecoration(
-                      labelText: 'Frontend URL',
-                      hintText: 'http://localhost:4923',
+                      labelText: 'Printer Terpilih',
+                      hintText: 'Belum ada printer dipilih',
                       border: OutlineInputBorder(),
-                      helperText: 'URL web frontend untuk tab Absensi',
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _scanningThermal ? null : _scanAndSelectThermalPrinter,
+                      icon: _scanningThermal
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.print),
+                      label: Text(_scanningThermal
+                          ? 'Mencari printer...'
+                          : 'Cari Printer Thermal'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _testingPrint ? null : _testThermalPrinter,
+                      icon: _testingPrint
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.receipt_long),
+                      label: Text(_testingPrint ? 'Mencetak test...' : 'Test Print'),
+                    ),
                   ),
 
                   const SizedBox(height: 32),

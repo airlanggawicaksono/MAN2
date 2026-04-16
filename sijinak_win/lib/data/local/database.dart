@@ -9,14 +9,57 @@ import 'tables/tap_records.dart';
 
 part 'database.g.dart';
 
+abstract class StudentStorePort {
+  Future<List<Student>> getAllStudents();
+  Future<int> getStudentCount();
+  Future<Student?> getStudentByCard(String cardNo);
+  Future<Student?> getStudentByUserId(String userId);
+  Future<Student?> getStudentByNis(String nis);
+  Future<void> upsertStudents(List<StudentsCompanion> rows);
+  Future<StudentSnapshotSyncResult> syncStudentsSnapshot({
+    required List<StudentsCompanion> rows,
+    required Set<String> serverUserIds,
+    Set<String> protectedUserIds,
+  });
+  Future<List<Student>> getUnregisteredStudents();
+  Future<void> markHikRegistered(String userId);
+  Future<void> assignCardToStudent(String userId, String cardNo);
+  Future<void> removeCardFromStudent(String userId);
+}
+
+abstract class AttendanceStorePort {
+  Future<Student?> getStudentByUserId(String userId);
+  Future<Student?> getStudentByCard(String cardNo);
+  Future<List<TapRecord>> getTodayRecordsForStudent(String userId);
+  Future<List<TapRecord>> getTodayRecordsForCard(String cardNo);
+}
+
+abstract class SyncStorePort {
+  Future<List<TapRecord>> getUnpublishedRecords();
+  Future<Student?> getStudentByUserId(String userId);
+  Future<Student?> getStudentByCard(String cardNo);
+  Future<void> markPublished(String recordId, int publishedAt);
+}
+
+class StudentSnapshotSyncResult {
+  final List<String> removedUserIds;
+  final List<String> removedCardNos;
+
+  const StudentSnapshotSyncResult({
+    this.removedUserIds = const [],
+    this.removedCardNos = const [],
+  });
+}
+
 @DriftDatabase(tables: [Students, TapRecords])
-class AppDatabase extends _$AppDatabase {
+class AppDatabase extends _$AppDatabase
+    implements StudentStorePort, AttendanceStorePort, SyncStorePort {
   AppDatabase._() : super(_openConnection());
 
   static final AppDatabase instance = AppDatabase._();
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -25,6 +68,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             await m.deleteTable('students');
             await m.createTable(students);
+          }
+          if (from < 4) {
+            // Reset legacy history rows that were tied to mutable card ownership.
+            await delete(tapRecords).go();
           }
         },
       );
@@ -70,6 +117,68 @@ class AppDatabase extends _$AppDatabase {
         );
       }
     });
+  }
+
+  /// Mirror students table to match server snapshot exactly.
+  /// Also cascades cleanup of tap records for cards that no longer exist.
+  Future<StudentSnapshotSyncResult> syncStudentsSnapshot({
+    required List<StudentsCompanion> rows,
+    required Set<String> serverUserIds,
+    Set<String> protectedUserIds = const {},
+  }) async {
+    final beforeRows = await getAllStudents();
+    final beforeByUserId = <String, Student>{
+      for (final s in beforeRows) s.userId: s,
+    };
+
+    await transaction(() async {
+      if (rows.isNotEmpty) {
+        await upsertStudents(rows);
+      }
+
+      final retainedUserIds = <String>{...serverUserIds, ...protectedUserIds};
+
+      if (retainedUserIds.isEmpty) {
+        await delete(students).go();
+        await delete(tapRecords).go();
+        return;
+      }
+
+      await (delete(students)
+            ..where((s) => s.userId.isNotIn(retainedUserIds.toList())))
+          .go();
+
+      final activeStudents = await getAllStudents();
+      final activeCards = activeStudents
+          .map((s) => s.cardNo)
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (activeCards.isEmpty) {
+        await delete(tapRecords).go();
+      } else {
+        await (delete(tapRecords)
+              ..where((r) => r.cardNo.isNotIn(activeCards)))
+            .go();
+      }
+    });
+
+    final removedUserIds = beforeByUserId.keys
+        .where((id) => !serverUserIds.contains(id) && !protectedUserIds.contains(id))
+        .toList();
+    final removedCardNos = removedUserIds
+        .map((id) => beforeByUserId[id]?.cardNo)
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+
+    return StudentSnapshotSyncResult(
+      removedUserIds: removedUserIds,
+      removedCardNos: removedCardNos,
+    );
   }
 
   Future<List<Student>> getUnregisteredStudents() =>
@@ -119,6 +228,22 @@ class AppDatabase extends _$AppDatabase {
           ..where(
             (r) =>
                 r.cardNo.equals(cardNo) &
+                r.deviceTime.isBiggerOrEqualValue(startOfDay) &
+                r.deviceTime.isSmallerThanValue(endOfDay),
+          )
+          ..orderBy([(r) => OrderingTerm.asc(r.deviceTime)]))
+        .get();
+  }
+
+  Future<List<TapRecord>> getTodayRecordsForStudent(String userId) {
+    final now = DateTime.now();
+    final startOfDay =
+        DateTime(now.year, now.month, now.day).millisecondsSinceEpoch ~/ 1000;
+    final endOfDay = startOfDay + 86400;
+    return (select(tapRecords)
+          ..where(
+            (r) =>
+                r.id.like('${userId}_%') &
                 r.deviceTime.isBiggerOrEqualValue(startOfDay) &
                 r.deviceTime.isSmallerThanValue(endOfDay),
           )

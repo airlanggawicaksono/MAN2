@@ -1,6 +1,7 @@
 import '../config/app_config.dart';
 import '../data/local/database.dart';
 import '../data/hikvision/isapi_client.dart';
+import 'pending_card_cache_service.dart';
 
 /// Result of a bulk push operation, emitted per-student.
 class BulkPushProgress {
@@ -45,6 +46,22 @@ class BulkCardAssignProgress {
   });
 }
 
+class HikvisionCleanupResult {
+  final int usersDeleted;
+  final int cardsDeleted;
+  final int usersSkippedAdmin;
+  final List<String> deletedUsers;
+  final List<String> deletedCards;
+
+  const HikvisionCleanupResult({
+    this.usersDeleted = 0,
+    this.cardsDeleted = 0,
+    this.usersSkippedAdmin = 0,
+    this.deletedUsers = const [],
+    this.deletedCards = const [],
+  });
+}
+
 class CardAlreadyAssignedException implements Exception {
   final String cardNo;
   final String ownerName;
@@ -55,25 +72,211 @@ class CardAlreadyAssignedException implements Exception {
 }
 
 class StudentService {
-  final AppDatabase db;
+  final StudentStorePort db;
+  final HikvisionDevicePort Function(AppConfig config) _hikvisionClientFactory;
+  final PendingCardCachePort _pendingCardCache;
 
-  StudentService(this.db);
+  StudentService(
+    this.db, {
+    HikvisionDevicePort Function(AppConfig config)? hikvisionClientFactory,
+    PendingCardCachePort? pendingCardCache,
+  }) : _hikvisionClientFactory = hikvisionClientFactory ??
+            ((config) => IsapiClient(
+                  baseUrl: config.hikvisionBaseUrl,
+                  username: config.hikvisionUser,
+                  password: config.hikvisionPassword,
+                )),
+       _pendingCardCache = pendingCardCache ?? PendingCardCacheService();
 
   Future<List<Student>> loadStudents() => db.getAllStudents();
 
   Future<List<Student>> getUnregistered() => db.getUnregisteredStudents();
 
+  /// Try to resolve pending NIS->card assignments that were imported before
+  /// the student existed in local DB. Returns number of applied rows.
+  Future<int> applyPendingCardAssignments(AppConfig config) async {
+    final pending = await _pendingCardCache.listAll();
+    if (pending.isEmpty) return 0;
+
+    int applied = 0;
+    for (final row in pending) {
+      try {
+        final student = await db.getStudentByNis(row.nis);
+        if (student == null) continue;
+
+        if (student.cardNo == row.cardNo) {
+          await _pendingCardCache.remove(row.nis);
+          continue;
+        }
+
+        final duplicate = await checkCardDuplicate(row.cardNo, student.userId);
+        if (duplicate != null) {
+          // Keep pending; admin can fix conflict later.
+          continue;
+        }
+
+        if (config.isHikvisionConfigured) {
+          final client = _hikvisionClientFactory(config);
+          if (!student.hikRegistered) {
+            await client.upsertPerson(
+              employeeNo: student.userId,
+              name: student.nama,
+            );
+            await db.markHikRegistered(student.userId);
+          }
+          await client.upsertCard(cardNo: row.cardNo, employeeNo: student.userId);
+        }
+
+        await db.assignCardToStudent(student.userId, row.cardNo);
+        await _pendingCardCache.remove(row.nis);
+        applied++;
+      } catch (_) {
+        // Keep pending row for next sync retry.
+      }
+    }
+
+    return applied;
+  }
+
+  /// Publish all local students that are not yet marked as registered to Hikvision.
+  /// Returns number of successful publishes.
+  Future<int> publishUnregisteredToHikvision(AppConfig config) async {
+    if (!config.isHikvisionConfigured) return 0;
+    final unregistered = await db.getUnregisteredStudents();
+    if (unregistered.isEmpty) return 0;
+
+    int success = 0;
+    for (final student in unregistered) {
+      try {
+        await pushToHikvision(student, config);
+        success++;
+      } catch (_) {
+        // Best-effort; next sync cycle will retry.
+      }
+    }
+    return success;
+  }
+
+  /// Remove stale cards/persons from Hikvision for users removed from server snapshot.
+  /// Admin user IDs should not be passed into this method.
+  Future<void> reconcileRemovedFromHikvision({
+    required AppConfig config,
+    required List<String> removedUserIds,
+    required List<String> removedCardNos,
+  }) async {
+    if (!config.isHikvisionConfigured) return;
+    if (removedUserIds.isEmpty && removedCardNos.isEmpty) return;
+
+    final client = _hikvisionClientFactory(config);
+
+    for (final cardNo in removedCardNos) {
+      try {
+        await client.deleteCard(cardNo: cardNo);
+      } catch (_) {
+        // Ignore per-card failures; continue best-effort reconciliation.
+      }
+    }
+
+    for (final userId in removedUserIds) {
+      try {
+        await client.deletePerson(employeeNo: userId);
+      } catch (_) {
+        // Ignore per-person failures; continue best-effort reconciliation.
+      }
+    }
+  }
+
+  /// Full reconciliation by scanning device data and deleting stale entries
+  /// that are not present in local DB.
+  /// Safety rule: never delete Hikvision user entries with userType=administrator.
+  Future<HikvisionCleanupResult> cleanupStaleFromHikvision({
+    required AppConfig config,
+  }) async {
+    if (!config.isHikvisionConfigured) return const HikvisionCleanupResult();
+
+    final localStudents = await db.getAllStudents();
+    final localEmployeeNos = localStudents
+        .map((s) => s.userId.replaceAll('-', ''))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final localCardNos = localStudents
+        .map((s) => s.cardNo)
+        .whereType<String>()
+        .where((card) => card.isNotEmpty)
+        .toSet();
+
+    final client = _hikvisionClientFactory(config);
+    final deviceUsers = await client.listUsers();
+    final deviceCards = await client.listCards();
+
+    final adminEmployeeNos = <String>{};
+    int usersDeleted = 0;
+    int usersSkippedAdmin = 0;
+    final deletedUsers = <String>[];
+
+    for (final user in deviceUsers) {
+      final employeeNo = user.employeeNo.trim();
+      if (employeeNo.isEmpty) continue;
+
+      final userType = (user.userType ?? '').trim().toLowerCase();
+      if (userType == 'administrator') {
+        adminEmployeeNos.add(employeeNo);
+        usersSkippedAdmin++;
+        continue;
+      }
+
+      if (localEmployeeNos.contains(employeeNo)) continue;
+
+      try {
+        await client.deletePerson(employeeNo: employeeNo);
+        usersDeleted++;
+        deletedUsers.add(employeeNo);
+      } catch (_) {
+        // Best-effort delete; continue with others.
+      }
+    }
+
+    int cardsDeleted = 0;
+    final deletedCards = <String>[];
+    for (final card in deviceCards) {
+      final cardNo = card.cardNo.trim();
+      if (cardNo.isEmpty) continue;
+
+      final ownerEmployeeNo = (card.employeeNo ?? '').trim();
+      if (ownerEmployeeNo.isNotEmpty && adminEmployeeNos.contains(ownerEmployeeNo)) {
+        continue;
+      }
+
+      if (localCardNos.contains(cardNo)) continue;
+
+      try {
+        await client.deleteCard(cardNo: cardNo);
+        cardsDeleted++;
+        deletedCards.add(cardNo);
+      } catch (_) {
+        // Best-effort delete; continue with others.
+      }
+    }
+
+    return HikvisionCleanupResult(
+      usersDeleted: usersDeleted,
+      cardsDeleted: cardsDeleted,
+      usersSkippedAdmin: usersSkippedAdmin,
+      deletedUsers: deletedUsers,
+      deletedCards: deletedCards,
+    );
+  }
+
   /// Push a single student to Hikvision and mark as registered.
   Future<void> pushToHikvision(Student student, AppConfig config) async {
-    final client = IsapiClient(
-      baseUrl: config.hikvisionBaseUrl,
-      username: config.hikvisionUser,
-      password: config.hikvisionPassword,
-    );
+    final client = _hikvisionClientFactory(config);
     await client.upsertPerson(
       employeeNo: student.userId,
       name: student.nama,
     );
+    if (student.cardNo != null && student.cardNo!.isNotEmpty) {
+      await client.upsertCard(cardNo: student.cardNo!, employeeNo: student.userId);
+    }
     await db.markHikRegistered(student.userId);
   }
 
@@ -96,11 +299,7 @@ class StudentService {
       throw CardAlreadyAssignedException(cardNo, existing.nama);
     }
 
-    final client = IsapiClient(
-      baseUrl: config.hikvisionBaseUrl,
-      username: config.hikvisionUser,
-      password: config.hikvisionPassword,
-    );
+    final client = _hikvisionClientFactory(config);
 
     // Only register person if not already on device
     if (!student.hikRegistered) {
@@ -131,11 +330,7 @@ class StudentService {
 
     if (config.isHikvisionConfigured) {
       try {
-        final client = IsapiClient(
-          baseUrl: config.hikvisionBaseUrl,
-          username: config.hikvisionUser,
-          password: config.hikvisionPassword,
-        );
+        final client = _hikvisionClientFactory(config);
         await client.deleteCard(cardNo: student.cardNo!);
       } catch (_) {
         // Card might not exist on device, continue anyway
@@ -152,11 +347,7 @@ class StudentService {
     AppConfig config,
   ) async* {
     final client = config.isHikvisionConfigured
-        ? IsapiClient(
-            baseUrl: config.hikvisionBaseUrl,
-            username: config.hikvisionUser,
-            password: config.hikvisionPassword,
-          )
+        ? _hikvisionClientFactory(config)
         : null;
 
     int success = 0;
@@ -182,7 +373,8 @@ class StudentService {
         final student = await db.getStudentByNis(nis);
         if (student == null) {
           skipped++;
-          errors.add('NIS $nis: siswa tidak ditemukan');
+          await _pendingCardCache.upsert(nis, cardNo);
+          errors.add('NIS $nis: siswa belum ada di local DB, disimpan ke cache');
           continue;
         }
 
@@ -233,11 +425,7 @@ class StudentService {
 
   /// Push unregistered students one-by-one, yielding progress.
   Stream<BulkPushProgress> pushBulk(List<Student> students, AppConfig config) async* {
-    final client = IsapiClient(
-      baseUrl: config.hikvisionBaseUrl,
-      username: config.hikvisionUser,
-      password: config.hikvisionPassword,
-    );
+    final client = _hikvisionClientFactory(config);
 
     int success = 0;
     int failed = 0;

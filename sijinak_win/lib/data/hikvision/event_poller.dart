@@ -5,7 +5,7 @@ import 'hik_event.dart';
 /// Polls Hikvision AcsEvent endpoint to catch events missed
 /// during alertStream disconnections.
 class EventPoller {
-  final IsapiClient client;
+  final HikvisionDevicePort client;
 
   EventPoller({required this.client});
 

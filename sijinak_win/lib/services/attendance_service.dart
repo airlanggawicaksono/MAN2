@@ -6,7 +6,7 @@ import 'hikvision_service.dart';
 /// Listens to the shared HikvisionService event stream and records
 /// attendance (tap in / tap out) for known cards.
 class AttendanceService {
-  final AppDatabase db;
+  final AttendanceStorePort db;
   final HikvisionService hikService;
 
   StreamSubscription? _sub;
@@ -39,8 +39,8 @@ class AttendanceService {
   }
 
   /// Get the existing local record for today to check for duplicates.
-  Future<TapRecord?> getExistingTodayRecord(String cardNo, String eventType) async {
-    final today = await db.getTodayRecordsForCard(cardNo);
+  Future<TapRecord?> getExistingTodayRecord(String userId, String eventType) async {
+    final today = await db.getTodayRecordsForStudent(userId);
     try {
       return today.firstWhere((r) => r.eventType == eventType);
     } catch (_) {
