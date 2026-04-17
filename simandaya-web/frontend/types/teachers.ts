@@ -1,11 +1,12 @@
 import type {
   JenisKelamin,
   StatusGuru,
-  StructuralRole,
 } from "./enums";
+import type { GuruStructuralAssignment } from "./structural";
 
 export interface GuruProfile {
   guru_id: string;
+  user_id: string;
   nip: string | null;
   nama_lengkap: string;
   dob: string | null;
@@ -17,7 +18,7 @@ export interface GuruProfile {
   status_guru: StatusGuru;
   kontak: string | null;
   kewarganegaraan: string;
-  structural_role: StructuralRole;
+  structural_assignments: GuruStructuralAssignment[];
   mata_pelajaran: string | null;
   pendidikan_terakhir: string | null;
   is_active: boolean;
@@ -34,7 +35,6 @@ export interface PreRegisterTeacherRequest {
   tahun_masuk?: number;
   kontak?: string;
   kewarganegaraan?: string;
-  structural_role?: StructuralRole;
   mata_pelajaran?: string | null;
   pendidikan_terakhir?: string | null;
 }
@@ -55,7 +55,6 @@ export interface UpdateGuruRequest {
   status_guru?: StatusGuru;
   kontak?: string;
   kewarganegaraan?: string;
-  structural_role?: StructuralRole;
   mata_pelajaran?: string | null;
   pendidikan_terakhir?: string | null;
 }

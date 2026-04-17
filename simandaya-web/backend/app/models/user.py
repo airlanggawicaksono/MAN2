@@ -69,8 +69,18 @@ class User(Base):
     )
 
     # Relationships
-    siswa_profile: Mapped[Optional["SiswaProfile"]] = relationship(back_populates="user")
-    guru_profile: Mapped[Optional["GuruProfile"]] = relationship(back_populates="user")
+    siswa_profile: Mapped[Optional["SiswaProfile"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        single_parent=True,
+    )
+    guru_profile: Mapped[Optional["GuruProfile"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        single_parent=True,
+    )
 
     def set_password(self, plain_password: str) -> None:
         salt = bcrypt_lib.gensalt(rounds=settings.BCRYPT_ROUNDS)

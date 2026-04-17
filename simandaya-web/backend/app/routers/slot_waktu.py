@@ -12,7 +12,7 @@ from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Slot Waktu"]
+    tags=["Admin - Slot Waktu"]
 )
 
 
@@ -71,3 +71,4 @@ async def delete_slot_waktu(
 ) -> MessageResponseDTO:
     service = AkademikService(db)
     return await service.delete_slot_waktu(slot_id)
+

@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useDeleteTeacherMutation } from "@/api/teachers";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { useDeleteTeacherMutation } from "@/api/admin/teachers";
 import type { GuruProfile } from "@/types/teachers";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 interface TeacherDeleteDialogProps {
   teacher: GuruProfile | null;
@@ -32,32 +25,28 @@ export function TeacherDeleteDialog({ teacher, open, onClose }: TeacherDeleteDia
     onClose();
   };
 
-  const errorMessage =
-    error && "data" in error
-      ? (error.data as { detail?: string })?.detail
-      : undefined;
+  const errorMessage = getApiErrorMessage(error);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Hapus Civitas Akademik</DialogTitle>
-          <DialogDescription>
-            Apakah Anda yakin ingin menghapus{" "}
-            <strong>{teacher?.nama_lengkap}</strong> (NIP: {teacher?.nip})?
-            Tindakan ini tidak dapat dibatalkan. Akun login juga akan dihapus.
-          </DialogDescription>
-        </DialogHeader>
-        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
-            Batal
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
-            {isLoading ? "Menghapus..." : "Hapus"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleClose();
+      }}
+      title="Hapus Civitas Akademik"
+      description={
+        <>
+          Apakah Anda yakin ingin menghapus{" "}
+          <strong>{teacher?.nama_lengkap}</strong> (NIP: {teacher?.nip})?
+          Tindakan ini tidak dapat dibatalkan. Akun login juga akan dihapus.
+        </>
+      }
+      confirmLabel={isLoading ? "Menghapus..." : "Hapus"}
+      confirmVariant="destructive"
+      confirmDisabled={isLoading}
+      onConfirm={handleDelete}
+    >
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+    </ConfirmDialog>
   );
 }

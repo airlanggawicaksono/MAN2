@@ -36,7 +36,7 @@ class IzinKeluar(Base):
         nullable=False
     )
 
-    waktu_kembali: Mapped[Optional[datetime]] = mapped_column(
+    perkiraan_kembali: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         default=None

@@ -1,13 +1,31 @@
-import { StructuralRole, UserType } from "./enums";
+import type { StructuralRole } from "./enums";
 
-export interface GetStructuralRoleResponse {
-  guru_id: string;
-  nip: string | null;
-  nama_lengkap: string;
-  structural_role: StructuralRole;
-  user_type: UserType;
+export interface StructuralRoleRef {
+  role_id: string | null;
+  code: string;
+  name: string;
+  is_active: boolean;
 }
 
-export interface GetStructuralRoleResponseList {
-  list_of_struct: GetStructuralRoleResponse[];
+export interface GuruStructuralAssignment {
+  assignment_id: string;
+  user_id: string;
+  role_id: string;
+  structural_role: StructuralRole | null;
+  role_code: string | null;
+  role_name: string | null;
+  tahun_ajaran_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+}
+
+export interface AssignStructuralRoleRequest {
+  user_id: string;
+  structural_role: StructuralRole;
+  kelas_id?: string | null;
+  tahun_ajaran_id?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_active?: boolean;
 }

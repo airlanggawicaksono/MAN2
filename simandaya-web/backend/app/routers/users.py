@@ -1,194 +1,291 @@
+from __future__ import annotations
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
 from app.enums import UserType
-from app.services.userMan_service import UserManagementService
+from app.models.user import User
+from app.services.userMan_service import (
+    StudentUserManagementService,
+    TeacherUserManagementService,
+    UserManagementService,
+)
 from app.dto.userMan.userman_request import (
-    UpdateStudentRequestDTO, UpdateGuruRequestDTO,
+    UpdateStudentRequestDTO,
+    UpdateGuruRequestDTO,
 )
 from app.dto.userMan.userman_response import (
-    StudentProfileResponseDTO, GuruProfileResponseDTO,
-    PaginatedStudentsResponse, PaginatedTeachersResponse, 
-    PaginatedPublicCivitasResponse, MessageResponseDTO,
+    StudentProfileResponseDTO,
+    GuruProfileResponseDTO,
+    PaginatedStudentsResponse,
+    PaginatedTeachersResponse,
+    PaginatedPublicCivitasResponse,
+    MessageResponseDTO,
 )
 from app.services.registration_service import RegistrationService
 from app.dto.registration.registration_dto import (
-    PreRegisterStudentDTO, PreRegisterTeacherDTO, PreRegisterResponseDTO,
+    PreRegisterStudentDTO,
+    PreRegisterTeacherDTO,
+    PreRegisterResponseDTO,
 )
-from app.dto.struktural.struktural_dto import (
-    GetStructuralRoleResponseListDTO,
+from app.dto.struktural.assignment_dto import (
+    AssignStructuralRoleDTO,
+    GuruStructuralAssignmentDTO,
+    StructuralRoleRefDTO,
 )
 
-router = APIRouter(
-    prefix="/api/v1/users",
-    tags=["User Management"]
-)
+router = APIRouter(prefix="/api/v1/users")
+student_router = APIRouter(prefix="/students", tags=["Admin + Siswa - Users"])
+teacher_router = APIRouter(prefix="/teachers", tags=["Admin + Guru - Users"])
+teacher_misc_router = APIRouter(tags=["Admin - Users (Structural)"])
+public_router = APIRouter(tags=["Public - Users"])
+
+
+def get_student_user_service(
+    db: AsyncSession = Depends(get_db),
+) -> StudentUserManagementService:
+    return UserManagementService(db).students
+
+
+def get_teacher_user_service(
+    db: AsyncSession = Depends(get_db),
+) -> TeacherUserManagementService:
+    return UserManagementService(db).teachers
 
 
 # ── Public Civitas Endpoint ─────────────────────────────────────────────────
 
 
-@router.get(
+@public_router.get(
     "/civitas",
     response_model=PaginatedPublicCivitasResponse,
     summary="List Public Civitas",
-    description="List civitas (teachers/staff) with public fields (No auth required)."
+    description="List civitas (teachers/staff) with public fields (No auth required).",
 )
 async def list_public_civitas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=100),
     search: Optional[str] = Query(default=None),
-    db: AsyncSession = Depends(get_db),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> PaginatedPublicCivitasResponse:
-    service = UserManagementService(db)
     return await service.list_public_civitas(skip=skip, limit=limit, search=search)
 
 
 # ── Student Endpoints ────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/students",
+@student_router.get(
+    "",
     response_model=PaginatedStudentsResponse,
     summary="List Students",
     description="List student profiles with pagination (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def list_students(
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
     limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
-    search: Optional[str] = Query(default=None, description="Search across nis, nama, nik, kelas, kontak, tempat_lahir"),
-    db: AsyncSession = Depends(get_db),
+    search: Optional[str] = Query(
+        default=None,
+        description="Search across NIS/NIM (username), nama, kelas, kontak, tempat_lahir",
+    ),
+    service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> PaginatedStudentsResponse:
-    service = UserManagementService(db)
     return await service.list_students(skip=skip, limit=limit, search=search)
 
 
-@router.get(
-    "/students/{siswa_id}",
+@student_router.get(
+    "/me",
+    response_model=StudentProfileResponseDTO,
+    summary="Get My Student Profile",
+)
+async def get_my_student_profile(
+    current_user: User = Depends(require_role(UserType.siswa)),
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> StudentProfileResponseDTO:
+    return await service.get_student_by_user_id(current_user.user_id)
+
+
+@student_router.get(
+    "/{siswa_id}",
     response_model=StudentProfileResponseDTO,
     summary="Get Student",
     description="Get a student profile by ID (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def get_student(
     siswa_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> StudentProfileResponseDTO:
-    service = UserManagementService(db)
     return await service.get_student(siswa_id)
 
 
-@router.patch(
-    "/students/{siswa_id}",
+@student_router.patch(
+    "/me",
+    response_model=StudentProfileResponseDTO,
+    summary="Update My Student Profile",
+    description="Partial update own student profile (Student only).",
+)
+async def update_my_student_profile(
+    request: UpdateStudentRequestDTO,
+    current_user: User = Depends(require_role(UserType.siswa)),
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> StudentProfileResponseDTO:
+    # Student self-service can only update non-sensitive fields.
+    payload = request.model_dump(exclude_unset=True)
+    for blocked_field in ("nis", "tahun_masuk", "status_siswa"):
+        payload.pop(blocked_field, None)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No editable fields provided",
+        )
+
+    me = await service.get_student_by_user_id(current_user.user_id)
+    return await service.update_student(me.siswa_id, UpdateStudentRequestDTO(**payload))
+
+
+@student_router.patch(
+    "/{siswa_id}",
     response_model=StudentProfileResponseDTO,
     summary="Update Student",
     description="Partial update a student profile (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def update_student(
     siswa_id: UUID,
     request: UpdateStudentRequestDTO,
-    db: AsyncSession = Depends(get_db),
+    service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> StudentProfileResponseDTO:
-    service = UserManagementService(db)
     return await service.update_student(siswa_id, request)
 
 
-@router.delete(
-    "/students/{siswa_id}",
+@student_router.delete(
+    "/{siswa_id}",
     response_model=MessageResponseDTO,
     summary="Delete Student",
     description="Delete a student and their user account (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def delete_student(
     siswa_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> MessageResponseDTO:
-    service = UserManagementService(db)
     return await service.delete_student(siswa_id)
 
 
 # ── Teacher Endpoints ────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/teachers",
+@teacher_router.get(
+    "",
     response_model=PaginatedTeachersResponse,
     summary="List Teachers",
     description="List teacher profiles with pagination and search (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def list_teachers(
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
     limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
-    search: Optional[str] = Query(default=None, description="Search across nip, nama, nik, kontak, mapel, tempat_lahir"),
-    db: AsyncSession = Depends(get_db),
+    search: Optional[str] = Query(
+        default=None, description="Search across nip, nama, nik, kontak, mapel, tempat_lahir"
+    ),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> PaginatedTeachersResponse:
-    service = UserManagementService(db)
-    return await service.list_gurus(skip=skip, limit=limit, search=search)
+    return await service.list_teachers(skip=skip, limit=limit, search=search)
 
 
-@router.get(
-    "/teachers/{guru_id}",
+@teacher_router.get(
+    "/me",
+    response_model=GuruProfileResponseDTO,
+    summary="Get My Teacher Profile",
+)
+async def get_my_teacher_profile(
+    current_user: User = Depends(require_role(UserType.guru)),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruProfileResponseDTO:
+    return await service.get_teacher_by_user_id(current_user.user_id)
+
+
+@teacher_router.get(
+    "/{guru_id}",
     response_model=GuruProfileResponseDTO,
     summary="Get Teacher",
     description="Get a teacher profile by ID (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def get_teacher(
     guru_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> GuruProfileResponseDTO:
-    service = UserManagementService(db)
-    return await service.get_guru(guru_id)
+    return await service.get_teacher(guru_id)
 
 
-@router.patch(
-    "/teachers/{guru_id}",
+@teacher_router.patch(
+    "/me",
+    response_model=GuruProfileResponseDTO,
+    summary="Update My Teacher Profile",
+    description="Partial update own teacher profile (Teacher only).",
+)
+async def update_my_teacher_profile(
+    request: UpdateGuruRequestDTO,
+    current_user: User = Depends(require_role(UserType.guru)),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruProfileResponseDTO:
+    # Teacher self-service can only update non-sensitive fields.
+    payload = request.model_dump(exclude_unset=True)
+    for blocked_field in ("nip", "tahun_masuk", "status_guru"):
+        payload.pop(blocked_field, None)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No editable fields provided",
+        )
+
+    me = await service.get_teacher_by_user_id(current_user.user_id)
+    return await service.update_teacher(me.guru_id, UpdateGuruRequestDTO(**payload))
+
+
+@teacher_router.patch(
+    "/{guru_id}",
     response_model=GuruProfileResponseDTO,
     summary="Update Teacher",
     description="Partial update a teacher profile (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def update_teacher(
     guru_id: UUID,
     request: UpdateGuruRequestDTO,
-    db: AsyncSession = Depends(get_db),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> GuruProfileResponseDTO:
-    service = UserManagementService(db)
-    return await service.update_guru(guru_id, request)
+    return await service.update_teacher(guru_id, request)
 
 
-@router.delete(
-    "/teachers/{guru_id}",
+@teacher_router.delete(
+    "/{guru_id}",
     response_model=MessageResponseDTO,
     summary="Delete Teacher",
     description="Delete a teacher and their user account (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def delete_teacher(
     guru_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> MessageResponseDTO:
-    service = UserManagementService(db)
-    return await service.delete_guru(guru_id)
+    return await service.delete_teacher(guru_id)
 
 
 # ── Pre-Register Endpoints ──────────────────────────────────────────────────
 
 
-@router.post(
-    "/students/pre-register",
+@student_router.post(
+    "/pre-register",
     response_model=PreRegisterResponseDTO,
     status_code=201,
     summary="Pre-Register Student",
     description="Create a PENDING student entry (Admin only). Student completes registration via /register.",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def pre_register_student(
     request: PreRegisterStudentDTO,
@@ -198,13 +295,13 @@ async def pre_register_student(
     return await service.pre_register_student(request)
 
 
-@router.post(
-    "/teachers/pre-register",
+@teacher_router.post(
+    "/pre-register",
     response_model=PreRegisterResponseDTO,
     status_code=201,
     summary="Pre-Register Teacher",
     description="Create a PENDING teacher entry (Admin only). Teacher completes registration via /register.",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin))],
 )
 async def pre_register_teacher(
     request: PreRegisterTeacherDTO,
@@ -217,14 +314,72 @@ async def pre_register_teacher(
 # ── Structural Role Endpoints ───────────────────────────────────────────────
 
 
-@router.get(
-    "/structural-roles",
-    response_model=GetStructuralRoleResponseListDTO,
-    summary="Get Structural Roles",
-    description="Get all gurus with their structural roles."
+@teacher_misc_router.get(
+    "/structural-role-catalog",
+    response_model=list[StructuralRoleRefDTO],
+    summary="List Structural Role Catalog",
+    description="List dynamic structural role catalog (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
 )
-async def get_structural_roles(
-    db: AsyncSession = Depends(get_db),
-) -> GetStructuralRoleResponseListDTO:
-    service = UserManagementService(db)
-    return await service.get_struktur_guru()
+async def list_structural_role_catalog(
+    include_inactive: bool = Query(default=False),
+    available_only: bool = Query(default=False),
+    for_user_id: UUID | None = Query(default=None),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> list[StructuralRoleRefDTO]:
+    return await service.list_structural_role_catalog(
+        include_inactive=include_inactive,
+        available_only=available_only,
+        for_user_id=for_user_id,
+    )
+
+
+@teacher_misc_router.post(
+    "/structural-assignments",
+    response_model=GuruStructuralAssignmentDTO,
+    status_code=201,
+    summary="Assign Structural Role to Teacher",
+    description="Assign one structural role to a teacher user (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def assign_structural_role(
+    request: AssignStructuralRoleDTO,
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruStructuralAssignmentDTO:
+    return await service.assign_structural_role(request)
+
+
+@teacher_misc_router.get(
+    "/teachers/{user_id}/structural-assignments",
+    response_model=list[GuruStructuralAssignmentDTO],
+    summary="List Teacher Structural Assignments",
+    description="List one teacher's structural assignments (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def list_teacher_structural_assignments(
+    user_id: UUID,
+    active_only: bool = Query(default=False),
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> list[GuruStructuralAssignmentDTO]:
+    return await service.list_teacher_structural_assignments(user_id=user_id, active_only=active_only)
+
+
+@teacher_misc_router.delete(
+    "/structural-assignments/{assignment_id}",
+    response_model=MessageResponseDTO,
+    summary="Deactivate Structural Assignment",
+    description="Deactivate one structural assignment (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def deactivate_structural_assignment(
+    assignment_id: UUID,
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> MessageResponseDTO:
+    return await service.deactivate_structural_assignment(assignment_id)
+
+
+router.include_router(public_router)
+router.include_router(student_router)
+router.include_router(teacher_router)
+router.include_router(teacher_misc_router)
+

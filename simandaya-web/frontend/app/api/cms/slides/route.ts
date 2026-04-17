@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   const newSlide = {
     id: randomUUID(),
     type: body.type ?? "carousel" as const,
-    title: body.title,
-    description: body.description,
+    title: body.title ?? null,
+    description: body.description ?? null,
     bg: body.bg,
     fg: body.fg,
     image_url: body.image_url ?? null,

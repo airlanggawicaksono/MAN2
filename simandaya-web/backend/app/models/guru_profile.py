@@ -9,7 +9,7 @@ from sqlalchemy import (
     ForeignKey,
 )
 from app.config.database import Base
-from app.enums import StatusGuru, JenisKelamin, StructuralRole
+from app.enums import StatusGuru, JenisKelamin
 
 
 class GuruProfile(Base):
@@ -57,12 +57,6 @@ class GuruProfile(Base):
         String(50), nullable=False, default="Indonesia"
     )
 
-    structural_role: Mapped[StructuralRole] = mapped_column(
-        SQLAlchemyEnum(StructuralRole, values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
-        default=StructuralRole.guru,
-    )
-
     # Technical role / subject taught (e.g. "Matematika", "Fisika", "Agama")
     mata_pelajaran: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
@@ -71,7 +65,10 @@ class GuruProfile(Base):
     )
 
     # Relationship
-    user: Mapped["User"] = relationship(back_populates="guru_profile")
+    user: Mapped["User"] = relationship(
+        back_populates="guru_profile",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:
         return f"GuruProfile(nip={self.nip}, nama={self.nama_lengkap})"

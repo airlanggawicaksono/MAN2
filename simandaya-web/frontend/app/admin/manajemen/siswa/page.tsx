@@ -1,77 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Pencil,
-  Trash2,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { useListStudentsQuery } from "@/api/students";
+import { useListStudentsQuery } from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useCrudListPage } from "@/hooks/useCrudListPage";
 import { DataTable } from "@/components/ui/data-table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { StudentForm } from "./student-form";
 import { studentColumns } from "./student-columns";
 import { StudentEditDialog } from "./student-edit-dialog";
 import { StudentDeleteDialog } from "./student-delete-dialog";
-
-const LIMIT = 30;
+import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
+import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
+import { withActionsColumn } from "@/app/components/admin/row-edit-delete-actions";
 
 export default function DataSiswaPage() {
-  const [skip, setSkip] = useState(0);
-  const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const crud = useCrudListPage<StudentProfile>();
 
   const { data, isLoading, error } = useListStudentsQuery({
-    skip,
-    limit: LIMIT,
-    search: debouncedSearch || undefined,
+    skip: crud.skip,
+    limit: crud.limit,
+    search: crud.debouncedSearch,
   });
 
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
-  const currentPage = Math.floor(skip / LIMIT) + 1;
+  useStudentPrecache(crud.skip, total, crud.debouncedSearch);
 
-  useStudentPrecache(skip, total, debouncedSearch || undefined);
-
-  const [editTarget, setEditTarget] = useState<StudentProfile | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<StudentProfile | null>(null);
-
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    setSkip(0);
-  };
-
-  const columnsWithActions = [
-    ...studentColumns,
-    {
-      id: "actions",
-      header: "Aksi",
-      cell: ({ row }: { row: { original: StudentProfile } }) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditTarget(row.original)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteTarget(row.original)}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const columnsWithActions = withActionsColumn(
+    studentColumns,
+    crud.setEditTarget,
+    crud.setDeleteTarget,
+  );
 
   return (
     <div className="space-y-8 p-8">
@@ -87,63 +45,37 @@ export default function DataSiswaPage() {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Daftar Siswa</h2>
 
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Cari siswa..."
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <EntitySearchInput
+          placeholder="Cari siswa (NIS/NIM/Nama)..."
+          value={crud.searchInput}
+          onChange={crud.handleSearchChange}
+        />
 
         {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
         {error && <p className="text-destructive">Gagal memuat data siswa.</p>}
         {data && <DataTable columns={columnsWithActions} data={data.items} />}
 
-        {data && total > LIMIT && (
-          <div className="flex items-center justify-between pt-2">
-            <p className="text-sm text-muted-foreground">
-              Menampilkan {skip + 1}-{Math.min(skip + LIMIT, total)} dari{" "}
-              {total} siswa
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={skip === 0}
-                onClick={() => setSkip((s) => Math.max(0, s - LIMIT))}
-              >
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Prev
-              </Button>
-              <span className="text-sm">
-                Hal {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={skip + LIMIT >= total}
-                onClick={() => setSkip((s) => s + LIMIT)}
-              >
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+        {data ? (
+          <EntityTablePagination
+            skip={crud.skip}
+            limit={crud.limit}
+            total={total}
+            itemLabel="siswa"
+            onSkipChange={crud.setSkip}
+          />
+        ) : null}
       </div>
 
       <StudentEditDialog
-        student={editTarget}
-        open={!!editTarget}
-        onClose={() => setEditTarget(null)}
+        student={crud.editTarget}
+        open={!!crud.editTarget}
+        onClose={() => crud.setEditTarget(null)}
       />
 
       <StudentDeleteDialog
-        student={deleteTarget}
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        student={crud.deleteTarget}
+        open={!!crud.deleteTarget}
+        onClose={() => crud.setDeleteTarget(null)}
       />
     </div>
   );

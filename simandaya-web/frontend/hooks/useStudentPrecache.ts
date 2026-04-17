@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { studentsApi } from "@/api/students";
+import { studentsApi } from "@/api/admin/students";
 
 const usePrefetch = studentsApi.usePrefetch;
 
@@ -12,10 +12,6 @@ const CHUNK = 30;
  * feels instant. Given the current offset (skip), it prefetches:
  *  - Next chunk  (skip + CHUNK) if within total
  *  - Prev chunk  (skip - CHUNK) if >= 0
- *
- * If the remaining items in either direction are < CHUNK, it just
- * prefetches whatever is left.
- *
  * @param skip   Current query offset (not display page number)
  * @param total  Total records returned by the API
  */
@@ -31,14 +27,18 @@ export function useStudentPrecache(skip: number, total: number, search?: string)
     const nextSkip = (chunkIndex + 1) * CHUNK;
     if (nextSkip < total) {
       const remaining = total - nextSkip;
-      prefetch({ skip: nextSkip, limit: Math.min(CHUNK, remaining), search });
+      if (remaining >= CHUNK) {
+        prefetch({ skip: nextSkip, limit: CHUNK, search });
+      }
     }
 
     // Prev chunk
     const prevSkip = (chunkIndex - 1) * CHUNK;
     if (prevSkip >= 0) {
       const remaining = total - prevSkip;
-      prefetch({ skip: prevSkip, limit: Math.min(CHUNK, remaining), search });
+      if (remaining >= CHUNK) {
+        prefetch({ skip: prevSkip, limit: CHUNK, search });
+      }
     }
   }, [skip, total, search, prefetch]);
 }

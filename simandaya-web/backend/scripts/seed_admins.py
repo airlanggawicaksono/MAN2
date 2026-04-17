@@ -1,192 +1,79 @@
 """
-Seed admin, student, and teacher accounts into the database.
+Seed minimal accounts into the database.
 
 Usage (from host, with Docker running):
     docker exec simandaya-backend python scripts/seed_admins.py
-
-Creates:
-  - 1 admin (completed)
-  - 10 students (PENDING, pre-registered with NIS + nama)
-  - Full organizational chart for teachers (PENDING, pre-registered with NIP + nama + structural roles)
-Skips any that already exist.
 """
 
-import sys
 import asyncio
+import sys
 from pathlib import Path
+
+from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select
-from app.config.database import engine, async_session_maker
-from app.models.user import User
-from app.models.siswa_profile import SiswaProfile
+from app.config.database import async_session_maker, engine
+from app.enums import JenisKelamin, RegistrationStatus, StatusGuru, StatusSiswa, UserType
 from app.models.guru_profile import GuruProfile
-from app.enums import (
-    UserType,
-    RegistrationStatus,
-    StatusSiswa,
-    StatusGuru,
-    JenisKelamin,
-    StructuralRole,
-)
-
-
+from app.models.siswa_profile import SiswaProfile
+from app.models.tahun_ajaran import TahunAjaran  # noqa: F401
+from app.models.user import User
 
 ADMINS = [
     {"username": "admin", "password": "1qaz2wsx3edc"},
 ]
 
-STUDENTS = [
-    {"nis": "24001", "nama_lengkap": "Ahmad Fauzan", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "X IPA 1"},
-    {"nis": "24002", "nama_lengkap": "Siti Aisyah", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "X IPA 2"},
-    {"nis": "24003", "nama_lengkap": "Muhammad Rizky", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "X IPS 1"},
-    {"nis": "24004", "nama_lengkap": "Nur Halimah", "jenis_kelamin": JenisKelamin.perempuan, "kelas_jurusan": "XI IPA 1"},
-    {"nis": "24005", "nama_lengkap": "Dimas Prasetyo", "jenis_kelamin": JenisKelamin.laki_laki, "kelas_jurusan": "XI IPA 2"},
+SEED_ADMIN_PASSWORD = ADMINS[0]["password"]
+
+BASE_STUDENTS = [
+    {
+        "username": "wicaksono_student",
+        "nis": "001",
+        "nama_lengkap": "Wicaksono Student",
+        "jenis_kelamin": JenisKelamin.laki_laki,
+    }
 ]
 
-TEACHERS = [
-    # ── Pimpinan ──────────────────────────────────────────────────────────
+AUTO_STUDENTS = [
     {
-        "nip": "1001",
-        "nama_lengkap": "Drs. H. Ahmad Tabrani",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.komite_madrasah,
-    },
-    {
-        "nip": "196705151993031002",
-        "nama_lengkap": "Singgih Sampurno, S.Pd., M.A.",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.kepala_madrasah,
-    },
-    {
-        "nip": "197201081998032001",
-        "nama_lengkap": "Isti Wahyuni, S.E., M.M",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.kepala_tata_usaha,
-    },
+        "username": f"student_{i:03d}",
+        "nis": f"{1000 + i:04d}",
+        "nama_lengkap": f"Siswa Seed {i:03d}",
+        "jenis_kelamin": JenisKelamin.laki_laki if i % 2 else JenisKelamin.perempuan,
+    }
+    for i in range(1, 121)
+]
 
-    # ── Wakamad Bid. Kurikulum ───────────────────────────────────────────
-    {
-        "nip": "197308202000031001",
-        "nama_lengkap": "Fajar Basuki Rahmat, S.Ag",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.wakamad_kurikulum,
-    },
-    {
-        "nip": "2001",
-        "nama_lengkap": "Koordinator Tim IT",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.tim_it,
-    },
-    {
-        "nip": "2002",
-        "nama_lengkap": "Staf Pengembang Madrasah",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.pengembang_madrasah,
-    },
-    {
-        "nip": "2003",
-        "nama_lengkap": "Kepala Laboratorium Terpadu",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.kepala_laboratorium_terpadu,
-    },
-    {
-        "nip": "198503172010011001",
-        "nama_lengkap": "Hendra Kurniawan, S.Pd",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.wali_kelas,
-    },
+STUDENTS = [*BASE_STUDENTS, *AUTO_STUDENTS]
 
-    # ── Wakamad Bid. Kesiswaan ────────────────────────────────────────────
+BASE_TEACHERS = [
     {
-        "nip": "198005152005012001",
-        "nama_lengkap": "Leni, S.Si., M.Pd",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.wakamad_kesiswaan,
-    },
-    {
-        "nip": "198711252012012001",
-        "nama_lengkap": "Sari Rahmawati, S.Pd",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.bimbingan_konseling,
-    },
-    {
-        "nip": "3001",
-        "nama_lengkap": "Koordinator Ramah Anak",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.satuan_pendidikan_ramah_anak,
-    },
-    {
-        "nip": "3002",
-        "nama_lengkap": "Tim Pendidikan Karakter",
+        "username": "wicaksono_guru",
+        "nip": "001",
+        "nama_lengkap": "Wicaksono Guru",
         "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.tim_pendidikan_karakter,
-    },
-    {
-        "nip": "3003",
-        "nama_lengkap": "Pembina Ekstrakurikuler",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.pembina_ekstrakurikuler,
-    },
-
-    # ── Wakamad Bid. Sarpras ─────────────────────────────────────────────
-    {
-        "nip": "198112302006041001",
-        "nama_lengkap": "Afwan Suhaimi DR, S.Pd",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.wakamad_sarpras,
-    },
-    {
-        "nip": "199002082015031001",
-        "nama_lengkap": "Eko Prasetyo, S.Kom",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.laboratorium_komputer,
-    },
-    {
-        "nip": "5001",
-        "nama_lengkap": "Tim Adiwiyata",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.tim_adiwiyata,
-    },
-
-    # ── Wakamad Bid. Humas ───────────────────────────────────────────────
-    {
-        "nip": "197609152003122001",
-        "nama_lengkap": "Rita Setyowati, S.Pd., M.Pd",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.wakamad_humas,
-    },
-    {
-        "nip": "6001",
-        "nama_lengkap": "Staff Publikasi dan Informasi",
-        "jenis_kelamin": JenisKelamin.laki_laki,
-        "structural_role": StructuralRole.publikasi_informasi,
-    },
-    {
-        "nip": "6002",
-        "nama_lengkap": "Staff Multimedia dan Studio",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.multimedia_studio,
-    },
-
-    # ── Umum ──────────────────────────────────────────────────────────────
-    {
-        "nip": "199205152018012001",
-        "nama_lengkap": "Anisa Putri, S.Pd",
-        "jenis_kelamin": JenisKelamin.perempuan,
-        "structural_role": StructuralRole.guru,
     },
 ]
 
+AUTO_TEACHERS = [
+    {
+        "username": f"teacher_{i:03d}",
+        "nip": f"{2000 + i:04d}",
+        "nama_lengkap": f"Guru Seed {i:03d}",
+        "jenis_kelamin": JenisKelamin.laki_laki if i % 2 else JenisKelamin.perempuan,
+    }
+    for i in range(1, 31)
+]
 
-async def seed():
+TEACHERS = [*BASE_TEACHERS, *AUTO_TEACHERS]
+
+
+async def seed() -> None:
     async with async_session_maker() as session:
-        # ── Admins ─────────────────────────────────────────────────────────
+        # Seed admin(s)
         for admin in ADMINS:
-            result = await session.execute(
-                select(User).where(User.username == admin["username"])
-            )
+            result = await session.execute(select(User).where(User.username == admin["username"]))
             if result.scalar_one_or_none():
                 print(f"  SKIP admin (exists): {admin['username']}")
                 continue
@@ -201,22 +88,26 @@ async def seed():
             session.add(user)
             print(f"  CREATED admin: {admin['username']}")
 
-        # ── Students (PENDING) ─────────────────────────────────────────────
+        # Seed one student
         for s in STUDENTS:
-            result = await session.execute(
-                select(SiswaProfile).where(SiswaProfile.nis == s["nis"])
-            )
+            result = await session.execute(select(SiswaProfile).where(SiswaProfile.nis == s["nis"]))
             if result.scalar_one_or_none():
-                print(f"  SKIP student (NIS exists): {s['nis']} - {s['nama_lengkap']}")
+                print(f"  SKIP student profile (NIS exists): {s['nis']}")
+                continue
+
+            user_result = await session.execute(select(User).where(User.username == s["username"]))
+            existing_user = user_result.scalar_one_or_none()
+            if existing_user:
+                print(f"  SKIP student user (username exists): {s['username']}")
                 continue
 
             user = User(
+                username=s["username"],
                 user_type=UserType.siswa,
-                registration_status=RegistrationStatus.pending,
-                username=None,
-                password_hash=None,
+                registration_status=RegistrationStatus.completed,
                 is_active=True,
             )
+            user.set_password(SEED_ADMIN_PASSWORD)
             session.add(user)
             await session.flush()
 
@@ -225,28 +116,33 @@ async def seed():
                 nis=s["nis"],
                 nama_lengkap=s["nama_lengkap"],
                 jenis_kelamin=s.get("jenis_kelamin"),
-                kelas_jurusan=s.get("kelas_jurusan"),
                 status_siswa=StatusSiswa.aktif,
             )
             session.add(profile)
-            print(f"  CREATED student: {s['nis']} - {s['nama_lengkap']}")
+            print(f"  CREATED student: {s['username']} (NIS {s['nis']})")
 
-        # ── Teachers (PENDING) ─────────────────────────────────────────────
+        # Seed one teacher
         for t in TEACHERS:
-            result = await session.execute(
+            profile_result = await session.execute(
                 select(GuruProfile).where(GuruProfile.nip == t["nip"])
             )
-            if result.scalar_one_or_none():
-                print(f"  SKIP teacher (NIP exists): {t['nip']} - {t['nama_lengkap']}")
+            if profile_result.scalar_one_or_none():
+                print(f"  SKIP teacher profile (NIP exists): {t['nip']}")
+                continue
+
+            user_result = await session.execute(select(User).where(User.username == t["username"]))
+            existing_user = user_result.scalar_one_or_none()
+            if existing_user:
+                print(f"  SKIP teacher user (username exists): {t['username']}")
                 continue
 
             user = User(
+                username=t["username"],
                 user_type=UserType.guru,
-                registration_status=RegistrationStatus.pending,
-                username=None,
-                password_hash=None,
-                is_active=False,
+                registration_status=RegistrationStatus.completed,
+                is_active=True,
             )
+            user.set_password(SEED_ADMIN_PASSWORD)
             session.add(user)
             await session.flush()
 
@@ -255,19 +151,22 @@ async def seed():
                 nip=t["nip"],
                 nama_lengkap=t["nama_lengkap"],
                 jenis_kelamin=t.get("jenis_kelamin"),
-                structural_role=t.get("structural_role", StructuralRole.guru),
-                mata_pelajaran=t.get("mata_pelajaran"),
-                pendidikan_terakhir=t.get("pendidikan_terakhir"),
                 status_guru=StatusGuru.aktif,
             )
             session.add(profile)
-            role_label = t.get("structural_role", StructuralRole.guru).value
-            print(f"  CREATED teacher: {t['nip']} - {t['nama_lengkap']} [{role_label}]")
+            print(f"  CREATED teacher: {t['username']} (NIP {t['nip']})")
 
         await session.commit()
 
     await engine.dispose()
-    print("\nSeed complete.")
+    print(
+        "\nSeed complete. Credentials:\n"
+        "  admin              / 1qaz2wsx3edc\n"
+        "  wicaksono_student  / 1qaz2wsx3edc\n"
+        "  student_001..120   / 1qaz2wsx3edc\n"
+        "  wicaksono_guru     / 1qaz2wsx3edc\n"
+        "  teacher_001..030   / 1qaz2wsx3edc"
+    )
 
 
 if __name__ == "__main__":

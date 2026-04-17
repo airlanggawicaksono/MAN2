@@ -1,8 +1,8 @@
 .PHONY: help setup \
-        dev-up dev-down dev-backend dev-frontend \
+        dev-up dev-down dev-reset-seed dev-nuke-seed dev-backend dev-frontend \
         prod-build prod-up prod-down \
-        db-up db-down db-shell db-reset db-reset-hard \
-        seed-admins seed-absensi import-students \
+        db-up db-down db-shell db-reset \
+        seed-admins seed-academic-demo seed-all import-students \
         logs status clean
 
 include .env
@@ -20,6 +20,8 @@ help:
 	@echo "Dev  (.env):"
 	@echo "  make dev-up         Start all services in background"
 	@echo "  make dev-down       Stop all services"
+	@echo "  make dev-reset-seed Reset PostgreSQL volume only, restart services, and seed admins"
+	@echo "  make dev-nuke-seed  Down + prune Docker cache + remove volumes + seed admins"
 	@echo "  make dev-backend    Start backend only (background)"
 	@echo "  make dev-frontend   Start frontend only (background)"
 	@echo ""
@@ -37,7 +39,8 @@ help:
 	@echo ""
 	@echo "Scripts:"
 	@echo "  make seed-admins              Seed admin accounts (admin1-3)"
-	@echo "  make seed-absensi             Seed attendance + izin keluar data"
+	@echo "  make seed-academic-demo       Seed structural+akademik+jadwal+siswa_kelas demo data"
+	@echo "  make seed-all                 Seed admins then seed academic demo data"
 	@echo "  make import-students FILE=x   Import students from xlsx"
 	@echo ""
 	@echo "Other:"
@@ -64,6 +67,28 @@ dev-up:
 
 dev-down:
 	$(DEV) stop
+
+dev-reset-seed:
+	@echo "Resetting PostgreSQL volume only, then restarting services and seeding demo data..."
+	$(DEV) stop backend frontend postgres-db
+	$(DEV) rm -fsv postgres-db
+	@docker volume ls -q | grep -E '(^|_)postgres_data$$' | xargs -r docker volume rm -f
+	$(DEV) up -d postgres-db backend frontend
+	@sleep 10
+	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+	@echo "PostgreSQL reset and demo seed complete"
+
+dev-nuke-seed:
+	@echo "Nuking dev Docker state and seeding demo data..."
+	$(DEV) down -v --remove-orphans
+	docker builder prune -af
+	docker system prune -af --volumes
+	$(DEV) up -d
+	@sleep 12
+	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+	@echo "Nuke + demo seed complete"
 
 dev-backend:
 	$(DEV) up -d backend
@@ -117,8 +142,12 @@ db-reset-hard:
 seed-admins:
 	$(DEV) exec backend python scripts/seed_admins.py
 
-seed-absensi:
-	$(DEV) exec backend python scripts/seed_absensi.py
+seed-academic-demo:
+	$(DEV) exec backend python scripts/seed_academic_demo.py
+
+seed-all:
+	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_academic_demo.py
 
 import-students:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make import-students FILE=\"/path/to/file.xlsx\""; exit 1; fi

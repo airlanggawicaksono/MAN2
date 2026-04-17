@@ -26,7 +26,7 @@ async def get_current_user(
         HTTPException: 404 if user not found
         HTTPException: 403 if user is deactivated
     """
-    payload = jwt_manager.verify_token(credentials.credentials)
+    payload = jwt_manager.verify_access_token(credentials.credentials)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

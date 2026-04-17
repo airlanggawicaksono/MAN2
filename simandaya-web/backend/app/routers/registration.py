@@ -9,7 +9,7 @@ from app.dto.registration.registration_dto import (
 
 router = APIRouter(
     prefix="/api/v1/registration",
-    tags=["Registration"]
+    tags=["Public - Registration"]
 )
 
 
@@ -73,3 +73,4 @@ async def lookup_teacher(
 ) -> TeacherLookupResponseDTO:
     service = RegistrationService(db)
     return await service.lookup_teacher_by_nip(nip)
+

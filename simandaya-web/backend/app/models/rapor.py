@@ -105,6 +105,12 @@ class RaporNilai(Base):
     nilai_akhir: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=False
     )
+    nilai_sumber: Mapped[float] = mapped_column(
+        Numeric(5, 2), nullable=False, default=0
+    )
+    nilai_override: Mapped[Optional[float]] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
 
     is_manual_override: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False

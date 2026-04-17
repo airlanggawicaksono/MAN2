@@ -1,16 +1,17 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from app.enums import (
     StatusSiswa,
     StatusGuru,
     JenisKelamin,
-    StructuralRole,
 )
+from app.dto.struktural.assignment_dto import GuruStructuralAssignmentDTO
 
 
 class StudentProfileResponseDTO(BaseModel):
     siswa_id: UUID
+    user_id: UUID
     nis: Optional[str] = None
     nama_lengkap: str
     dob: Optional[str] = None
@@ -18,10 +19,12 @@ class StudentProfileResponseDTO(BaseModel):
     jenis_kelamin: Optional[JenisKelamin] = None
     alamat: Optional[str] = None
     nama_wali: Optional[str] = None
-    nik: Optional[str] = None
     kelas_jurusan: Optional[str] = None
+    kelas_nama: Optional[str] = None
     tahun_masuk: Optional[int] = None
     status_siswa: StatusSiswa
+    semester_aktif_tipe: Optional[str] = None
+    semester_ke: Optional[int] = None
     kontak: Optional[str] = None
     kewarganegaraan: str
     is_active: bool = False
@@ -29,6 +32,7 @@ class StudentProfileResponseDTO(BaseModel):
 
 class GuruProfileResponseDTO(BaseModel):
     guru_id: UUID
+    user_id: UUID
     nip: Optional[str] = None
     nama_lengkap: str
     dob: Optional[str] = None
@@ -40,7 +44,7 @@ class GuruProfileResponseDTO(BaseModel):
     status_guru: StatusGuru
     kontak: Optional[str] = None
     kewarganegaraan: str
-    structural_role: StructuralRole
+    structural_assignments: list[GuruStructuralAssignmentDTO] = Field(default_factory=list)
     mata_pelajaran: Optional[str]
     pendidikan_terakhir: Optional[str]
     is_active: bool = False
@@ -50,7 +54,7 @@ class PublicCivitasResponseDTO(BaseModel):
     nama: str
     nip: Optional[str] = None
     nik: Optional[str] = None
-    jabatan_struktural: StructuralRole
+    jabatan_struktural: list[str] = Field(default_factory=list)
     matapelajaran: Optional[str] = None
     kontak: Optional[str] = None
 

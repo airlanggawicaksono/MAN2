@@ -20,7 +20,7 @@ class IzinKeluarResponseDTO(BaseModel):
     user_id: UUID
     created_at: datetime
     keterangan: str
-    waktu_kembali: Optional[datetime]
+    perkiraan_kembali: Optional[datetime]
 
 
 class MessageResponseDTO(BaseModel):

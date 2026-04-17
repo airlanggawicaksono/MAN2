@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import time
 from pydantic import BaseModel, Field
 from uuid import UUID
 from app.enums import HariSekolah
@@ -28,6 +29,12 @@ class JadwalResponseDTO(BaseModel):
     guru_user_id: UUID
     hari: HariSekolah
     slot_waktu_id: UUID
+    is_active: bool
+    mapel_nama: Optional[str] = None
+    nama_kelas: Optional[str] = None
+    guru_nama: Optional[str] = None
+    jam_mulai: Optional[time] = None
+    jam_selesai: Optional[time] = None
 
 
 class MessageResponseDTO(BaseModel):

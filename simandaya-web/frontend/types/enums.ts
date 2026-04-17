@@ -13,7 +13,6 @@ export type StructuralRole =
   | "Tim IT"
   | "Pengembang Madrasah"
   | "Kepala Laboratorium Terpadu"
-  | "Wali Kelas"
   | "Bimbingan Konseling"
   | "Satuan Pendidikan Ramah Anak"
   | "Tim Pendidikan Karakter"
@@ -35,8 +34,55 @@ export type StructuralRole =
   | "Tim Adiwiyata"
   | "Publikasi dan Informasi"
   | "Multimedia dan Studio"
-  | "Guru"
   | "Staf Tata Usaha"
   | "Pustakawan"
   | "Laboran"
   | "Petugas UKS";
+
+export const STRUCTURAL_ROLE_OPTIONS: readonly StructuralRole[] = [
+  "Komite Madrasah",
+  "Kepala Madrasah",
+  "Kepala Tata Usaha",
+  "Wakamad Bid. Kurikulum",
+  "Wakamad Bid. Kesiswaan",
+  "Wakamad Bid. Sarpras",
+  "Wakamad Bid. Humas",
+  "Tim IT",
+  "Pengembang Madrasah",
+  "Kepala Laboratorium Terpadu",
+  "Bimbingan Konseling",
+  "Satuan Pendidikan Ramah Anak",
+  "Tim Pendidikan Karakter",
+  "Pembina Ekstrakurikuler",
+  "Satgas Anti Narkoba",
+  "OSIS",
+  "MPK",
+  "PIKR",
+  "KIR",
+  "Robotik",
+  "Koord. OSN/KSN",
+  "PMR dan UKS",
+  "Olahraga",
+  "Seni",
+  "Pecinta Alam",
+  "Corps Mubaligh",
+  "Pramuka",
+  "Laboratorium Komputer",
+  "Tim Adiwiyata",
+  "Publikasi dan Informasi",
+  "Multimedia dan Studio",
+  "Staf Tata Usaha",
+  "Pustakawan",
+  "Laboran",
+  "Petugas UKS",
+] as const;
+
+export const ASSIGNABLE_STRUCTURAL_ROLE_OPTIONS: readonly StructuralRole[] = [
+  "Komite Madrasah",
+  "Kepala Madrasah",
+  "Kepala Tata Usaha",
+  "Wakamad Bid. Kurikulum",
+  "Wakamad Bid. Kesiswaan",
+  "Wakamad Bid. Sarpras",
+  "Wakamad Bid. Humas",
+] as const;

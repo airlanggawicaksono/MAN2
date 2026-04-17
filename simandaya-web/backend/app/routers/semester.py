@@ -6,13 +6,19 @@ from app.dependencies import require_role
 from app.enums import UserType
 from app.services.akademik_service import AkademikService
 from app.dto.akademik.semester_dto import (
-    CreateSemesterDTO, UpdateSemesterDTO, SemesterResponseDTO,
+    CopySemesterStructureDTO,
+    CopySemesterStructureResponseDTO,
+    CreateSemesterDTO,
+    SemesterResponseDTO,
+    StudentSemesterTimelineItemDTO,
+    UpdateSemesterDTO,
 )
+from app.models.user import User
 from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Semester"]
+    tags=["Admin + Guru + Siswa - Semester"]
 )
 
 
@@ -31,17 +37,58 @@ async def create_semester(
     return await service.create_semester(request)
 
 
+@router.post(
+    "/semester/copy-structure",
+    response_model=CopySemesterStructureResponseDTO,
+    status_code=201,
+    summary="Create Semester by Copying Structure",
+    dependencies=[Depends(require_role(UserType.admin))]
+)
+async def copy_semester_structure(
+    request: CopySemesterStructureDTO,
+    db: AsyncSession = Depends(get_db),
+) -> CopySemesterStructureResponseDTO:
+    service = AkademikService(db)
+    return await service.copy_semester_structure(request)
+
+
 @router.get(
     "/semester",
     response_model=list[SemesterResponseDTO],
     summary="List Semesters",
-    dependencies=[Depends(require_role(UserType.admin))]
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
 )
 async def list_semesters(
     db: AsyncSession = Depends(get_db),
 ) -> list[SemesterResponseDTO]:
     service = AkademikService(db)
     return await service.list_semesters()
+
+
+@router.get(
+    "/semester/active",
+    response_model=list[SemesterResponseDTO],
+    summary="List Active Semesters",
+    dependencies=[Depends(require_role(UserType.admin, UserType.guru, UserType.siswa))]
+)
+async def list_active_semesters(
+    db: AsyncSession = Depends(get_db),
+) -> list[SemesterResponseDTO]:
+    service = AkademikService(db)
+    return await service.list_active_semesters()
+
+
+@router.get(
+    "/semester/my-timeline",
+    response_model=list[StudentSemesterTimelineItemDTO],
+    summary="List My Student Semester Timeline (1-6)",
+)
+async def list_my_semester_timeline(
+    current_user: User = Depends(require_role(UserType.siswa)),
+    db: AsyncSession = Depends(get_db),
+) -> list[StudentSemesterTimelineItemDTO]:
+    service = AkademikService(db)
+    return await service.list_my_semester_timeline(current_user)
 
 
 @router.get(
@@ -99,3 +146,4 @@ async def delete_semester(
 ) -> MessageResponseDTO:
     service = AkademikService(db)
     return await service.delete_semester(semester_id)
+

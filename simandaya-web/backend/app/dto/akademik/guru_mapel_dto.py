@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 
@@ -9,12 +10,48 @@ class CreateGuruMapelDTO(BaseModel):
     tahun_ajaran_id: UUID = Field(..., description="Academic year ID")
 
 
+class UpdateGuruMapelDTO(BaseModel):
+    user_id: Optional[UUID] = Field(default=None, description="Guru user_id")
+    mapel_id: Optional[UUID] = Field(default=None, description="Mata pelajaran ID")
+    kelas_id: Optional[UUID] = Field(default=None, description="Kelas ID")
+
+
 class GuruMapelResponseDTO(BaseModel):
     guru_mapel_id: UUID
     user_id: UUID
     mapel_id: UUID
     kelas_id: UUID
     tahun_ajaran_id: UUID
+    is_active: bool
+    guru_nama: Optional[str] = None
+    mapel_nama: Optional[str] = None
+    kelas_nama: Optional[str] = None
+
+
+class GuruAcademicContextTahunAjaranDTO(BaseModel):
+    tahun_ajaran_id: UUID
+    nama: str
+    is_active: bool
+
+
+class GuruAcademicContextSemesterDTO(BaseModel):
+    semester_id: UUID
+    tahun_ajaran_id: UUID
+    tipe: str
+    is_active: bool
+
+
+class GuruAcademicContextKelasDTO(BaseModel):
+    kelas_id: UUID
+    tahun_ajaran_id: UUID
+    nama_kelas: str
+
+
+class GuruAcademicContextResponseDTO(BaseModel):
+    assignments: list[GuruMapelResponseDTO]
+    tahun_ajaran: list[GuruAcademicContextTahunAjaranDTO]
+    semesters: list[GuruAcademicContextSemesterDTO]
+    kelas: list[GuruAcademicContextKelasDTO]
 
 
 class MessageResponseDTO(BaseModel):

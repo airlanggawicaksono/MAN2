@@ -2,6 +2,7 @@ import type { JenisKelamin, StatusSiswa } from "./enums";
 
 export interface StudentProfile {
   siswa_id: string;
+  user_id: string;
   nis: string | null;
   nama_lengkap: string;
   dob: string | null;
@@ -9,10 +10,12 @@ export interface StudentProfile {
   jenis_kelamin: JenisKelamin | null;
   alamat: string | null;
   nama_wali: string | null;
-  nik: string | null;
   kelas_jurusan: string | null;
+  kelas_nama?: string | null;
   tahun_masuk: number | null;
   status_siswa: StatusSiswa;
+  semester_aktif_tipe?: string | null;
+  semester_ke?: number | null;
   kontak: string | null;
   kewarganegaraan: string;
   is_active: boolean;
@@ -26,7 +29,6 @@ export interface PreRegisterStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
-  nik?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   kontak?: string;
@@ -45,7 +47,6 @@ export interface UpdateStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
-  nik?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   status_siswa?: StatusSiswa;

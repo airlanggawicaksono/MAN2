@@ -1,18 +1,18 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
-from app.config.settings import settings
-from app.dependencies import verify_desktop_api_key, require_role
-from app.enums import UserType
-from app.models.user import User
+from app.dependencies import verify_desktop_api_key
 from app.services.desktop_service import DesktopService
-from app.dto.desktop.desktop_request import AttendanceEventDTO, UpdateDesktopSettingsDTO, BulkAttendanceSyncDTO
-from app.dto.desktop.desktop_response import StudentSyncDTO, AttendanceAckDTO, DesktopSettingsDTO, BulkAttendanceResponseDTO
-from datetime import datetime, timezone
+from app.dto.desktop.desktop_request import BulkAttendanceSyncDTO
+from app.dto.desktop.desktop_response import (
+    BulkAttendanceResponseDTO,
+    PingResponseDTO,
+    StudentSyncDTO,
+)
 
 router = APIRouter(
     prefix="/api/desktop",
-    tags=["Desktop"],
+    tags=["Admin - Desktop Device"],
 )
 
 
@@ -46,30 +46,16 @@ async def sync_attendance(
 
 
 @router.get(
-    "/settings",
-    response_model=DesktopSettingsDTO,
-    summary="Get Desktop Settings",
-    description="Get current desktop app settings (late cutoff time).",
+    "/ping",
+    response_model=PingResponseDTO,
+    summary="Desktop Ping",
+    description="Simple connectivity check for desktop client.",
     dependencies=[Depends(verify_desktop_api_key)],
 )
-async def get_settings(
+async def ping(
     db: AsyncSession = Depends(get_db),
-) -> DesktopSettingsDTO:
+) -> PingResponseDTO:
     service = DesktopService(db)
-    return await service.get_settings()
+    return await service.ping()
 
-
-@router.put(
-    "/settings",
-    response_model=DesktopSettingsDTO,
-    summary="Update Desktop Settings",
-    description="Update desktop app settings (admin only).",
-)
-async def update_settings(
-    request: UpdateDesktopSettingsDTO,
-    current_user: User = Depends(require_role(UserType.admin)),
-    db: AsyncSession = Depends(get_db),
-) -> DesktopSettingsDTO:
-    service = DesktopService(db)
-    return await service.update_settings(request.late_cutoff_time, current_user.user_id)
 

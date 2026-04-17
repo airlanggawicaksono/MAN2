@@ -1,62 +1,47 @@
-from typing import Optional
 from datetime import date
+from typing import Optional
 from uuid import UUID
+
 from fastapi import HTTPException, status
-from sqlalchemy import select, and_, func
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dto.absensi.absensi_response import AbsensiResponseDTO, IzinKeluarResponseDTO
+from app.dto.absensi.attendance_settings_dto import (
+    AttendanceSettingsResponseDTO,
+    UpdateAttendanceSettingsDTO,
+)
+from app.dto.absensi.absensi_update_dto import UpdateAbsensiDTO
+from app.dto.absensi.bulk_absensi_dto import BulkAbsensiCreateDTO, BulkAbsensiResponseDTO
+from app.dto.absensi.public_response import PublicAbsensiDTO, PublicIzinKeluarDTO
 from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.models.user import User
-from app.models.siswa_profile import SiswaProfile
-from app.models.kelas import Kelas
-from app.models.siswa_kelas import SiswaKelas
-from app.models.guru_mapel import GuruMapel
-from app.enums import UserType
-from app.dto.absensi.absensi_response import (
-    AbsensiResponseDTO,
-    IzinKeluarResponseDTO,
-)
-from app.dto.absensi.public_response import (
-    PublicAbsensiDTO,
-    PublicIzinKeluarDTO,
-)
-from app.dto.absensi.bulk_absensi_dto import (
-    BulkAbsensiCreateDTO,
-    BulkAbsensiResponseDTO,
-)
+from app.policy.absensi_policy import AbsensiPolicy
+from app.repositoriy.absensi_repository import AbsensiRepository
+from app.repositoriy.desktop_repository import DesktopRepository
 
 
 class AbsensiService:
     """
     Service for attendance and izin keluar records.
-
-    Raises:
-        HTTPException: 404, 500
+    SQL lives in repository; rules/permission checks live in policy.
     """
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(
+        self,
+        db: AsyncSession,
+        repo: AbsensiRepository | None = None,
+        policy: type[AbsensiPolicy] = AbsensiPolicy,
+    ):
+        self.repo = repo or AbsensiRepository(db)
+        self.policy = policy
+        self.desktop_repo = DesktopRepository(db)
 
     async def _validate_siswa(self, user_id: UUID) -> User:
-        """Validate that the user_id belongs to a siswa."""
-        result = await self.db.execute(
-            select(User).where(User.user_id == user_id)
-        )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        if user.user_type != UserType.siswa:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is not a student"
-            )
+        user = await self.repo.find_user_by_id(user_id)
+        self.policy.ensure_user_exists(user)
+        self.policy.ensure_is_siswa(user)
         return user
-
-    # ── Absensi helpers ──────────────────────────────────────────────────────
 
     def _to_absensi_dto(self, record: Absensi) -> AbsensiResponseDTO:
         return AbsensiResponseDTO(
@@ -75,102 +60,76 @@ class AbsensiService:
             user_id=record.user_id,
             created_at=record.created_at,
             keterangan=record.keterangan,
-            waktu_kembali=record.waktu_kembali,
+            perkiraan_kembali=record.perkiraan_kembali,
         )
 
-    # ── Absensi CRUD ─────────────────────────────────────────────────────────
-
     async def list_absensi(self) -> list[AbsensiResponseDTO]:
-        """
-        List all attendance records.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        result = await self.db.execute(select(Absensi))
-        records = result.scalars().all()
+        records = await self.repo.list_all_absensi()
         return [self._to_absensi_dto(r) for r in records]
 
     async def list_absensi_by_student(self, user_id: UUID) -> list[AbsensiResponseDTO]:
-        """
-        List attendance records for a specific student.
-
-        Raises:
-            HTTPException: 404 if user not found
-            HTTPException: 400 if user is not a student
-        """
         await self._validate_siswa(user_id)
-        result = await self.db.execute(
-            select(Absensi).where(Absensi.user_id == user_id)
-        )
-        records = result.scalars().all()
+        records = await self.repo.find_absensi_by_user(user_id)
         return [self._to_absensi_dto(r) for r in records]
 
     async def get_absensi(self, absensi_id: UUID) -> AbsensiResponseDTO:
-        """
-        Get a single attendance record by ID.
-
-        Raises:
-            HTTPException: 404 if record not found
-        """
-        result = await self.db.execute(
-            select(Absensi).where(Absensi.absensi_id == absensi_id)
-        )
-        record = result.scalar_one_or_none()
-        if not record:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Attendance record not found"
-            )
+        record = await self.repo.find_absensi_by_id(absensi_id)
+        self.policy.ensure_absensi_exists(record)
         return self._to_absensi_dto(record)
 
-    # ── Izin Keluar CRUD ─────────────────────────────────────────────────────
+    async def update_absensi(
+        self, absensi_id: UUID, request: UpdateAbsensiDTO, current_user: User
+    ) -> AbsensiResponseDTO:
+        try:
+            record = await self.repo.find_absensi_by_id(absensi_id)
+            self.policy.ensure_absensi_exists(record)
+
+            update_data = request.model_dump(exclude_unset=True)
+            self.policy.ensure_update_payload(update_data)
+
+            for field, value in update_data.items():
+                setattr(record, field, value)
+            record.marked_by = current_user.user_id
+
+            await self.repo.commit()
+            return self._to_absensi_dto(record)
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update attendance: {str(e)}",
+            )
+
+    async def delete_absensi(self, absensi_id: UUID) -> None:
+        try:
+            record = await self.repo.find_absensi_by_id(absensi_id)
+            self.policy.ensure_absensi_exists(record)
+            await self.repo.delete_absensi(record)
+            await self.repo.commit()
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete attendance: {str(e)}",
+            )
 
     async def list_izin_keluar(self) -> list[IzinKeluarResponseDTO]:
-        """
-        List all izin keluar records.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        result = await self.db.execute(select(IzinKeluar))
-        records = result.scalars().all()
+        records = await self.repo.list_all_izin_keluar()
         return [self._to_izin_dto(r) for r in records]
 
     async def list_izin_keluar_by_student(self, user_id: UUID) -> list[IzinKeluarResponseDTO]:
-        """
-        List izin keluar records for a specific student.
-
-        Raises:
-            HTTPException: 404 if user not found
-            HTTPException: 400 if user is not a student
-        """
         await self._validate_siswa(user_id)
-        result = await self.db.execute(
-            select(IzinKeluar).where(IzinKeluar.user_id == user_id)
-        )
-        records = result.scalars().all()
+        records = await self.repo.find_izin_keluar_by_user(user_id)
         return [self._to_izin_dto(r) for r in records]
 
     async def get_izin_keluar(self, izin_id: UUID) -> IzinKeluarResponseDTO:
-        """
-        Get a single izin keluar record by ID.
-
-        Raises:
-            HTTPException: 404 if record not found
-        """
-        result = await self.db.execute(
-            select(IzinKeluar).where(IzinKeluar.izin_id == izin_id)
-        )
-        record = result.scalar_one_or_none()
-        if not record:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Izin keluar record not found"
-            )
+        record = await self.repo.find_izin_keluar_by_id(izin_id)
+        self.policy.ensure_izin_exists(record)
         return self._to_izin_dto(record)
-
-    # ── Public (no auth) ────────────────────────────────────────────────────────
 
     def _to_public_absensi_dto(self, record: Absensi) -> PublicAbsensiDTO:
         profile = record.user.siswa_profile if record.user else None
@@ -192,7 +151,7 @@ class AbsensiService:
             kelas=profile.kelas_jurusan if profile else None,
             created_at=record.created_at,
             keterangan=record.keterangan,
-            waktu_kembali=record.waktu_kembali,
+            perkiraan_kembali=record.perkiraan_kembali,
         )
 
     async def list_absensi_public(
@@ -202,27 +161,9 @@ class AbsensiService:
         skip: int = 0,
         limit: int = 50,
     ) -> list[PublicAbsensiDTO]:
-        """
-        Public list of attendance records filtered by date, with student names.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        stmt = (
-            select(Absensi)
-            .join(User, Absensi.user_id == User.user_id)
-            .outerjoin(SiswaProfile, User.user_id == SiswaProfile.user_id)
-            .options(
-                selectinload(Absensi.user).selectinload(User.siswa_profile)
-            )
-            .where(Absensi.tanggal == tanggal)
+        records = await self.repo.list_absensi_public(
+            tanggal=tanggal, search=search, skip=skip, limit=limit
         )
-        if search:
-            stmt = stmt.where(SiswaProfile.nama_lengkap.ilike(f"%{search}%"))
-        stmt = stmt.order_by(SiswaProfile.nama_lengkap).offset(skip).limit(limit)
-
-        result = await self.db.execute(stmt)
-        records = result.scalars().all()
         return [self._to_public_absensi_dto(r) for r in records]
 
     async def list_izin_keluar_public(
@@ -232,106 +173,30 @@ class AbsensiService:
         skip: int = 0,
         limit: int = 50,
     ) -> list[PublicIzinKeluarDTO]:
-        """
-        Public list of izin keluar records filtered by date, with student names.
-
-        Raises:
-            HTTPException: 500 if database error
-        """
-        stmt = (
-            select(IzinKeluar)
-            .join(User, IzinKeluar.user_id == User.user_id)
-            .outerjoin(SiswaProfile, User.user_id == SiswaProfile.user_id)
-            .options(
-                selectinload(IzinKeluar.user).selectinload(User.siswa_profile)
-            )
-            .where(func.date(IzinKeluar.created_at) == tanggal)
+        records = await self.repo.list_izin_keluar_public(
+            tanggal=tanggal, search=search, skip=skip, limit=limit
         )
-        if search:
-            stmt = stmt.where(SiswaProfile.nama_lengkap.ilike(f"%{search}%"))
-        stmt = stmt.order_by(IzinKeluar.created_at.desc()).offset(skip).limit(limit)
-
-        result = await self.db.execute(stmt)
-        records = result.scalars().all()
         return [self._to_public_izin_dto(r) for r in records]
-
-    # ── Bulk Attendance ─────────────────────────────────────────────────────────
 
     async def bulk_create_absensi(
         self, request: BulkAbsensiCreateDTO, current_user: User
     ) -> BulkAbsensiResponseDTO:
-        """
-        Bulk create/update attendance for a class.
-
-        Permission: admin, wali kelas of the class, or any guru who teaches the class.
-
-        Raises:
-            HTTPException: 404 if kelas not found
-            HTTPException: 403 if no permission
-            HTTPException: 400 if student not in class
-            HTTPException: 500 on database error
-        """
         try:
-            # Validate kelas exists
-            result = await self.db.execute(
-                select(Kelas).where(Kelas.kelas_id == request.kelas_id)
-            )
-            kelas = result.scalar_one_or_none()
-            if not kelas:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Kelas with ID {request.kelas_id} not found"
-                )
+            kelas = await self.repo.find_kelas_by_id(request.kelas_id)
+            self.policy.ensure_kelas_exists(kelas, request.kelas_id)
+            self.policy.ensure_bulk_permission(current_user)
 
-            # Permission check
-            if current_user.user_type != UserType.admin:
-                is_wali = kelas.wali_kelas_id == current_user.user_id
-
-                teaches_result = await self.db.execute(
-                    select(GuruMapel).where(
-                        and_(
-                            GuruMapel.user_id == current_user.user_id,
-                            GuruMapel.kelas_id == request.kelas_id,
-                        )
-                    )
-                )
-                is_teacher = teaches_result.first() is not None
-
-                if not is_wali and not is_teacher:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="You don't have permission to mark attendance for this class"
-                    )
-
-            # Get students in this kelas for validation
-            result = await self.db.execute(
-                select(SiswaKelas.user_id).where(
-                    SiswaKelas.kelas_id == request.kelas_id
-                )
-            )
-            valid_student_ids = {row[0] for row in result.all()}
+            valid_student_ids = await self.repo.get_student_ids_in_kelas(request.kelas_id)
 
             created = 0
             updated = 0
 
             for entry in request.entries:
-                if entry.user_id not in valid_student_ids:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Student {entry.user_id} is not in this class"
-                    )
+                self.policy.ensure_student_in_kelas(entry.user_id, valid_student_ids)
 
-                # Check existing record (upsert)
-                result = await self.db.execute(
-                    select(Absensi).where(
-                        and_(
-                            Absensi.user_id == entry.user_id,
-                            Absensi.tanggal == request.tanggal,
-                        )
-                    )
+                existing = await self.repo.find_absensi_by_user_and_date(
+                    entry.user_id, request.tanggal
                 )
-                existing = result.scalar_one_or_none()
-
                 if existing:
                     existing.status = entry.status
                     existing.marked_by = current_user.user_id
@@ -343,22 +208,43 @@ class AbsensiService:
                         status=entry.status,
                         marked_by=current_user.user_id,
                     )
-                    self.db.add(record)
+                    await self.repo.add_absensi(record)
                     created += 1
 
-            await self.db.commit()
+            await self.repo.commit()
 
             return BulkAbsensiResponseDTO(
                 created_count=created,
                 updated_count=updated,
-                message=f"Bulk attendance: {created} created, {updated} updated"
+                message=f"Bulk attendance: {created} created, {updated} updated",
             )
 
         except HTTPException:
             raise
         except Exception as e:
-            await self.db.rollback()
+            await self.repo.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create bulk attendance: {str(e)}"
+                detail=f"Failed to create bulk attendance: {str(e)}",
+            )
+
+    async def get_attendance_settings(self) -> AttendanceSettingsResponseDTO:
+        settings = await self.desktop_repo.get_or_create_desktop_settings()
+        await self.desktop_repo.commit()
+        return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+
+    async def update_attendance_settings(
+        self, request: UpdateAttendanceSettingsDTO, current_user: User
+    ) -> AttendanceSettingsResponseDTO:
+        try:
+            settings = await self.desktop_repo.get_or_create_desktop_settings()
+            settings.late_cutoff_time = request.late_cutoff_time
+            settings.updated_by = current_user.user_id
+            await self.desktop_repo.commit()
+            return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+        except Exception as e:
+            await self.desktop_repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update attendance settings: {str(e)}",
             )

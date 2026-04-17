@@ -15,7 +15,7 @@ import {
   useCreateSlideMutation,
   useUpdateSlideMutation,
   useDeleteSlideMutation,
-} from "@/api/setContentManagement";
+} from "@/api/admin/setContentManagement";
 import {
   Dialog,
   DialogContent,
@@ -118,7 +118,7 @@ function ContentBox({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
               <Icon className="h-5 w-5" />
             </div>
             <div>
@@ -146,7 +146,7 @@ function ContentBox({
           </p>
         ) : items.length === 0 ? (
           <div className="border border-dashed rounded-lg py-8 flex flex-col items-center gap-2">
-            <Icon className="h-8 w-8 text-muted-foreground/40" />
+            <Icon className="h-8 w-8 text-blue-600/60" />
             <p className="text-sm text-muted-foreground">Belum ada konten</p>
             <Button variant="outline" size="sm" onClick={onAdd}>
               <Plus className="mr-1 h-3.5 w-3.5" />
@@ -168,22 +168,24 @@ function ContentBox({
                       <img
                         src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
                         alt="Video"
+                        loading="lazy"
                         className="rounded w-20 h-14 object-cover shrink-0"
                       />
                     ) : (
-                      <div className="rounded w-20 h-14 bg-muted shrink-0 flex items-center justify-center">
-                        <Video className="h-5 w-5 text-muted-foreground" />
+                      <div className="rounded w-20 h-14 bg-blue-50 shrink-0 flex items-center justify-center">
+                        <Video className="h-5 w-5 text-blue-600" />
                       </div>
                     );
                   })()
                 ) : slide.type === "lokasi" ? (
-                  <div className="rounded w-20 h-14 bg-green-50 shrink-0 flex items-center justify-center">
-                    <MapPin className="h-5 w-5 text-green-600" />
+                  <div className="rounded w-20 h-14 bg-blue-50 shrink-0 flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-blue-600" />
                   </div>
                 ) : slide.image_url ? (
                   <img
                     src={slide.image_url}
                     alt={slide.title || ""}
+                    loading="lazy"
                     className="rounded w-20 h-14 object-cover shrink-0"
                   />
                 ) : (
@@ -228,7 +230,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
                     onClick={() => onToggle(slide.id, slide.is_active)}
                     title={slide.is_active ? "Nonaktifkan" : "Aktifkan"}
                   >
@@ -241,7 +243,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
                     onClick={() => onEdit(slide)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -249,7 +251,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
                     onClick={() => onDelete(slide)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -271,22 +273,23 @@ export default function SettingPage() {
 
   const [activeType, setActiveType] = useState<ContentType>("carousel");
 
-  const { data: carouselItems = [], isLoading: loadingCarousel } = useListSlidesQuery("carousel");
-  const { data: flyerItems = [], isLoading: loadingFlyer } = useListSlidesQuery("flyer");
-  const { data: mediaItems = [], isLoading: loadingMedia } = useListSlidesQuery("media");
-  const { data: videoItems = [], isLoading: loadingVideo } = useListSlidesQuery("video");
-  const { data: lokasiItems = [], isLoading: loadingLokasi } = useListSlidesQuery("lokasi");
+  const { data: allSlides = [], isLoading: loadingSlides } = useListSlidesQuery();
+  const carouselItems = allSlides.filter((s) => s.type === "carousel");
+  const flyerItems = allSlides.filter((s) => s.type === "flyer");
+  const mediaItems = allSlides.filter((s) => s.type === "media");
+  const videoItems = allSlides.filter((s) => s.type === "video");
+  const lokasiItems = allSlides.filter((s) => s.type === "lokasi");
 
   const [createSlide, { isLoading: creating }] = useCreateSlideMutation();
   const [updateSlide, { isLoading: updating }] = useUpdateSlideMutation();
   const [deleteSlide, { isLoading: deleting }] = useDeleteSlideMutation();
 
   const dataMap: Record<ContentType, { items: CarouselSlide[]; loading: boolean }> = {
-    carousel: { items: carouselItems, loading: loadingCarousel },
-    flyer: { items: flyerItems, loading: loadingFlyer },
-    media: { items: mediaItems, loading: loadingMedia },
-    video: { items: videoItems, loading: loadingVideo },
-    lokasi: { items: lokasiItems, loading: loadingLokasi },
+    carousel: { items: carouselItems, loading: loadingSlides },
+    flyer: { items: flyerItems, loading: loadingSlides },
+    media: { items: mediaItems, loading: loadingSlides },
+    video: { items: videoItems, loading: loadingSlides },
+    lokasi: { items: lokasiItems, loading: loadingSlides },
   };
 
   async function handleCreate(data: CreateSlideRequest) {
@@ -326,7 +329,7 @@ export default function SettingPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="w-full max-w-none px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Pengaturan Konten</h1>
         <p className="mt-1 text-muted-foreground">
@@ -334,7 +337,7 @@ export default function SettingPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {sections.map((section) => (
           <ContentBox
             key={section.key}

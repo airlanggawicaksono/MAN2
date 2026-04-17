@@ -12,7 +12,7 @@ from app.dto.akademik.kelas_dto import MessageResponseDTO
 
 router = APIRouter(
     prefix="/api/v1/akademik",
-    tags=["Kalender Akademik"]
+    tags=["Admin - Kalender Akademik"]
 )
 
 
@@ -85,3 +85,4 @@ async def delete_kalender(
 ) -> MessageResponseDTO:
     service = AkademikService(db)
     return await service.delete_kalender(kalender_id)
+

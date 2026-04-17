@@ -14,15 +14,19 @@ export const teacherColumns: ColumnDef<GuruProfile>[] = [
     header: "Nama",
   },
   {
-    accessorKey: "structural_role",
-    header: "Jabatan",
+    id: "jabatan",
+    header: "Jabatan Struktural",
     cell: ({ row }) => {
-      return row.getValue("structural_role") as string;
+      const activeRoles = row.original.structural_assignments
+        .filter((assignment) => assignment.is_active)
+        .map((assignment) => assignment.structural_role ?? assignment.role_name)
+        .filter((role): role is string => Boolean(role));
+      return activeRoles.length > 0 ? activeRoles.join(", ") : "-";
     },
   },
   {
     accessorKey: "mata_pelajaran",
-    header: "Mata Pelajaran",
+    header: "Jabatan Fungsional",
     cell: ({ row }) => row.getValue("mata_pelajaran") || "-",
   },
   {

@@ -46,12 +46,17 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "your-secret-key-change-this-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_REFRESH_COOKIE_NAME: str = "refresh_token"
+    JWT_REFRESH_COOKIE_SECURE: bool = False
+    JWT_REFRESH_COOKIE_SAMESITE: str = "lax"
 
     # Password Hashing Configuration
     BCRYPT_ROUNDS: int = 12
 
     # Desktop App Configuration
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"
+    CORS_ORIGINS: str = ""
 
     @property
     def database_url(self) -> str:
@@ -63,6 +68,12 @@ class Settings(BaseSettings):
             return self.DATABASE_URL
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
+    @property
+    def cors_origins(self) -> list[str]:
+        raw = self.CORS_ORIGINS.strip()
+        if not raw:
+            return []
+        return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
 
 # Singleton instance
 settings = Settings()

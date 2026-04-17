@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import (
     String, Text, DateTime, Enum as SQLAlchemyEnum,
     UUID as SQLAlchemyUUID, ForeignKey, func,
+    Boolean,
 )
 from app.config.database import Base
 from app.enums import JenisTugas
@@ -54,6 +55,16 @@ class Tugas(Base):
     deskripsi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     link_tugas: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    link_submission: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    is_published_to_students: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    is_nilai_published_to_students: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    is_archived_context: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
     deadline: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),

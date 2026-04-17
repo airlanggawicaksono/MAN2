@@ -13,6 +13,11 @@ class StatusSiswa(Enum):
     lulus = "Lulus"
 
 
+class idType(Enum):
+    nis = "NIS"
+    nik = "NIK"
+
+
 class StatusGuru(Enum):
     aktif = "Aktif"
     nonaktif = "Non-Aktif"
@@ -39,7 +44,6 @@ class StructuralRole(Enum):
     tim_it = "Tim IT"
     pengembang_madrasah = "Pengembang Madrasah"
     kepala_laboratorium_terpadu = "Kepala Laboratorium Terpadu"
-    wali_kelas = "Wali Kelas"
 
     # ── Di bawah Kesiswaan ────────────────────────────────────────────────
     bimbingan_konseling = "Bimbingan Konseling"
@@ -71,7 +75,6 @@ class StructuralRole(Enum):
     multimedia_studio = "Multimedia dan Studio"
 
     # ── Umum ──────────────────────────────────────────────────────────────
-    guru = "Guru"
     staf_tata_usaha = "Staf Tata Usaha"
     pustakawan = "Pustakawan"
     laboran = "Laboran"

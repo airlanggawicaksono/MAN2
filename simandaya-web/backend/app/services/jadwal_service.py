@@ -1,324 +1,312 @@
 from uuid import UUID
+
 from fastapi import HTTPException, status
-from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.guru_mapel import GuruMapel
-from app.models.jadwal import Jadwal
-from app.models.user import User
-from app.models.mata_pelajaran import MataPelajaran
-from app.models.kelas import Kelas
-from app.models.semester import Semester
-from app.models.slot_waktu import SlotWaktu
-from app.models.tahun_ajaran import TahunAjaran
+
 from app.dto.akademik.guru_mapel_dto import (
     CreateGuruMapelDTO,
+    GuruAcademicContextKelasDTO,
+    GuruAcademicContextResponseDTO,
+    GuruAcademicContextSemesterDTO,
+    GuruAcademicContextTahunAjaranDTO,
     GuruMapelResponseDTO,
-    MessageResponseDTO
+    MessageResponseDTO,
+    UpdateGuruMapelDTO,
 )
 from app.dto.akademik.jadwal_dto import (
     CreateJadwalDTO,
+    JadwalResponseDTO,
     UpdateJadwalDTO,
-    JadwalResponseDTO
 )
-from app.enums import UserType
+from app.models.guru_mapel import GuruMapel
+from app.models.jadwal import Jadwal
+from app.models.user import User
+from app.policy.jadwal_policy import JadwalPolicy
+from app.policy.slot_waktu_policy import SlotWaktuPolicy
+from app.repositoriy.jadwal_repository import JadwalRepository
+from app.utils.db_error_utils import build_integrity_http_exception
+
+
+JADWAL_INTEGRITY_MESSAGES = {
+    "ux_guru_mapel_active_assignment": "Penugasan guru-mapel untuk kelas ini sudah ada (aktif).",
+    "uq_guru_mapel_assignment": "Penugasan guru-mapel untuk kelas ini sudah ada (aktif).",
+    "ux_jadwal_active_kelas_slot": "Jadwal bentrok: kelas sudah memiliki jadwal aktif di slot ini.",
+    "uq_jadwal_kelas_slot": "Jadwal bentrok: kelas sudah memiliki jadwal aktif di slot ini.",
+    "ux_jadwal_active_guru_slot": "Jadwal bentrok: guru sudah mengajar di slot ini.",
+    "uq_jadwal_guru_slot": "Jadwal bentrok: guru sudah mengajar di slot ini.",
+}
 
 
 class JadwalService:
-    """
-    Service for managing GuruMapel (teacher-subject-class assignments) and Jadwal (timetable).
-
-    Handles CRUD operations with validation and clash detection for scheduling conflicts.
-
-    Raises:
-        HTTPException: 400 (validation/clash), 404 (not found)
-    """
-
-    def __init__(self, db: AsyncSession):
-        self.db = db
-
-    # ── GuruMapel Methods ────────────────────────────────────────────────────
+    def __init__(
+        self,
+        db: AsyncSession,
+        repo: JadwalRepository | None = None,
+        policy: type[JadwalPolicy] = JadwalPolicy,
+    ):
+        self.repo = repo or JadwalRepository(db)
+        self.policy = policy
 
     async def create_guru_mapel(self, request: CreateGuruMapelDTO) -> GuruMapelResponseDTO:
-        """
-        Assign a teacher to a subject and class for an academic year.
+        user = await self.repo.find_user_by_id(request.user_id)
+        self.policy.ensure_user_exists(user, request.user_id)
+        self.policy.ensure_user_is_guru(user, request.user_id)
 
-        Args:
-            request: CreateGuruMapelDTO with user_id, mapel_id, kelas_id, tahun_ajaran_id
+        mapel = await self.repo.find_mapel_by_id(request.mapel_id)
+        self.policy.ensure_entity_exists(mapel, "Mata pelajaran", request.mapel_id)
+        self.policy.ensure_mapel_active(mapel)
+        self.policy.ensure_mapel_in_tahun_ajaran(mapel, request.tahun_ajaran_id)
 
-        Returns:
-            GuruMapelResponseDTO: Created assignment
+        kelas = await self.repo.find_kelas_by_id(request.kelas_id)
+        self.policy.ensure_entity_exists(kelas, "Kelas", request.kelas_id)
+        self.policy.ensure_kelas_in_tahun_ajaran(kelas, request.tahun_ajaran_id)
+        self.policy.ensure_kelas_active(kelas)
 
-        Raises:
-            HTTPException: 400 if validation fails or assignment already exists
-            HTTPException: 404 if referenced entities don't exist
-        """
-        # Validate user_id is a guru
-        result = await self.db.execute(
-            select(User).where(User.user_id == request.user_id)
+        tahun_ajaran = await self.repo.find_tahun_ajaran_by_id(request.tahun_ajaran_id)
+        self.policy.ensure_entity_exists(tahun_ajaran, "Tahun ajaran", request.tahun_ajaran_id)
+
+        existing = await self.repo.find_guru_mapel_unique(
+            request.user_id, request.mapel_id, request.kelas_id, request.tahun_ajaran_id
         )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User with ID {request.user_id} not found"
-            )
-        if user.user_type != UserType.guru:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User {request.user_id} is not a guru"
-            )
-
-        # Validate mapel_id exists
-        result = await self.db.execute(
-            select(MataPelajaran).where(MataPelajaran.mapel_id == request.mapel_id)
+        self.policy.ensure_guru_mapel_unique(existing)
+        existing_owner = await self.repo.find_active_assignment_for_mapel_kelas_tahun(
+            request.mapel_id,
+            request.kelas_id,
+            request.tahun_ajaran_id,
         )
-        mapel = result.scalar_one_or_none()
-        if not mapel:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Mata pelajaran with ID {request.mapel_id} not found"
-            )
-
-        # Validate kelas_id exists
-        result = await self.db.execute(
-            select(Kelas).where(Kelas.kelas_id == request.kelas_id)
+        self.policy.ensure_single_active_guru_for_mapel_kelas_tahun(
+            existing_owner,
+            request.user_id,
         )
-        kelas = result.scalar_one_or_none()
-        if not kelas:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Kelas with ID {request.kelas_id} not found"
-            )
 
-        # Validate tahun_ajaran_id exists
-        result = await self.db.execute(
-            select(TahunAjaran).where(TahunAjaran.tahun_ajaran_id == request.tahun_ajaran_id)
-        )
-        tahun_ajaran = result.scalar_one_or_none()
-        if not tahun_ajaran:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Tahun ajaran with ID {request.tahun_ajaran_id} not found"
-            )
-
-        # Check uniqueness of (user_id, mapel_id, kelas_id, tahun_ajaran_id)
-        result = await self.db.execute(
-            select(GuruMapel).where(
-                and_(
-                    GuruMapel.user_id == request.user_id,
-                    GuruMapel.mapel_id == request.mapel_id,
-                    GuruMapel.kelas_id == request.kelas_id,
-                    GuruMapel.tahun_ajaran_id == request.tahun_ajaran_id,
-                )
-            )
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This guru-mapel-kelas-tahun assignment already exists"
-            )
-
-        # Create GuruMapel
         guru_mapel = GuruMapel(
             user_id=request.user_id,
             mapel_id=request.mapel_id,
             kelas_id=request.kelas_id,
             tahun_ajaran_id=request.tahun_ajaran_id,
+            is_active=True,
         )
+        await self.repo.add_guru_mapel(guru_mapel)
+        try:
+            await self.repo.commit()
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal menyimpan penugasan guru-mapel karena konflik data.",
+                constraint_messages=JADWAL_INTEGRITY_MESSAGES,
+            ) from e
 
-        self.db.add(guru_mapel)
-        await self.db.commit()
-        await self.db.refresh(guru_mapel)
-
+        guru_mapel = await self.repo.find_guru_mapel_by_id_with_relations(guru_mapel.guru_mapel_id)
         return self._to_guru_mapel_dto(guru_mapel)
 
     async def list_guru_mapel(self) -> list[GuruMapelResponseDTO]:
-        """
-        List all guru-mapel assignments.
+        guru_mapels = await self.repo.list_guru_mapel_all()
+        return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
-        Returns:
-            list[GuruMapelResponseDTO]: All assignments
-        """
-        result = await self.db.execute(select(GuruMapel))
-        guru_mapels = result.scalars().all()
+    async def list_guru_mapel_active_tahun(self) -> list[GuruMapelResponseDTO]:
+        guru_mapels = await self.repo.list_guru_mapel_active_tahun()
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
     async def list_guru_mapel_by_guru(self, user_id: UUID) -> list[GuruMapelResponseDTO]:
-        """
-        List all guru-mapel assignments for a specific teacher.
-
-        Args:
-            user_id: Teacher's user_id
-
-        Returns:
-            list[GuruMapelResponseDTO]: Assignments for the teacher
-        """
-        result = await self.db.execute(
-            select(GuruMapel).where(GuruMapel.user_id == user_id)
-        )
-        guru_mapels = result.scalars().all()
+        guru_mapels = await self.repo.list_guru_mapel_by_guru(user_id)
         return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
 
-    async def list_guru_mapel_by_kelas(self, kelas_id: UUID) -> list[GuruMapelResponseDTO]:
-        """
-        List all guru-mapel assignments for a specific class.
-
-        Args:
-            kelas_id: Class ID
-
-        Returns:
-            list[GuruMapelResponseDTO]: Assignments for the class
-        """
-        result = await self.db.execute(
-            select(GuruMapel).where(GuruMapel.kelas_id == kelas_id)
+    async def get_my_guru_academic_context(
+        self,
+        user_id: UUID,
+    ) -> GuruAcademicContextResponseDTO:
+        guru_mapels = await self.repo.list_guru_mapel_by_guru(user_id)
+        assignment_dtos = [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
+        tahun_ajaran_ids = sorted(
+            {assignment.tahun_ajaran_id for assignment in assignment_dtos},
+            key=lambda value: str(value),
         )
-        guru_mapels = result.scalars().all()
-        return [self._to_guru_mapel_dto(gm) for gm in guru_mapels]
+
+        tahun_ajaran_rows = await self.repo.list_tahun_ajaran_by_ids(tahun_ajaran_ids)
+        tahun_ajaran_rows.sort(key=lambda item: item.tanggal_mulai, reverse=True)
+        tahun_ajaran_dtos = [
+            GuruAcademicContextTahunAjaranDTO(
+                tahun_ajaran_id=row.tahun_ajaran_id,
+                nama=row.nama,
+                is_active=row.is_active,
+            )
+            for row in tahun_ajaran_rows
+        ]
+
+        semester_rows = await self.repo.list_semesters_by_tahun_ajaran_ids(tahun_ajaran_ids)
+        semester_rows.sort(key=lambda item: (item.tahun_ajaran_id, item.tanggal_mulai))
+        semester_dtos = [
+            GuruAcademicContextSemesterDTO(
+                semester_id=row.semester_id,
+                tahun_ajaran_id=row.tahun_ajaran_id,
+                tipe=row.tipe.value if hasattr(row.tipe, "value") else str(row.tipe),
+                is_active=row.is_active,
+            )
+            for row in semester_rows
+        ]
+
+        kelas_seen: set[UUID] = set()
+        kelas_dtos: list[GuruAcademicContextKelasDTO] = []
+        for assignment in assignment_dtos:
+            if assignment.kelas_id in kelas_seen:
+                continue
+            kelas_seen.add(assignment.kelas_id)
+            kelas_dtos.append(
+                GuruAcademicContextKelasDTO(
+                    kelas_id=assignment.kelas_id,
+                    tahun_ajaran_id=assignment.tahun_ajaran_id,
+                    nama_kelas=assignment.kelas_nama or str(assignment.kelas_id),
+                )
+            )
+
+        kelas_dtos.sort(key=lambda item: item.nama_kelas.lower())
+
+        return GuruAcademicContextResponseDTO(
+            assignments=assignment_dtos,
+            tahun_ajaran=tahun_ajaran_dtos,
+            semesters=semester_dtos,
+            kelas=kelas_dtos,
+        )
 
     async def delete_guru_mapel(self, guru_mapel_id: UUID) -> MessageResponseDTO:
-        """
-        Delete a guru-mapel assignment.
+        guru_mapel = await self.repo.find_guru_mapel_by_id(guru_mapel_id)
+        self.policy.ensure_guru_mapel_exists(guru_mapel, guru_mapel_id)
+        if not guru_mapel.is_active:
+            return MessageResponseDTO(message="GuruMapel is already archived")
+        guru_mapel.is_active = False
+        await self.repo.commit()
+        return MessageResponseDTO(message="GuruMapel archived successfully")
 
-        Args:
-            guru_mapel_id: GuruMapel ID to delete
-
-        Returns:
-            MessageResponseDTO: Success message
-
-        Raises:
-            HTTPException: 404 if not found
-        """
-        result = await self.db.execute(
-            select(GuruMapel).where(GuruMapel.guru_mapel_id == guru_mapel_id)
-        )
-        guru_mapel = result.scalar_one_or_none()
-        if not guru_mapel:
+    async def update_guru_mapel(
+        self, guru_mapel_id: UUID, request: UpdateGuruMapelDTO
+    ) -> GuruMapelResponseDTO:
+        guru_mapel = await self.repo.find_guru_mapel_by_id(guru_mapel_id)
+        self.policy.ensure_guru_mapel_exists(guru_mapel, guru_mapel_id)
+        if not guru_mapel.is_active:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"GuruMapel with ID {guru_mapel_id} not found"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GuruMapel is archived and cannot be updated",
             )
+        old_user_id = guru_mapel.user_id
+        old_mapel_id = guru_mapel.mapel_id
+        old_kelas_id = guru_mapel.kelas_id
 
-        await self.db.delete(guru_mapel)
-        await self.db.commit()
+        update_data = request.model_dump(exclude_unset=True)
+        self.policy.ensure_guru_mapel_update_payload(update_data)
 
-        return MessageResponseDTO(message="GuruMapel deleted successfully")
+        new_user_id = update_data.get("user_id", guru_mapel.user_id)
+        new_mapel_id = update_data.get("mapel_id", guru_mapel.mapel_id)
+        new_kelas_id = update_data.get("kelas_id", guru_mapel.kelas_id)
 
-    # ── Jadwal Methods ───────────────────────────────────────────────────────
+        if "user_id" in update_data:
+            user = await self.repo.find_user_by_id(new_user_id)
+            self.policy.ensure_user_exists(user, new_user_id)
+            self.policy.ensure_user_is_guru(user, new_user_id)
+
+        if "mapel_id" in update_data:
+            mapel = await self.repo.find_mapel_by_id(new_mapel_id)
+            self.policy.ensure_entity_exists(mapel, "Mata pelajaran", new_mapel_id)
+            self.policy.ensure_mapel_active(mapel)
+            self.policy.ensure_mapel_in_tahun_ajaran(mapel, guru_mapel.tahun_ajaran_id)
+
+        if "kelas_id" in update_data:
+            kelas = await self.repo.find_kelas_by_id(new_kelas_id)
+            self.policy.ensure_entity_exists(kelas, "Kelas", new_kelas_id)
+            self.policy.ensure_kelas_in_tahun_ajaran(kelas, guru_mapel.tahun_ajaran_id)
+            self.policy.ensure_kelas_active(kelas)
+
+        existing = await self.repo.find_guru_mapel_unique(
+            new_user_id, new_mapel_id, new_kelas_id, guru_mapel.tahun_ajaran_id
+        )
+        if existing and existing.guru_mapel_id != guru_mapel_id:
+            self.policy.ensure_guru_mapel_unique(existing)
+        existing_owner = await self.repo.find_active_assignment_for_mapel_kelas_tahun(
+            new_mapel_id,
+            new_kelas_id,
+            guru_mapel.tahun_ajaran_id,
+        )
+        if existing_owner and existing_owner.guru_mapel_id != guru_mapel_id:
+            self.policy.ensure_single_active_guru_for_mapel_kelas_tahun(
+                existing_owner,
+                new_user_id,
+            )
+        if old_user_id != new_user_id:
+            transfer_conflict = await self.repo.find_teacher_transfer_conflict(
+                tahun_ajaran_id=guru_mapel.tahun_ajaran_id,
+                kelas_id=old_kelas_id,
+                mapel_id=old_mapel_id,
+                old_user_id=old_user_id,
+                new_user_id=new_user_id,
+            )
+            self.policy.ensure_teacher_transfer_available(transfer_conflict)
+
+        guru_mapel.user_id = new_user_id
+        guru_mapel.mapel_id = new_mapel_id
+        guru_mapel.kelas_id = new_kelas_id
+
+        try:
+            if old_user_id != new_user_id:
+                await self.repo.sync_jadwal_teacher_for_assignment(
+                    tahun_ajaran_id=guru_mapel.tahun_ajaran_id,
+                    kelas_id=old_kelas_id,
+                    mapel_id=old_mapel_id,
+                    old_user_id=old_user_id,
+                    new_user_id=new_user_id,
+                )
+            await self.repo.commit()
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui penugasan guru-mapel karena konflik data.",
+                constraint_messages=JADWAL_INTEGRITY_MESSAGES,
+            ) from e
+        await self.repo.refresh_guru_mapel(guru_mapel)
+        guru_mapel = await self.repo.find_guru_mapel_by_id_with_relations(guru_mapel.guru_mapel_id)
+        return self._to_guru_mapel_dto(guru_mapel)
 
     async def create_jadwal(self, request: CreateJadwalDTO) -> JadwalResponseDTO:
-        """
-        Create a timetable entry with clash validation.
+        semester = await self.repo.find_semester_by_id(request.semester_id)
+        self.policy.ensure_entity_exists(semester, "Semester", request.semester_id)
 
-        Validates that:
-        - No class conflict at the same time slot
-        - No teacher conflict at the same time slot
+        kelas = await self.repo.find_kelas_by_id(request.kelas_id)
+        self.policy.ensure_entity_exists(kelas, "Kelas", request.kelas_id)
+        self.policy.ensure_kelas_in_tahun_ajaran(kelas, semester.tahun_ajaran_id)
+        self.policy.ensure_kelas_active(kelas)
 
-        Args:
-            request: CreateJadwalDTO with schedule details
+        mapel = await self.repo.find_mapel_by_id(request.mapel_id)
+        self.policy.ensure_entity_exists(mapel, "Mata pelajaran", request.mapel_id)
+        self.policy.ensure_mapel_active(mapel)
+        self.policy.ensure_mapel_in_tahun_ajaran(mapel, semester.tahun_ajaran_id)
 
-        Returns:
-            JadwalResponseDTO: Created schedule entry
+        guru = await self.repo.find_user_by_id(request.guru_user_id)
+        self.policy.ensure_user_exists(guru, request.guru_user_id)
+        self.policy.ensure_user_is_guru(guru, request.guru_user_id)
 
-        Raises:
-            HTTPException: 400 if clash detected or validation fails
-            HTTPException: 404 if referenced entities don't exist
-        """
-        # Validate semester_id exists
-        result = await self.db.execute(
-            select(Semester).where(Semester.semester_id == request.semester_id)
+        slot_waktu = await self.repo.find_slot_waktu_by_id(request.slot_waktu_id)
+        self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", request.slot_waktu_id)
+        SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
+
+        class_time_clash = await self.repo.find_class_time_overlap(
+            request.semester_id,
+            request.hari,
+            request.kelas_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
         )
-        semester = result.scalar_one_or_none()
-        if not semester:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Semester with ID {request.semester_id} not found"
-            )
+        self.policy.ensure_class_time_available(class_time_clash)
 
-        # Validate kelas_id exists
-        result = await self.db.execute(
-            select(Kelas).where(Kelas.kelas_id == request.kelas_id)
+        teacher_time_clash = await self.repo.find_teacher_time_overlap(
+            request.semester_id,
+            request.hari,
+            request.guru_user_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
         )
-        kelas = result.scalar_one_or_none()
-        if not kelas:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Kelas with ID {request.kelas_id} not found"
-            )
+        self.policy.ensure_teacher_time_available(teacher_time_clash)
 
-        # Validate mapel_id exists
-        result = await self.db.execute(
-            select(MataPelajaran).where(MataPelajaran.mapel_id == request.mapel_id)
-        )
-        mapel = result.scalar_one_or_none()
-        if not mapel:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Mata pelajaran with ID {request.mapel_id} not found"
-            )
-
-        # Validate guru_user_id is a guru
-        result = await self.db.execute(
-            select(User).where(User.user_id == request.guru_user_id)
-        )
-        guru = result.scalar_one_or_none()
-        if not guru:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User with ID {request.guru_user_id} not found"
-            )
-        if guru.user_type != UserType.guru:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User {request.guru_user_id} is not a guru"
-            )
-
-        # Validate slot_waktu_id exists
-        result = await self.db.execute(
-            select(SlotWaktu).where(SlotWaktu.slot_id == request.slot_waktu_id)
-        )
-        slot_waktu = result.scalar_one_or_none()
-        if not slot_waktu:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Slot waktu with ID {request.slot_waktu_id} not found"
-            )
-
-        # CLASH VALIDATION: Check class conflict
-        result = await self.db.execute(
-            select(Jadwal).where(
-                and_(
-                    Jadwal.semester_id == request.semester_id,
-                    Jadwal.hari == request.hari,
-                    Jadwal.slot_waktu_id == request.slot_waktu_id,
-                    Jadwal.kelas_id == request.kelas_id,
-                )
-            )
-        )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Class already has a lesson at this time slot"
-            )
-
-        # CLASH VALIDATION: Check teacher conflict
-        result = await self.db.execute(
-            select(Jadwal).where(
-                and_(
-                    Jadwal.semester_id == request.semester_id,
-                    Jadwal.hari == request.hari,
-                    Jadwal.slot_waktu_id == request.slot_waktu_id,
-                    Jadwal.guru_user_id == request.guru_user_id,
-                )
-            )
-        )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Teacher already has a lesson at this time slot"
-            )
-
-        # Create Jadwal
         jadwal = Jadwal(
             semester_id=request.semester_id,
             kelas_id=request.kelas_id,
@@ -326,227 +314,168 @@ class JadwalService:
             guru_user_id=request.guru_user_id,
             hari=request.hari,
             slot_waktu_id=request.slot_waktu_id,
+            is_active=True,
         )
-
-        self.db.add(jadwal)
-        await self.db.commit()
-        await self.db.refresh(jadwal)
-
+        await self.repo.add_jadwal(jadwal)
+        try:
+            await self.repo.commit()
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal membuat jadwal karena konflik slot.",
+                constraint_messages=JADWAL_INTEGRITY_MESSAGES,
+            ) from e
+        await self.repo.refresh(jadwal)
         return self._to_jadwal_dto(jadwal)
 
-    async def list_jadwal_by_semester(self, semester_id: UUID) -> list[JadwalResponseDTO]:
-        """
-        List all timetable entries for a specific semester.
-
-        Args:
-            semester_id: Semester ID
-
-        Returns:
-            list[JadwalResponseDTO]: Timetable entries
-        """
-        result = await self.db.execute(
-            select(Jadwal).where(Jadwal.semester_id == semester_id)
+    async def list_jadwal_by_kelas(
+        self,
+        kelas_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
+        jadwals = await self.repo.list_jadwal_by_kelas_filters(
+            kelas_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
         )
-        jadwals = result.scalars().all()
         return [self._to_jadwal_dto(j) for j in jadwals]
 
-    async def list_jadwal_by_kelas(self, kelas_id: UUID) -> list[JadwalResponseDTO]:
-        """
-        List all timetable entries for a specific class.
-
-        Args:
-            kelas_id: Class ID
-
-        Returns:
-            list[JadwalResponseDTO]: Timetable entries
-        """
-        result = await self.db.execute(
-            select(Jadwal).where(Jadwal.kelas_id == kelas_id)
+    async def list_jadwal_by_guru(
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
+        jadwals = await self.repo.list_jadwal_by_guru_filters(
+            user_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
         )
-        jadwals = result.scalars().all()
         return [self._to_jadwal_dto(j) for j in jadwals]
 
-    async def list_jadwal_by_guru(self, user_id: UUID) -> list[JadwalResponseDTO]:
-        """
-        List all timetable entries for a specific teacher.
-
-        Args:
-            user_id: Teacher's user_id
-
-        Returns:
-            list[JadwalResponseDTO]: Timetable entries
-        """
-        result = await self.db.execute(
-            select(Jadwal).where(Jadwal.guru_user_id == user_id)
+    async def get_student_jadwal(
+        self,
+        user_id: UUID,
+        semester_id: UUID | None = None,
+        tahun_ajaran_id: UUID | None = None,
+    ) -> list[JadwalResponseDTO]:
+        kelas_id = await self.repo.find_student_kelas_id(user_id)
+        self.policy.ensure_student_has_kelas(kelas_id)
+        return await self.list_jadwal_by_kelas(
+            kelas_id,
+            semester_id=semester_id,
+            tahun_ajaran_id=tahun_ajaran_id,
         )
-        jadwals = result.scalars().all()
-        return [self._to_jadwal_dto(j) for j in jadwals]
 
     async def update_jadwal(self, jadwal_id: UUID, request: UpdateJadwalDTO) -> JadwalResponseDTO:
-        """
-        Update a timetable entry with clash re-validation.
-
-        Args:
-            jadwal_id: Jadwal ID to update
-            request: UpdateJadwalDTO with optional fields
-
-        Returns:
-            JadwalResponseDTO: Updated timetable entry
-
-        Raises:
-            HTTPException: 400 if clash detected or no updates provided
-            HTTPException: 404 if jadwal or referenced entities not found
-        """
-        # Get existing jadwal
-        result = await self.db.execute(
-            select(Jadwal).where(Jadwal.jadwal_id == jadwal_id)
-        )
-        jadwal = result.scalar_one_or_none()
-        if not jadwal:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Jadwal with ID {jadwal_id} not found"
-            )
-
-        # Get update data
-        update_data = request.model_dump(exclude_unset=True)
-        if not update_data:
+        jadwal = await self.repo.find_jadwal_by_id(jadwal_id)
+        self.policy.ensure_jadwal_exists(jadwal, jadwal_id)
+        if not jadwal.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
+                detail="Jadwal is archived and cannot be updated",
             )
+        kelas = await self.repo.find_kelas_by_id(jadwal.kelas_id)
+        self.policy.ensure_entity_exists(kelas, "Kelas", jadwal.kelas_id)
+        self.policy.ensure_kelas_active(kelas)
 
-        # Validate mapel_id if provided
+        update_data = request.model_dump(exclude_unset=True)
+        self.policy.ensure_update_payload(update_data)
+
         if "mapel_id" in update_data:
-            result = await self.db.execute(
-                select(MataPelajaran).where(MataPelajaran.mapel_id == update_data["mapel_id"])
-            )
-            if not result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Mata pelajaran with ID {update_data['mapel_id']} not found"
-                )
+            mapel = await self.repo.find_mapel_by_id(update_data["mapel_id"])
+            self.policy.ensure_entity_exists(mapel, "Mata pelajaran", update_data["mapel_id"])
+            self.policy.ensure_mapel_active(mapel)
+            semester = await self.repo.find_semester_by_id(jadwal.semester_id)
+            self.policy.ensure_entity_exists(semester, "Semester", jadwal.semester_id)
+            self.policy.ensure_mapel_in_tahun_ajaran(mapel, semester.tahun_ajaran_id)
 
-        # Validate guru_user_id if provided
         if "guru_user_id" in update_data:
-            result = await self.db.execute(
-                select(User).where(User.user_id == update_data["guru_user_id"])
-            )
-            guru = result.scalar_one_or_none()
-            if not guru:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with ID {update_data['guru_user_id']} not found"
-                )
-            if guru.user_type != UserType.guru:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"User {update_data['guru_user_id']} is not a guru"
-                )
+            guru = await self.repo.find_user_by_id(update_data["guru_user_id"])
+            self.policy.ensure_user_exists(guru, update_data["guru_user_id"])
+            self.policy.ensure_user_is_guru(guru, update_data["guru_user_id"])
 
-        # Validate slot_waktu_id if provided
         if "slot_waktu_id" in update_data:
-            result = await self.db.execute(
-                select(SlotWaktu).where(SlotWaktu.slot_id == update_data["slot_waktu_id"])
-            )
-            if not result.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Slot waktu with ID {update_data['slot_waktu_id']} not found"
-                )
+            slot_waktu = await self.repo.find_slot_waktu_by_id(update_data["slot_waktu_id"])
+            self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", update_data["slot_waktu_id"])
+            SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
+        else:
+            slot_waktu = await self.repo.find_slot_waktu_by_id(jadwal.slot_waktu_id)
+            self.policy.ensure_entity_exists(slot_waktu, "Slot waktu", jadwal.slot_waktu_id)
+            SlotWaktuPolicy.ensure_time_range_valid(slot_waktu.jam_mulai, slot_waktu.jam_selesai)
 
-        # Prepare new values for clash validation (merge existing with updates)
         new_hari = update_data.get("hari", jadwal.hari)
-        new_slot_waktu_id = update_data.get("slot_waktu_id", jadwal.slot_waktu_id)
         new_guru_user_id = update_data.get("guru_user_id", jadwal.guru_user_id)
 
-        # CLASH VALIDATION: Check class conflict (excluding self)
-        result = await self.db.execute(
-            select(Jadwal).where(
-                and_(
-                    Jadwal.jadwal_id != jadwal_id,
-                    Jadwal.semester_id == jadwal.semester_id,
-                    Jadwal.hari == new_hari,
-                    Jadwal.slot_waktu_id == new_slot_waktu_id,
-                    Jadwal.kelas_id == jadwal.kelas_id,
-                )
-            )
+        class_time_clash = await self.repo.find_class_time_overlap(
+            jadwal.semester_id,
+            new_hari,
+            jadwal.kelas_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
+            exclude_jadwal_id=jadwal_id,
         )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Class already has a lesson at this time slot"
-            )
+        self.policy.ensure_class_time_available(class_time_clash)
 
-        # CLASH VALIDATION: Check teacher conflict (excluding self)
-        result = await self.db.execute(
-            select(Jadwal).where(
-                and_(
-                    Jadwal.jadwal_id != jadwal_id,
-                    Jadwal.semester_id == jadwal.semester_id,
-                    Jadwal.hari == new_hari,
-                    Jadwal.slot_waktu_id == new_slot_waktu_id,
-                    Jadwal.guru_user_id == new_guru_user_id,
-                )
-            )
+        teacher_time_clash = await self.repo.find_teacher_time_overlap(
+            jadwal.semester_id,
+            new_hari,
+            new_guru_user_id,
+            slot_waktu.jam_mulai,
+            slot_waktu.jam_selesai,
+            exclude_jadwal_id=jadwal_id,
         )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Teacher already has a lesson at this time slot"
-            )
+        self.policy.ensure_teacher_time_available(teacher_time_clash)
 
-        # Apply updates
         for field, value in update_data.items():
             setattr(jadwal, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(jadwal)
-
+        try:
+            await self.repo.commit()
+        except IntegrityError as e:
+            await self.repo.rollback()
+            raise build_integrity_http_exception(
+                e,
+                default_detail="Gagal memperbarui jadwal karena konflik slot.",
+                constraint_messages=JADWAL_INTEGRITY_MESSAGES,
+            ) from e
+        await self.repo.refresh(jadwal)
         return self._to_jadwal_dto(jadwal)
 
     async def delete_jadwal(self, jadwal_id: UUID) -> MessageResponseDTO:
-        """
-        Delete a timetable entry.
-
-        Args:
-            jadwal_id: Jadwal ID to delete
-
-        Returns:
-            MessageResponseDTO: Success message
-
-        Raises:
-            HTTPException: 404 if not found
-        """
-        result = await self.db.execute(
-            select(Jadwal).where(Jadwal.jadwal_id == jadwal_id)
-        )
-        jadwal = result.scalar_one_or_none()
-        if not jadwal:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Jadwal with ID {jadwal_id} not found"
-            )
-
-        await self.db.delete(jadwal)
-        await self.db.commit()
-
-        return MessageResponseDTO(message="Jadwal deleted successfully")
-
-    # ── Helper Methods ───────────────────────────────────────────────────────
+        jadwal = await self.repo.find_jadwal_by_id(jadwal_id)
+        self.policy.ensure_jadwal_exists(jadwal, jadwal_id)
+        if not jadwal.is_active:
+            return MessageResponseDTO(message="Jadwal is already archived")
+        jadwal.is_active = False
+        await self.repo.commit()
+        return MessageResponseDTO(message="Jadwal archived successfully")
 
     def _to_guru_mapel_dto(self, guru_mapel: GuruMapel) -> GuruMapelResponseDTO:
-        """Convert GuruMapel model to DTO."""
+        guru_nama = None
+        if guru_mapel.user and guru_mapel.user.guru_profile:
+            guru_nama = guru_mapel.user.guru_profile.nama_lengkap
+        mapel_nama = guru_mapel.mapel.nama_mapel if guru_mapel.mapel else None
+        kelas_nama = guru_mapel.kelas.nama_kelas if guru_mapel.kelas else None
+
         return GuruMapelResponseDTO(
             guru_mapel_id=guru_mapel.guru_mapel_id,
             user_id=guru_mapel.user_id,
             mapel_id=guru_mapel.mapel_id,
             kelas_id=guru_mapel.kelas_id,
             tahun_ajaran_id=guru_mapel.tahun_ajaran_id,
+            is_active=guru_mapel.is_active,
+            guru_nama=guru_nama,
+            mapel_nama=mapel_nama,
+            kelas_nama=kelas_nama,
         )
 
     def _to_jadwal_dto(self, jadwal: Jadwal) -> JadwalResponseDTO:
-        """Convert Jadwal model to DTO."""
+        guru_nama = None
+        if jadwal.guru and jadwal.guru.guru_profile:
+            guru_nama = jadwal.guru.guru_profile.nama_lengkap
         return JadwalResponseDTO(
             jadwal_id=jadwal.jadwal_id,
             semester_id=jadwal.semester_id,
@@ -555,4 +484,10 @@ class JadwalService:
             guru_user_id=jadwal.guru_user_id,
             hari=jadwal.hari,
             slot_waktu_id=jadwal.slot_waktu_id,
+            is_active=jadwal.is_active,
+            mapel_nama=jadwal.mapel.nama_mapel if jadwal.mapel else None,
+            nama_kelas=jadwal.kelas.nama_kelas if jadwal.kelas else None,
+            guru_nama=guru_nama,
+            jam_mulai=jadwal.slot_waktu.jam_mulai if jadwal.slot_waktu else None,
+            jam_selesai=jadwal.slot_waktu.jam_selesai if jadwal.slot_waktu else None,
         )
