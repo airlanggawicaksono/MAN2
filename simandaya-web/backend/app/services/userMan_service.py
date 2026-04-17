@@ -27,7 +27,6 @@ from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
 from app.enums import StructuralRole
 from app.policy.user_management_policy import UserManagementPolicy
-from app.repositoriy.student_semester_repository import StudentSemesterRepository
 from app.repositoriy.user_management_repository import UserManagementRepository
 
 NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
@@ -73,7 +72,6 @@ class StudentUserManagementService:
     def __init__(self, repo: UserManagementRepository, policy: type[UserManagementPolicy]):
         self.repo = repo
         self.policy = policy
-        self.student_semester_repo = StudentSemesterRepository(repo.db)
 
     async def list_students(
         self, skip: int = 0, limit: int = 30, search: Optional[str] = None
@@ -138,36 +136,6 @@ class StudentUserManagementService:
         return MessageResponseDTO(message="Student deleted successfully")
 
     async def _to_student_dto(self, profile: SiswaProfile) -> StudentProfileResponseDTO:
-        semester_map = {
-            ("X", "Ganjil"): 1,
-            ("X", "Genap"): 2,
-            ("XI", "Ganjil"): 3,
-            ("XI", "Genap"): 4,
-            ("XII", "Ganjil"): 5,
-            ("XII", "Genap"): 6,
-        }
-        timeline_rows = await self.student_semester_repo.list_student_semester_rows(profile.user_id)
-        kelas_nama: str | None = None
-        tingkat: str | None = None
-        semester_tipe: str | None = None
-        semester_ke: int | None = None
-        if timeline_rows:
-            (
-                raw_tingkat,
-                raw_tipe,
-                _semester_id,
-                _tahun_ajaran_id,
-                _tahun_ajaran_nama,
-                _kelas_id,
-                kelas_nama,
-                _tahun_mulai,
-            ) = timeline_rows[0]
-            tingkat = raw_tingkat.value if raw_tingkat is not None else None
-            semester_tipe = raw_tipe.value if raw_tipe is not None else None
-            if tingkat and semester_tipe:
-                semester_ke = semester_map.get((tingkat, semester_tipe))
-        if not kelas_nama:
-            kelas_nama = profile.kelas_jurusan
         return StudentProfileResponseDTO(
             siswa_id=profile.siswa_id,
             user_id=profile.user_id,
@@ -178,12 +146,12 @@ class StudentUserManagementService:
             jenis_kelamin=profile.jenis_kelamin,
             alamat=profile.alamat,
             nama_wali=profile.nama_wali,
-            kelas_jurusan=kelas_nama or profile.kelas_jurusan,
-            kelas_nama=kelas_nama,
+            kelas_jurusan=profile.kelas_jurusan,
+            kelas_nama=profile.kelas_jurusan,
             tahun_masuk=profile.tahun_masuk,
             status_siswa=profile.status_siswa,
-            semester_aktif_tipe=semester_tipe,
-            semester_ke=semester_ke,
+            semester_aktif_tipe=None,
+            semester_ke=None,
             kontak=profile.kontak,
             kewarganegaraan=profile.kewarganegaraan,
             is_active=profile.user.is_active if profile.user else False,

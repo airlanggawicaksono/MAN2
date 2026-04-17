@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, ForeignKey, UUID as SQLAlchemyUUID
+from sqlalchemy import Boolean, Date, ForeignKey, UUID as SQLAlchemyUUID, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config.database import Base
@@ -25,7 +25,6 @@ class GuruStructuralAssignment(Base):
     )
     tahun_ajaran_id: Mapped[UUID | None] = mapped_column(
         SQLAlchemyUUID(as_uuid=True),
-        ForeignKey("tahun_ajaran.tahun_ajaran_id", ondelete="SET NULL"),
         nullable=True,
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)

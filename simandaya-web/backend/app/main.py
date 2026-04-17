@@ -5,12 +5,8 @@ from app.config.database import init_db, close_db
 from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.routers import (
     auth, users, absensi,
-    tahun_ajaran, semester, kalender, mapel, slot_waktu,
-    kelas, jadwal,
-    tugas, nilai,
-    rapor, registration,
-    desktop, kurikulum,
-    kategori_kelas,
+    registration,
+    desktop,
 )
 from app.config.settings import settings
 
@@ -45,29 +41,7 @@ app = FastAPI(
         {"name": "Public - Absensi"},
         {"name": "Admin - Absensi"},
         {"name": "Admin - Users (Structural)"},
-        {"name": "Admin - Kalender Akademik"},
-        {"name": "Admin - Mata Pelajaran"},
-        {"name": "Admin - Slot Waktu"},
-        {"name": "Admin - Kurikulum"},
-        {"name": "Admin - Kategori Kelas"},
-        {"name": "Admin - Kelas"},
-        {"name": "Admin - Jadwal"},
         {"name": "Admin - Desktop Device"},
-        {"name": "Admin + Guru + Siswa - Tahun Ajaran"},
-        {"name": "Admin + Guru + Siswa - Semester"},
-        {"name": "Admin + Guru - Users"},
-        {"name": "Admin + Siswa - Users"},
-        {"name": "Admin + Guru - Tugas"},
-        {"name": "Admin + Guru - Nilai"},
-        {"name": "Admin + Guru - Rapor"},
-        {"name": "Siswa - Kelas"},
-        {"name": "Siswa - Jadwal"},
-        {"name": "Siswa - Tugas"},
-        {"name": "Siswa - Nilai"},
-        {"name": "Siswa - Rapor"},
-        {"name": "Guru - Kelas"},
-        {"name": "Guru - Jadwal"},
-        {"name": "Guru + Siswa - Jadwal"},
         {"name": "Root"},
         {"name": "Health"},
     ],
@@ -88,19 +62,7 @@ app.include_router(registration.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(absensi.router)
-app.include_router(tahun_ajaran.router)
-app.include_router(semester.router)
-app.include_router(kalender.router)
-app.include_router(mapel.router)
-app.include_router(slot_waktu.router)
-app.include_router(kelas.router)
-app.include_router(jadwal.router)
-app.include_router(tugas.router)
-app.include_router(nilai.router)
-app.include_router(rapor.router)
 app.include_router(desktop.router)
-app.include_router(kurikulum.router)
-app.include_router(kategori_kelas.router)
 
 
 @app.get("/", tags=["Root"])

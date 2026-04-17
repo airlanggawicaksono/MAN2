@@ -11,7 +11,6 @@ from app.dto.absensi.attendance_settings_dto import (
     UpdateAttendanceSettingsDTO,
 )
 from app.dto.absensi.absensi_update_dto import UpdateAbsensiDTO
-from app.dto.absensi.bulk_absensi_dto import BulkAbsensiCreateDTO, BulkAbsensiResponseDTO
 from app.dto.absensi.public_response import PublicAbsensiDTO, PublicIzinKeluarDTO
 from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
@@ -177,56 +176,6 @@ class AbsensiService:
             tanggal=tanggal, search=search, skip=skip, limit=limit
         )
         return [self._to_public_izin_dto(r) for r in records]
-
-    async def bulk_create_absensi(
-        self, request: BulkAbsensiCreateDTO, current_user: User
-    ) -> BulkAbsensiResponseDTO:
-        try:
-            kelas = await self.repo.find_kelas_by_id(request.kelas_id)
-            self.policy.ensure_kelas_exists(kelas, request.kelas_id)
-            self.policy.ensure_bulk_permission(current_user)
-
-            valid_student_ids = await self.repo.get_student_ids_in_kelas(request.kelas_id)
-
-            created = 0
-            updated = 0
-
-            for entry in request.entries:
-                self.policy.ensure_student_in_kelas(entry.user_id, valid_student_ids)
-
-                existing = await self.repo.find_absensi_by_user_and_date(
-                    entry.user_id, request.tanggal
-                )
-                if existing:
-                    existing.status = entry.status
-                    existing.marked_by = current_user.user_id
-                    updated += 1
-                else:
-                    record = Absensi(
-                        user_id=entry.user_id,
-                        tanggal=request.tanggal,
-                        status=entry.status,
-                        marked_by=current_user.user_id,
-                    )
-                    await self.repo.add_absensi(record)
-                    created += 1
-
-            await self.repo.commit()
-
-            return BulkAbsensiResponseDTO(
-                created_count=created,
-                updated_count=updated,
-                message=f"Bulk attendance: {created} created, {updated} updated",
-            )
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            await self.repo.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create bulk attendance: {str(e)}",
-            )
 
     async def get_attendance_settings(self) -> AttendanceSettingsResponseDTO:
         settings = await self.desktop_repo.get_or_create_desktop_settings()

@@ -3,7 +3,6 @@ import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/auth";
 import cmsReducer from "./slices/cms";
 import absensiReducer from "./slices/absensi";
-import kurikulumReducer from "./slices/kurikulum";
 import { authApi } from "@/api/public/auth";
 import { studentsApi } from "@/api/admin/students";
 import { teachersApi } from "@/api/admin/teachers";
@@ -11,8 +10,6 @@ import { registrationApi } from "@/api/public/registration";
 import { cmsApi } from "@/api/admin/setContentManagement";
 import { absensiApi } from "@/api/public/absensi";
 import { usermanApi } from "@/api/admin/userman";
-import { akademikApi } from "@/api/shared/akademik";
-import { penilaianApi } from "@/api/shared/penilaian";
 
 const rootReducer = combineSlices(
   authApi,
@@ -22,9 +19,7 @@ const rootReducer = combineSlices(
   cmsApi,
   absensiApi,
   usermanApi,
-  akademikApi,
-  penilaianApi,
-  { auth: authReducer, cms: cmsReducer, absensi: absensiReducer, kurikulum: kurikulumReducer }
+  { auth: authReducer, cms: cmsReducer, absensi: absensiReducer }
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -41,8 +36,6 @@ export const makeStore = () => {
         cmsApi.middleware,
         absensiApi.middleware,
         usermanApi.middleware,
-        akademikApi.middleware,
-        penilaianApi.middleware,
       ),
   });
 };

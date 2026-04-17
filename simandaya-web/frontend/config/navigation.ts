@@ -52,16 +52,6 @@ export const adminNav: NavItem[] = [
 
 
   {
-    label: "Akademik",
-    width: "w-[240px]",
-    children: [
-      { label: "Manajemen Akademik", href: "/admin/manajemen/akademik" },
-      { label: "Manajemen Jadwal", href: "/admin/manajemen/akademik/jadwal" },
-
-    ],
-  },
-
-    {
     label: "Kesiswaan",
     width: "w-[240px]",
     children: [
@@ -73,15 +63,10 @@ export const adminNav: NavItem[] = [
 
 export const guruNav: NavItem[] = [
   { label: "Dasbor Guru", href: "/guru" },
-  { label: "Jadwal Mengajar", href: "/guru/jadwal" },
-  { label: "Penugasan Siswa", href: "/guru/tugas" },
-  { label: "Wali Kelas (Rapor)", href: "/guru/rapor" },
 ];
 
 export const siswaNav: NavItem[] = [
   { label: "Dasbor Siswa", href: "/siswa" },
-  { label: "Jadwal Pelajaran", href: "/siswa/jadwal" },
-  { label: "Tugas, Nilai & Rapor", href: "/siswa/nilai" },
 ];
 
 export function getNavForRole(role?: UserType): NavItem[] {

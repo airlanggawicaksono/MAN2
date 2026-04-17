@@ -22,10 +22,6 @@ from app.dto.absensi.public_response import (
     PublicAbsensiDTO,
     PublicIzinKeluarDTO,
 )
-from app.dto.absensi.bulk_absensi_dto import (
-    BulkAbsensiCreateDTO,
-    BulkAbsensiResponseDTO,
-)
 
 router = APIRouter(
     prefix="/api/v1/absensi",
@@ -141,22 +137,6 @@ async def update_attendance_settings(
 ) -> AttendanceSettingsResponseDTO:
     service = AbsensiService(db)
     return await service.update_attendance_settings(request, current_user)
-
-
-@router.post(
-    "/attendance/bulk",
-    response_model=BulkAbsensiResponseDTO,
-    summary="Bulk Mark Attendance",
-    description="Mark attendance for an entire class at once (Admin only).",
-    dependencies=[Depends(require_role(UserType.admin))]
-)
-async def bulk_create_absensi(
-    request: BulkAbsensiCreateDTO,
-    current_user: User = Depends(require_role(UserType.admin)),
-    db: AsyncSession = Depends(get_db),
-) -> BulkAbsensiResponseDTO:
-    service = AbsensiService(db)
-    return await service.bulk_create_absensi(request, current_user)
 
 
 # ── Izin Keluar ──────────────────────────────────────────────────────────────

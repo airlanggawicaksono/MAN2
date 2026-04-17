@@ -6,10 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.absensi import Absensi
-from app.models.guru_mapel import GuruMapel
 from app.models.izin_keluar import IzinKeluar
-from app.models.kelas import Kelas
-from app.models.siswa_kelas import SiswaKelas
 from app.models.siswa_profile import SiswaProfile
 from app.models.user import User
 
@@ -114,27 +111,6 @@ class AbsensiRepository:
 
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
-
-    async def find_kelas_by_id(self, kelas_id: UUID) -> Kelas | None:
-        result = await self.db.execute(select(Kelas).where(Kelas.kelas_id == kelas_id))
-        return result.scalar_one_or_none()
-
-    async def is_guru_teaching_kelas(self, user_id: UUID, kelas_id: UUID) -> bool:
-        result = await self.db.execute(
-            select(GuruMapel).where(
-                and_(
-                    GuruMapel.user_id == user_id,
-                    GuruMapel.kelas_id == kelas_id,
-                )
-            )
-        )
-        return result.first() is not None
-
-    async def get_student_ids_in_kelas(self, kelas_id: UUID) -> set[UUID]:
-        result = await self.db.execute(
-            select(SiswaKelas.user_id).where(SiswaKelas.kelas_id == kelas_id)
-        )
-        return {row[0] for row in result.all()}
 
     async def commit(self) -> None:
         await self.db.commit()

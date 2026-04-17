@@ -9,11 +9,8 @@ from sqlalchemy.orm import selectinload
 
 from app.models.guru_profile import GuruProfile
 from app.models.guru_structural_assignment import GuruStructuralAssignment
-from app.models.kelas import Kelas
 from app.models.siswa_profile import SiswaProfile
-from app.models.siswa_kelas import SiswaKelas
 from app.models.structural_role_ref import StructuralRoleRef
-from app.models.tahun_ajaran import TahunAjaran
 from app.models.user import User
 
 
@@ -66,19 +63,6 @@ class UserManagementRepository:
     async def find_student_by_nis(self, nis: str) -> SiswaProfile | None:
         result = await self.db.execute(
             select(SiswaProfile).where(SiswaProfile.nis == nis)
-        )
-        return result.scalar_one_or_none()
-
-    async def find_active_kelas_name_for_user(self, user_id: UUID) -> str | None:
-        result = await self.db.execute(
-            select(Kelas.nama_kelas)
-            .join(SiswaKelas, SiswaKelas.kelas_id == Kelas.kelas_id)
-            .join(TahunAjaran, TahunAjaran.tahun_ajaran_id == Kelas.tahun_ajaran_id)
-            .where(
-                SiswaKelas.user_id == user_id,
-                TahunAjaran.is_active.is_(True),
-            )
-            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -223,17 +207,6 @@ class UserManagementRepository:
             )
         )
         return result.scalar_one_or_none()
-
-    async def find_kelas_by_id(self, kelas_id: UUID) -> Kelas | None:
-        result = await self.db.execute(
-            select(Kelas).where(Kelas.kelas_id == kelas_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def clear_wali_kelas_for_user(self, user_id: UUID) -> None:
-        await self.db.execute(
-            update(Kelas).where(Kelas.wali_kelas_id == user_id).values(wali_kelas_id=None)
-        )
 
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)

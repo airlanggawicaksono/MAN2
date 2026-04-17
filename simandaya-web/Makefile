@@ -1,8 +1,8 @@
 .PHONY: help setup \
         dev-up dev-down dev-reset-seed dev-nuke-seed dev-backend dev-frontend \
         prod-build prod-up prod-down \
-        db-up db-down db-shell db-reset \
-        seed-admins seed-academic-demo seed-all import-students \
+        db-up db-down db-shell db-reset db-reset-hard \
+        seed-admins import-students \
         logs status clean
 
 include .env
@@ -69,26 +69,22 @@ dev-down:
 	$(DEV) stop
 
 dev-reset-seed:
-	@echo "Resetting PostgreSQL volume only, then restarting services and seeding demo data..."
-	$(DEV) stop backend frontend postgres-db
-	$(DEV) rm -fsv postgres-db
-	@docker volume ls -q | grep -E '(^|_)postgres_data$$' | xargs -r docker volume rm -f
-	$(DEV) up -d postgres-db backend frontend
-	@sleep 10
+	@echo "Resetting database volumes, restarting services and seeding demo data..."
+	$(DEV) down -v
+	$(DEV) up -d
+	@timeout /t 10 /nobreak >nul
 	$(DEV) exec backend python scripts/seed_admins.py
-	$(DEV) exec backend python scripts/seed_academic_demo.py
-	@echo "PostgreSQL reset and demo seed complete"
+	@echo "Reset and seed complete"
 
 dev-nuke-seed:
-	@echo "Nuking dev Docker state and seeding demo data..."
+	@echo "Nuking dev Docker state and seeding admins..."
 	$(DEV) down -v --remove-orphans
 	docker builder prune -af
 	docker system prune -af --volumes
 	$(DEV) up -d
-	@sleep 12
+	@timeout /t 12 /nobreak >nul
 	$(DEV) exec backend python scripts/seed_admins.py
-	$(DEV) exec backend python scripts/seed_academic_demo.py
-	@echo "Nuke + demo seed complete"
+	@echo "Nuke + seed complete"
 
 dev-backend:
 	$(DEV) up -d backend
@@ -141,13 +137,6 @@ db-reset-hard:
 
 seed-admins:
 	$(DEV) exec backend python scripts/seed_admins.py
-
-seed-academic-demo:
-	$(DEV) exec backend python scripts/seed_academic_demo.py
-
-seed-all:
-	$(DEV) exec backend python scripts/seed_admins.py
-	$(DEV) exec backend python scripts/seed_academic_demo.py
 
 import-students:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make import-students FILE=\"/path/to/file.xlsx\""; exit 1; fi

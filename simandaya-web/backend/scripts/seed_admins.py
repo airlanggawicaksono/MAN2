@@ -17,7 +17,6 @@ from app.config.database import async_session_maker, engine
 from app.enums import JenisKelamin, RegistrationStatus, StatusGuru, StatusSiswa, UserType
 from app.models.guru_profile import GuruProfile
 from app.models.siswa_profile import SiswaProfile
-from app.models.tahun_ajaran import TahunAjaran  # noqa: F401
 from app.models.user import User
 
 ADMINS = [
