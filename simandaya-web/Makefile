@@ -1,7 +1,7 @@
 .PHONY: help setup \
         dev-up dev-down dev-backend dev-frontend \
         prod-build prod-up prod-down \
-        db-up db-down db-shell db-reset \
+        db-up db-down db-shell db-reset db-reset-hard \
         seed-admins seed-absensi import-students \
         logs status clean
 
