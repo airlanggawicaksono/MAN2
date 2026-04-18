@@ -35,23 +35,6 @@ export interface PublicIzinKeluarResponse {
   perkiraan_kembali: string | null;
 }
 
-export interface BulkAttendanceEntry {
-  user_id: string;
-  status: "Hadir" | "Terlambat" | "Izin" | "Sakit" | "Alfa";
-}
-
-export interface BulkAbsensiCreateRequest {
-  kelas_id: string;
-  tanggal: string;
-  entries: BulkAttendanceEntry[];
-}
-
-export interface BulkAbsensiResponse {
-  created_count: number;
-  updated_count: number;
-  message: string;
-}
-
 export interface UpdateAbsensiRequest {
   status?: "Hadir" | "Izin" | "Sakit" | "Alfa" | "Terlambat";
   time_in?: string | null;

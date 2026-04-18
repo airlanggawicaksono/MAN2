@@ -4,8 +4,6 @@ import type {
   IzinKeluarResponse,
   PublicAbsensiResponse,
   PublicIzinKeluarResponse,
-  BulkAbsensiCreateRequest,
-  BulkAbsensiResponse,
   UpdateAbsensiRequest,
   AbsensiResponse,
   AttendanceSettingsResponse,
@@ -56,14 +54,6 @@ export const absensiApi = createApi({
       query: (id) => `/izin-keluar/${id}`,
       providesTags: (_r, _e, id) => [{ type: "IzinKeluar", id }],
     }),
-    bulkMarkAttendance: builder.mutation<BulkAbsensiResponse, BulkAbsensiCreateRequest>({
-      query: (body) => ({
-        url: "/attendance/bulk",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: ["Absensi"],
-    }),
     updateAttendance: builder.mutation<
       AbsensiResponse,
       { absensi_id: string; payload: UpdateAbsensiRequest }
@@ -105,7 +95,6 @@ export const {
   useListPublicIzinKeluarQuery,
   useListAllIzinKeluarQuery,
   useGetIzinKeluarQuery,
-  useBulkMarkAttendanceMutation,
   useUpdateAttendanceMutation,
   useDeleteAttendanceMutation,
   useGetAttendanceSettingsQuery,

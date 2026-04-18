@@ -27,40 +27,27 @@ import {
 
 export default function AbsensiPage() {
   const {
-    bulkKelasId,
-    bulkMessage,
-    classes,
     deletingAttendance,
     editingAbsensiId,
     editingStatus,
-    filteredAttendance,
     handleSaveSettings,
-    handleSubmitBulk,
     lateCutoffInput,
     loadingAttendance,
     loadingIzin,
-    loadingStudents,
-    rawKelasFilter,
     rawMessage,
     rawSearch,
     removeRecord,
     saveEdit,
-    savingBulk,
     savingEdit,
     savingSettings,
-    selectedCount,
-    selectedMap,
-    setBulkKelasId,
     setEditingAbsensiId,
     setEditingStatus,
     setLateCutoffInput,
-    setRawKelasFilter,
     setRawSearch,
-    setSelectedMap,
     settingsMessage,
     startEdit,
     stats,
-    studentsInClass,
+    attendance,
     tanggal,
     setTanggal,
   } = useAbsensiController();
@@ -71,8 +58,7 @@ export default function AbsensiPage() {
         <div>
           <h1 className="text-2xl font-bold">Kesiswaan: Manajemen Absensi</h1>
           <p className="text-sm text-muted-foreground">
-            Ada dua mode: raw management per siswa (tanpa kelas wajib) dan bulk
-            mark per kelas.
+            Kelola record absensi siswa secara individual.
           </p>
         </div>
         <div className="grid gap-1">
@@ -163,35 +149,15 @@ export default function AbsensiPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="grid gap-1">
-              <label className="text-xs text-muted-foreground">
-                Cari siswa
-              </label>
-              <Input
-                placeholder="Nama siswa..."
-                value={rawSearch}
-                onChange={(e) => setRawSearch(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-1">
-              <label className="text-xs text-muted-foreground">
-                Filter kelas
-              </label>
-              <Select value={rawKelasFilter} onValueChange={setRawKelasFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Semua kelas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Semua kelas</SelectItem>
-                  {classes.map((kelas) => (
-                    <SelectItem key={kelas.kelas_id} value={kelas.nama_kelas}>
-                      {kelas.nama_kelas}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-1 max-w-sm">
+            <label className="text-xs text-muted-foreground">
+              Cari siswa
+            </label>
+            <Input
+              placeholder="Nama siswa..."
+              value={rawSearch}
+              onChange={(e) => setRawSearch(e.target.value)}
+            />
           </div>
 
           {rawMessage && (
@@ -203,7 +169,7 @@ export default function AbsensiPage() {
               <p className="p-3 text-sm text-muted-foreground">
                 Memuat data absensi...
               </p>
-            ) : filteredAttendance.length === 0 ? (
+            ) : attendance.length === 0 ? (
               <p className="p-3 text-sm text-muted-foreground">
                 Tidak ada data absensi untuk filter ini.
               </p>
@@ -218,7 +184,7 @@ export default function AbsensiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAttendance.map((row) => {
+                  {attendance.map((row) => {
                     const isEditing = editingAbsensiId === row.absensi_id;
                     return (
                       <tr key={row.absensi_id} className="border-t">
@@ -296,118 +262,6 @@ export default function AbsensiPage() {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Bulk Mark Per Kelas (Admin)</CardTitle>
-          <CardDescription>
-            Default semua siswa di kelas ditandai hadir. Uncheck yang tidak
-            masuk, lalu simpan.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-1 min-w-[220px] max-w-sm">
-            <label className="text-xs text-muted-foreground">Kelas</label>
-            <Select value={bulkKelasId} onValueChange={setBulkKelasId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih kelas" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((kelas) => (
-                  <SelectItem key={kelas.kelas_id} value={kelas.kelas_id}>
-                    {kelas.nama_kelas}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              Total siswa: {studentsInClass.length}
-            </Badge>
-            <Badge variant="outline">Ditandai hadir: {selectedCount}</Badge>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const next: Record<string, boolean> = {};
-                for (const siswa of studentsInClass) next[siswa.user_id] = true;
-                setSelectedMap(next);
-              }}
-              disabled={!studentsInClass.length}
-            >
-              Centang Semua
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const next: Record<string, boolean> = {};
-                for (const siswa of studentsInClass)
-                  next[siswa.user_id] = false;
-                setSelectedMap(next);
-              }}
-              disabled={!studentsInClass.length}
-            >
-              Kosongkan Semua
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmitBulk}
-              disabled={!bulkKelasId || savingBulk || !studentsInClass.length}
-            >
-              {savingBulk ? "Menyimpan..." : "Simpan Bulk Mark"}
-            </Button>
-          </div>
-
-          {bulkMessage && (
-            <p className="text-sm text-muted-foreground">{bulkMessage}</p>
-          )}
-
-          <div className="max-h-80 overflow-auto rounded-md border">
-            {loadingStudents ? (
-              <p className="p-3 text-sm text-muted-foreground">
-                Memuat siswa kelas...
-              </p>
-            ) : studentsInClass.length === 0 ? (
-              <p className="p-3 text-sm text-muted-foreground">
-                Pilih kelas untuk mulai bulk mark.
-              </p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Hadir</th>
-                    <th className="px-3 py-2 text-left">Nama</th>
-                    <th className="px-3 py-2 text-left">NIS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {studentsInClass.map((siswa) => (
-                    <tr key={siswa.siswa_kelas_id} className="border-t">
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={!!selectedMap[siswa.user_id]}
-                          onChange={(e) =>
-                            setSelectedMap((prev) => ({
-                              ...prev,
-                              [siswa.user_id]: e.target.checked,
-                            }))
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-2">{siswa.nama_lengkap ?? "-"}</td>
-                      <td className="px-3 py-2">{siswa.nis ?? "-"}</td>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             )}

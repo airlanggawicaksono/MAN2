@@ -1,82 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  BookOpenCheck,
+  ArrowRight,
   CalendarDays,
-  LayoutDashboard,
   Megaphone,
-  Settings,
+  Settings2,
   ShieldCheck,
-  User,
   Users,
+  UserCircle2,
+  LayoutGrid,
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { useListStudentsQuery } from "@/api/admin/students";
 import { useListTeachersQuery } from "@/api/admin/teachers";
 import { useListPublicCivitasQuery } from "@/api/admin/userman";
 import { useListSlidesQuery } from "@/api/admin/setContentManagement";
-import { DashboardActionCard } from "@/app/components/dashboard-action-card";
-import { DashboardHeader } from "@/app/components/dashboard-header";
-import { DashboardStatCard } from "@/app/components/dashboard-stat-card";
 
-const quickActions = [
+const QUICK_ACTIONS = [
   {
     title: "Data Siswa",
-    description: "Kelola akun dan profil siswa.",
+    description: "Lihat, edit, dan hapus data profil seluruh siswa.",
     href: "/admin/manajemen/siswa",
     icon: Users,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
+    accent: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-100 hover:border-blue-300",
   },
   {
-    title: "Data Civitas",
+    title: "Data Civitas Akademik",
     description: "Kelola data guru dan tenaga kependidikan.",
     href: "/admin/manajemen/civitas",
     icon: ShieldCheck,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
+    accent: "text-violet-600",
+    bg: "bg-violet-50",
+    border: "border-violet-100 hover:border-violet-300",
   },
   {
-    title: "Manajemen Akademik",
-    description: "Atur tahun ajaran, semester, mapel, kurikulum.",
-    href: "/admin/manajemen/akademik",
-    icon: BookOpenCheck,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
-  },
-  {
-    title: "Jadwal",
-    description: "Atur jadwal pembelajaran per kelas.",
-    href: "/admin/manajemen/akademik/jadwal",
-    icon: CalendarDays,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
-  },
-  {
-    title: "Konten CMS",
-    description: "Kelola carousel, flyer, dan media website.",
+    title: "Manajemen Konten",
+    description: "Atur carousel, flyer, dan media halaman publik.",
     href: "/admin/manajemen/pengaturan-cms",
     icon: Megaphone,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
+    accent: "text-amber-600",
+    bg: "bg-amber-50",
+    border: "border-amber-100 hover:border-amber-300",
   },
   {
     title: "Kesiswaan",
-    description: "Pantau absensi masuk dan izin siswa.",
+    description: "Pantau absensi masuk dan log izin keluar siswa.",
     href: "/admin/kesiswaan/absensi",
-    icon: Settings,
-    colorClass: "text-blue-600",
-    bgClass: "bg-blue-100",
+    icon: Settings2,
+    accent: "text-emerald-600",
+    bg: "bg-emerald-50",
+    border: "border-emerald-100 hover:border-emerald-300",
   },
 ];
 
+function formatDate(d: Date) {
+  return d.toLocaleDateString("id-ID", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export default function AdminDashboardPage() {
   const user = useAppSelector((s) => s.auth.user);
-  const [hydrated, setHydrated] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
-    setHydrated(true);
+    setNow(new Date());
   }, []);
 
   const { data: students } = useListStudentsQuery({ skip: 0, limit: 1 });
@@ -84,70 +79,79 @@ export default function AdminDashboardPage() {
   const { data: civitas } = useListPublicCivitasQuery({ skip: 0, limit: 1 });
   const { data: slides } = useListSlidesQuery();
 
-  const statCards = [
-    {
-      title: "Total Siswa",
-      value: students?.total ?? 0,
-      colorClass: "text-blue-600",
-      bgClass: "bg-blue-100",
-      icon: Users,
-    },
-    {
-      title: "Total Guru",
-      value: teachers?.total ?? 0,
-      colorClass: "text-blue-600",
-      bgClass: "bg-blue-100",
-      icon: User,
-    },
-    {
-      title: "Civitas Publik",
-      value: civitas?.total ?? 0,
-      colorClass: "text-blue-600",
-      bgClass: "bg-blue-100",
-      icon: ShieldCheck,
-    },
-    {
-      title: "Konten CMS",
-      value: slides?.length ?? 0,
-      colorClass: "text-blue-600",
-      bgClass: "bg-blue-100",
-      icon: Megaphone,
-    },
+  const stats = [
+    { label: "Total Siswa", value: students?.total ?? "-", accent: "border-l-blue-500" },
+    { label: "Total Guru", value: teachers?.total ?? "-", accent: "border-l-emerald-500" },
+    { label: "Civitas Publik", value: civitas?.total ?? "-", accent: "border-l-violet-500" },
+    { label: "Konten CMS", value: slides?.length ?? "-", accent: "border-l-amber-500" },
   ];
 
   return (
-    <div className="space-y-8 p-8">
-      <DashboardHeader
-        icon={LayoutDashboard}
-        title={hydrated && user?.username ? `Dasbor Admin,` : "Dasbor Admin"}
-        subtitle="Ringkasan sistem dan akses cepat pengelolaan SIMANDAYA."
-      />
+    <div className="space-y-8 p-6 md:p-8">
+      {/* Banner */}
+      <div className="rounded-2xl bg-slate-900 px-8 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
+            <LayoutGrid className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <p className="text-slate-400 text-sm">Selamat datang kembali,</p>
+            <h1 className="text-white text-2xl font-bold tracking-tight">
+              {user?.username ?? "Admin"}
+            </h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-slate-400 text-sm">
+          <CalendarDays className="h-4 w-4" />
+          <span>{now ? formatDate(now) : ""}</span>
+        </div>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((item) => (
-          <DashboardStatCard
-            key={item.title}
-            title={item.title}
-            value={item.value}
-            icon={item.icon}
-            colorClass={item.colorClass}
-            bgClass={item.bgClass}
-          />
+      {/* Stats */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className={`bg-white rounded-xl border border-slate-200 border-l-4 ${s.accent} px-5 py-4 shadow-sm`}
+          >
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">
+              {s.label}
+            </p>
+            <p className="text-3xl font-bold text-slate-900">{s.value}</p>
+          </div>
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {quickActions.map((item) => (
-          <DashboardActionCard
-            key={item.title}
-            title={item.title}
-            description={item.description}
-            href={item.href}
-            icon={item.icon}
-            colorClass={item.colorClass}
-            bgClass={item.bgClass}
-          />
-        ))}
+      {/* Quick Actions */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <UserCircle2 className="h-5 w-5 text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+            Akses Cepat
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {QUICK_ACTIONS.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <div
+                className={`group bg-white rounded-2xl border ${item.border} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-start gap-4`}
+              >
+                <div className={`rounded-xl ${item.bg} p-3 mt-0.5 flex-shrink-0`}>
+                  <item.icon className={`h-5 w-5 ${item.accent}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900 text-base">{item.title}</p>
+                  <p className="text-sm text-slate-500 mt-0.5 leading-snug">
+                    {item.description}
+                  </p>
+                </div>
+                <ArrowRight
+                  className={`h-4 w-4 text-slate-300 mt-1 flex-shrink-0 group-hover:${item.accent} group-hover:translate-x-1 transition-all`}
+                />
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

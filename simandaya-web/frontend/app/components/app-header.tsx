@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "./confirm-dialog";
-import RegisterModal from "./register-modal";
 import SharedHeader from "./shared-header";
 
 export default function AppHeader() {
@@ -31,15 +30,12 @@ export default function AppHeader() {
   useEffect(() => {
     if (!mounted) return;
     router.prefetch("/admin");
-    router.prefetch("/guru");
-    router.prefetch("/siswa");
   }, [mounted, router]);
 
   const navItems = mounted ? getNavForRole(user?.user_type) : getNavForRole(undefined);
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -197,30 +193,8 @@ export default function AppHeader() {
             </button>
           </form>
 
-          <div className="text-center text-sm text-muted-foreground">
-            Belum punya akun?{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setShowLoginDialog(false);
-                setShowRegisterDialog(true);
-              }}
-              className="text-primary font-medium hover:underline"
-            >
-              Daftar
-            </button>
-          </div>
         </DialogContent>
       </Dialog>
-
-      <RegisterModal
-        open={showRegisterDialog}
-        onOpenChange={setShowRegisterDialog}
-        onSwitchToLogin={() => {
-          setShowRegisterDialog(false);
-          openLoginDialog();
-        }}
-      />
 
       <ConfirmDialog
         open={showLogoutDialog}

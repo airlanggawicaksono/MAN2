@@ -5,7 +5,6 @@ from app.config.database import init_db, close_db
 from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.routers import (
     auth, users, absensi,
-    registration,
     desktop,
 )
 from app.config.settings import settings
@@ -58,7 +57,6 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(registration.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(absensi.router)

@@ -5,7 +5,6 @@ import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
 import { useCrudListPage } from "@/hooks/useCrudListPage";
 import { DataTable } from "@/components/ui/data-table";
-import { StudentForm } from "./student-form";
 import { studentColumns } from "./student-columns";
 import { StudentEditDialog } from "./student-edit-dialog";
 import { StudentDeleteDialog } from "./student-delete-dialog";
@@ -39,8 +38,6 @@ export default function DataSiswaPage() {
           Kelola data siswa MAN 2 Kota Yogyakarta
         </p>
       </div>
-
-      <StudentForm />
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Daftar Siswa</h2>

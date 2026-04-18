@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from app.enums import RegistrationStatus
+from app.enums import RegistrationStatus, UserType
 
 
 class AuthPolicy:
@@ -33,6 +33,14 @@ class AuthPolicy:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Registrasi belum selesai. Silakan lengkapi pendaftaran.",
+            )
+
+    @staticmethod
+    def ensure_admin_only(user) -> None:
+        if user.user_type != UserType.admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akses hanya untuk Admin.",
             )
 
     @staticmethod

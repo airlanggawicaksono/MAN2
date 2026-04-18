@@ -98,7 +98,7 @@ class AuthService:
         user = await self.repo.find_by_username(request.username)
         self.policy.ensure_valid_credentials(user, request.password)
         self.policy.ensure_user_active(user)
-        self.policy.ensure_registration_completed(user)
+        self.policy.ensure_admin_only(user)
 
         # Update last login
         user.update_last_login()

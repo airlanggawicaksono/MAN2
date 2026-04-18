@@ -24,12 +24,6 @@ from app.dto.userMan.userman_response import (
     PaginatedPublicCivitasResponse,
     MessageResponseDTO,
 )
-from app.services.registration_service import RegistrationService
-from app.dto.registration.registration_dto import (
-    PreRegisterStudentDTO,
-    PreRegisterTeacherDTO,
-    PreRegisterResponseDTO,
-)
 from app.dto.struktural.assignment_dto import (
     AssignStructuralRoleDTO,
     GuruStructuralAssignmentDTO,
@@ -96,18 +90,6 @@ async def list_students(
 
 
 @student_router.get(
-    "/me",
-    response_model=StudentProfileResponseDTO,
-    summary="Get My Student Profile",
-)
-async def get_my_student_profile(
-    current_user: User = Depends(require_role(UserType.siswa)),
-    service: StudentUserManagementService = Depends(get_student_user_service),
-) -> StudentProfileResponseDTO:
-    return await service.get_student_by_user_id(current_user.user_id)
-
-
-@student_router.get(
     "/{siswa_id}",
     response_model=StudentProfileResponseDTO,
     summary="Get Student",
@@ -119,31 +101,6 @@ async def get_student(
     service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> StudentProfileResponseDTO:
     return await service.get_student(siswa_id)
-
-
-@student_router.patch(
-    "/me",
-    response_model=StudentProfileResponseDTO,
-    summary="Update My Student Profile",
-    description="Partial update own student profile (Student only).",
-)
-async def update_my_student_profile(
-    request: UpdateStudentRequestDTO,
-    current_user: User = Depends(require_role(UserType.siswa)),
-    service: StudentUserManagementService = Depends(get_student_user_service),
-) -> StudentProfileResponseDTO:
-    # Student self-service can only update non-sensitive fields.
-    payload = request.model_dump(exclude_unset=True)
-    for blocked_field in ("nis", "tahun_masuk", "status_siswa"):
-        payload.pop(blocked_field, None)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No editable fields provided",
-        )
-
-    me = await service.get_student_by_user_id(current_user.user_id)
-    return await service.update_student(me.siswa_id, UpdateStudentRequestDTO(**payload))
 
 
 @student_router.patch(
@@ -197,18 +154,6 @@ async def list_teachers(
 
 
 @teacher_router.get(
-    "/me",
-    response_model=GuruProfileResponseDTO,
-    summary="Get My Teacher Profile",
-)
-async def get_my_teacher_profile(
-    current_user: User = Depends(require_role(UserType.guru)),
-    service: TeacherUserManagementService = Depends(get_teacher_user_service),
-) -> GuruProfileResponseDTO:
-    return await service.get_teacher_by_user_id(current_user.user_id)
-
-
-@teacher_router.get(
     "/{guru_id}",
     response_model=GuruProfileResponseDTO,
     summary="Get Teacher",
@@ -220,31 +165,6 @@ async def get_teacher(
     service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> GuruProfileResponseDTO:
     return await service.get_teacher(guru_id)
-
-
-@teacher_router.patch(
-    "/me",
-    response_model=GuruProfileResponseDTO,
-    summary="Update My Teacher Profile",
-    description="Partial update own teacher profile (Teacher only).",
-)
-async def update_my_teacher_profile(
-    request: UpdateGuruRequestDTO,
-    current_user: User = Depends(require_role(UserType.guru)),
-    service: TeacherUserManagementService = Depends(get_teacher_user_service),
-) -> GuruProfileResponseDTO:
-    # Teacher self-service can only update non-sensitive fields.
-    payload = request.model_dump(exclude_unset=True)
-    for blocked_field in ("nip", "tahun_masuk", "status_guru"):
-        payload.pop(blocked_field, None)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No editable fields provided",
-        )
-
-    me = await service.get_teacher_by_user_id(current_user.user_id)
-    return await service.update_teacher(me.guru_id, UpdateGuruRequestDTO(**payload))
 
 
 @teacher_router.patch(
@@ -274,41 +194,6 @@ async def delete_teacher(
     service: TeacherUserManagementService = Depends(get_teacher_user_service),
 ) -> MessageResponseDTO:
     return await service.delete_teacher(guru_id)
-
-
-# ── Pre-Register Endpoints ──────────────────────────────────────────────────
-
-
-@student_router.post(
-    "/pre-register",
-    response_model=PreRegisterResponseDTO,
-    status_code=201,
-    summary="Pre-Register Student",
-    description="Create a PENDING student entry (Admin only). Student completes registration via /register.",
-    dependencies=[Depends(require_role(UserType.admin))],
-)
-async def pre_register_student(
-    request: PreRegisterStudentDTO,
-    db: AsyncSession = Depends(get_db),
-) -> PreRegisterResponseDTO:
-    service = RegistrationService(db)
-    return await service.pre_register_student(request)
-
-
-@teacher_router.post(
-    "/pre-register",
-    response_model=PreRegisterResponseDTO,
-    status_code=201,
-    summary="Pre-Register Teacher",
-    description="Create a PENDING teacher entry (Admin only). Teacher completes registration via /register.",
-    dependencies=[Depends(require_role(UserType.admin))],
-)
-async def pre_register_teacher(
-    request: PreRegisterTeacherDTO,
-    db: AsyncSession = Depends(get_db),
-) -> PreRegisterResponseDTO:
-    service = RegistrationService(db)
-    return await service.pre_register_teacher(request)
 
 
 # ── Structural Role Endpoints ───────────────────────────────────────────────

@@ -6,7 +6,6 @@ import absensiReducer from "./slices/absensi";
 import { authApi } from "@/api/public/auth";
 import { studentsApi } from "@/api/admin/students";
 import { teachersApi } from "@/api/admin/teachers";
-import { registrationApi } from "@/api/public/registration";
 import { cmsApi } from "@/api/admin/setContentManagement";
 import { absensiApi } from "@/api/public/absensi";
 import { usermanApi } from "@/api/admin/userman";
@@ -15,7 +14,6 @@ const rootReducer = combineSlices(
   authApi,
   studentsApi,
   teachersApi,
-  registrationApi,
   cmsApi,
   absensiApi,
   usermanApi,
@@ -32,7 +30,6 @@ export const makeStore = () => {
         authApi.middleware,
         studentsApi.middleware,
         teachersApi.middleware,
-        registrationApi.middleware,
         cmsApi.middleware,
         absensiApi.middleware,
         usermanApi.middleware,

@@ -2,8 +2,6 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { createBaseQuery } from "@/api/shared/base";
 import type {
   StudentProfile,
-  PreRegisterStudentRequest,
-  PreRegisterResponse,
   UpdateStudentRequest,
   PaginatedStudentsResponse,
   ListStudentsParams,
@@ -41,16 +39,6 @@ export const studentsApi = createApi({
       providesTags: (_result, _err, siswaId) => [{ type: "Student", id: siswaId }],
     }),
 
-    getMyStudentProfile: builder.query<StudentProfile, void>({
-      query: () => "/me",
-      providesTags: ["Student"],
-    }),
-
-    preRegisterStudent: builder.mutation<PreRegisterResponse, PreRegisterStudentRequest>({
-      query: (body) => ({ url: "/pre-register", method: "POST", body }),
-      invalidatesTags: [{ type: "Student", id: "LIST" }],
-    }),
-
     updateStudent: builder.mutation<
       StudentProfile,
       { siswaId: string; body: UpdateStudentRequest }
@@ -66,15 +54,6 @@ export const studentsApi = createApi({
       ],
     }),
 
-    updateMyStudentProfile: builder.mutation<StudentProfile, UpdateStudentRequest>({
-      query: (body) => ({
-        url: "/me",
-        method: "PATCH",
-        body,
-      }),
-      invalidatesTags: [{ type: "Student", id: "LIST" }],
-    }),
-
     deleteStudent: builder.mutation<MessageResponse, string>({
       query: (siswaId) => ({ url: `/${siswaId}`, method: "DELETE" }),
       invalidatesTags: (_result, _err, siswaId) => [
@@ -88,9 +67,6 @@ export const studentsApi = createApi({
 export const {
   useListStudentsQuery,
   useGetStudentQuery,
-  useGetMyStudentProfileQuery,
-  usePreRegisterStudentMutation,
   useUpdateStudentMutation,
-  useUpdateMyStudentProfileMutation,
   useDeleteStudentMutation,
 } = studentsApi;

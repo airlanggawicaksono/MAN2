@@ -5,7 +5,6 @@ import type { GuruProfile } from "@/types/teachers";
 import { useTeacherPrecache } from "@/hooks/useTeacherPrecache";
 import { useCrudListPage } from "@/hooks/useCrudListPage";
 import { DataTable } from "@/components/ui/data-table";
-import { TeacherForm } from "./teacher-form";
 import { teacherColumns } from "./teacher-columns";
 import { TeacherEditDialog } from "./teacher-edit-dialog";
 import { TeacherDeleteDialog } from "./teacher-delete-dialog";
@@ -39,8 +38,6 @@ export default function CivitasAkademikPage() {
           Kelola data guru dan tenaga kependidikan MAN 2 Kota Yogyakarta
         </p>
       </div>
-
-      <TeacherForm />
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Daftar Civitas Akademik</h2>
