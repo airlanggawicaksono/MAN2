@@ -18,6 +18,7 @@ export interface StudentProfile {
   semester_ke?: number | null;
   kontak: string | null;
   kewarganegaraan: string;
+  card_no: string | null;
   is_active: boolean;
 }
 
@@ -52,6 +53,7 @@ export interface UpdateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
+  card_no?: string;
 }
 
 export interface PaginatedStudentsResponse {
@@ -65,4 +67,35 @@ export interface ListStudentsParams {
   skip: number;
   limit: number;
   search?: string;
+}
+
+export interface CreateStudentRequest {
+  nis?: string;
+  nama_lengkap: string;
+  dob?: string;
+  tempat_lahir?: string;
+  jenis_kelamin?: JenisKelamin;
+  alamat?: string;
+  nama_wali?: string;
+  kelas_jurusan?: string;
+  tahun_masuk?: number;
+  status_siswa?: StatusSiswa;
+  kontak?: string;
+  kewarganegaraan?: string;
+  card_no?: string;
+}
+
+export interface BulkImportResultItem {
+  row: number;
+  nama_lengkap: string;
+  nis?: string;
+  status: "created" | "skipped" | "error";
+  detail?: string;
+}
+
+export interface BulkImportResult {
+  created: number;
+  skipped: number;
+  errors: number;
+  items: BulkImportResultItem[];
 }

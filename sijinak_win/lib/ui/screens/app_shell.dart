@@ -10,17 +10,15 @@ import '../../providers/providers.dart';
 import '../../services/network_discovery_service.dart';
 import '../../services/izin_payload.dart';
 import '../../services/ticket_printer_service.dart';
-import '../../services/server_service.dart';
 import '../widgets/tap_popup.dart';
 import 'dashboard.dart';
 import 'students_screen.dart';
 import 'absensi_screen.dart';
 
-class _TapEntry {
+class _IzinEntry {
   final HikEvent event;
   final Student student;
-  final String suggestedType;
-  _TapEntry(this.event, this.student, this.suggestedType);
+  _IzinEntry(this.event, this.student);
 }
 
 class AppShell extends ConsumerStatefulWidget {
@@ -58,11 +56,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   String? _startedConfigFingerprint;
   Timer? _syncTimer;
   bool _syncRunning = false;
+  final Set<String> _inProgress = {};
   bool _popupShowing = false;
-  DateTime? _lastBackendCheckAt;
-  bool _lastBackendCheckOk = false;
-  final Queue<_TapEntry> _queue = Queue();
-  final Set<String> _inQueue = {}; // cardNos currently queued or showing
+  final Queue<_IzinEntry> _izinQueue = Queue();
 
   void _ensureServicesStarted({bool force = false}) {
     final config = ref.read(configProvider).asData?.value;
@@ -105,7 +101,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
       ref.read(hikvisionServiceProvider).start(config);
       final attendance = ref.read(attendanceServiceProvider);
-      attendance.onTapDetected = _onTapDetected;
+      attendance.onAutoAttendance = _onAutoAttendance;
+      attendance.onIzinRequired = _onIzinRequired;
+      attendance.onAlreadySignedOff = _onAlreadySignedOff;
       attendance.start();
 
       _hikStarted = true;
@@ -116,12 +114,228 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  void _onTapDetected(HikEvent event, Student student, String suggestedType) {
-    if (_inQueue.contains(student.cardNo)) return; // already queued
-    _inQueue.add(student.cardNo ?? event.cardNo);
-    _queue.add(_TapEntry(event, student, suggestedType));
-    _maybeShowNext();
+  // ── Auto masuk/keluar (no popup) ─────────────────────────────────────────
+
+  void _onAutoAttendance(HikEvent event, Student student, String eventType) {
+    final key = student.cardNo ?? event.cardNo;
+    if (_inProgress.contains(key)) return;
+    _inProgress.add(key);
+    unawaited(_saveAutoRecord(event, student, eventType));
   }
+
+  Future<void> _saveAutoRecord(
+    HikEvent event,
+    Student student,
+    String eventType,
+  ) async {
+    final key = student.cardNo ?? event.cardNo;
+    try {
+      final db = ref.read(databaseProvider);
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final recordId = '${student.userId}_${event.cardNo}_${event.serialNo}';
+
+      await db.into(db.tapRecords).insert(
+        TapRecordsCompanion(
+          id: Value(recordId),
+          cardNo: Value(event.cardNo),
+          eventType: Value(eventType),
+          deviceTime: Value(event.dateTime.millisecondsSinceEpoch ~/ 1000),
+          hikSerialNo: Value(event.serialNo),
+          createdAt: Value(now),
+          reason: const Value(null),
+          publishedAt: const Value(null),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      ref.invalidate(recentRecordsProvider);
+      ref.invalidate(pendingSyncCountProvider);
+      unawaited(_syncInBackground());
+
+      if (mounted) {
+        final label = eventType == 'absen_masuk' ? 'MASUK' : 'KELUAR';
+        final color = eventType == 'absen_masuk' ? Colors.green : Colors.blue;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${student.nama} — $label',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: color,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      _inProgress.remove(key);
+    }
+  }
+
+  // ── Already signed off alert ──────────────────────────────────────────────
+
+  void _onAlreadySignedOff(Student student) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${student.nama} — Anda telah melakukan absensi keluar hari ini.',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.deepOrange,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ── Izin popup + ticket print ─────────────────────────────────────────────
+
+  void _onIzinRequired(HikEvent event, Student student) {
+    final key = student.cardNo ?? event.cardNo;
+    if (_inProgress.contains(key)) return;
+    _inProgress.add(key);
+    _izinQueue.add(_IzinEntry(event, student));
+    _maybeShowIzinPopup();
+  }
+
+  void _maybeShowIzinPopup() {
+    if (_popupShowing || _izinQueue.isEmpty) return;
+    final entry = _izinQueue.removeFirst();
+    unawaited(_showIzinPopup(entry));
+  }
+
+  Future<void> _showIzinPopup(_IzinEntry entry) async {
+    _popupShowing = true;
+    try {
+      final result = await showDialog<TapPopupResult>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => TapPopupDialog(
+          student: entry.student,
+          attendanceService: ref.read(attendanceServiceProvider),
+          initialEventType: 'izin',
+        ),
+      );
+
+      if (result != null && result.eventType == 'izin') {
+        final printed = await _printIzinTicket(entry.student, result);
+        if (printed) {
+          await _saveIzinRecord(entry, result);
+        }
+      }
+    } finally {
+      _inProgress.remove(entry.student.cardNo ?? entry.event.cardNo);
+      _popupShowing = false;
+      _maybeShowIzinPopup();
+    }
+  }
+
+  Future<void> _saveIzinRecord(_IzinEntry entry, TapPopupResult result) async {
+    final db = ref.read(databaseProvider);
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final recordId =
+        result.existingRecordId ??
+        '${entry.student.userId}_${entry.event.cardNo}_${entry.event.serialNo}';
+
+    await db.into(db.tapRecords).insert(
+      TapRecordsCompanion(
+        id: Value(recordId),
+        cardNo: Value(entry.event.cardNo),
+        eventType: const Value('izin'),
+        deviceTime: Value(entry.event.dateTime.millisecondsSinceEpoch ~/ 1000),
+        hikSerialNo: Value(entry.event.serialNo),
+        createdAt: Value(now),
+        reason: Value(encodeIzinReasonPayload(
+          reason: result.reason,
+          perkiraanKembali: result.estimatedReturnAt,
+        )),
+        publishedAt: const Value(null),
+      ),
+      mode: InsertMode.insertOrReplace,
+    );
+
+    ref.invalidate(recentRecordsProvider);
+    ref.invalidate(pendingSyncCountProvider);
+    unawaited(_syncInBackground());
+  }
+
+  Future<bool> _printIzinTicket(Student student, TapPopupResult result) async {
+    final reason = result.reason?.trim();
+    if (reason == null || reason.isEmpty) return false;
+    final config = ref.read(configProvider).asData?.value;
+    final preferredPrinterKey = config?.thermalPrinterKey;
+
+    final printerReady = await ref
+        .read(ticketPrinterServiceProvider)
+        .isPrinterReady(preferredPrinterKey: preferredPrinterKey);
+    if (!printerReady) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Printer thermal tidak terhubung. Proses izin dibatalkan.'),
+        ),
+      );
+      return false;
+    }
+
+    final payload = IzinTicketPayload(
+      studentName: student.nama,
+      nis: student.nis,
+      alasanIzin: reason,
+      waktuKeluar: DateTime.now(),
+      perkiraanKembali: result.estimatedReturnAt,
+    );
+
+    try {
+      await ref.read(ticketPrinterServiceProvider).printIzinTicket(
+        payload,
+        copyNumber: 1,
+        preferredPrinterKey: preferredPrinterKey,
+      );
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Cetak tiket gagal: $e')));
+      return false;
+    }
+
+    if (!mounted) return false;
+    final confirmSecondCopy = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cetak Ulang Salinan Kedua'),
+        content: const Text('Copy pertama sudah tercetak. Lanjut cetak copy kedua?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Tidak'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cetak'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmSecondCopy != true) return true;
+
+    try {
+      await ref.read(ticketPrinterServiceProvider).printIzinTicket(
+        payload,
+        copyNumber: 2,
+        preferredPrinterKey: preferredPrinterKey,
+      );
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Cetak copy kedua gagal: $e')));
+    }
+    return true;
+  }
+
+  // ── Sync loop ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -146,7 +360,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     try {
       await ref.read(globalSyncProvider.notifier).syncAll();
     } catch (_) {
-      // Keep loop running; failures are already reflected in provider state.
     } finally {
       _syncRunning = false;
     }
@@ -162,7 +375,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       setState(() => _navigating = false);
     });
 
-    // Hidden refresh behavior: entering Dashboard/Siswa triggers immediate sync.
     if (index == 0 || index == 1) {
       final now = DateTime.now();
       final last = _lastNavTriggeredSyncAt;
@@ -171,225 +383,6 @@ class _AppShellState extends ConsumerState<AppShell> {
         unawaited(_syncInBackground());
       }
     }
-  }
-
-  void _maybeShowNext() {
-    if (_popupShowing || _queue.isEmpty) return;
-    final entry = _queue.removeFirst();
-    _showPopup(entry);
-  }
-
-  Future<void> _showPopup(_TapEntry entry) async {
-    _popupShowing = true;
-    final backendOk = await _ensureBackendReadyForAttendance();
-    if (!backendOk) {
-      _inQueue.remove(entry.student.cardNo ?? entry.event.cardNo);
-      _popupShowing = false;
-      _maybeShowNext();
-      return;
-    }
-
-    final result = await showDialog<TapPopupResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TapPopupDialog(
-        student: entry.student,
-        attendanceService: ref.read(attendanceServiceProvider),
-      ),
-    );
-
-    _inQueue.remove(entry.student.cardNo ?? entry.event.cardNo);
-    _popupShowing = false;
-
-    if (result != null) {
-      if (result.eventType == 'izin') {
-        final printed = await _printIzinTicket(entry.student, result);
-        if (!printed) {
-          _maybeShowNext();
-          return;
-        }
-      }
-      await _saveRecord(entry, result);
-    }
-
-    _maybeShowNext();
-  }
-
-  Future<bool> _ensureBackendReadyForAttendance() async {
-    final now = DateTime.now();
-    if (_lastBackendCheckAt != null) {
-      final age = now.difference(_lastBackendCheckAt!);
-      if (_lastBackendCheckOk && age < const Duration(seconds: 15)) {
-        return true;
-      }
-      if (!_lastBackendCheckOk && age < const Duration(seconds: 5)) {
-        return false;
-      }
-    }
-
-    final config = ref.read(configProvider).asData?.value;
-    if (config == null || !config.isServerConfigured) {
-      await _showBackendRequiredDialog();
-      _lastBackendCheckAt = now;
-      _lastBackendCheckOk = false;
-      return false;
-    }
-
-    final result = await ServerService.testConnection(
-      config.serverUrl,
-      config.apiKey,
-    );
-    final ok = result.success;
-    _lastBackendCheckAt = now;
-    _lastBackendCheckOk = ok;
-
-    if (!ok) {
-      await _showBackendRequiredDialog();
-    }
-    return ok;
-  }
-
-  Future<void> _showBackendRequiredDialog() async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Backend Belum Terkoneksi'),
-        content: const Text(
-          'Pastikan terkoneksi ke Server terlebih dahulu sebelum melakukan absensi.',
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _saveRecord(_TapEntry entry, TapPopupResult result) async {
-    final db = ref.read(databaseProvider);
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-    // Use existing record ID if overwriting, otherwise generate new one based on event
-    final recordId =
-        result.existingRecordId ??
-        '${entry.student.userId}_${entry.event.cardNo}_${entry.event.serialNo}';
-
-    await db
-        .into(db.tapRecords)
-        .insert(
-          TapRecordsCompanion(
-            id: Value(recordId),
-            cardNo: Value(entry.event.cardNo),
-            eventType: Value(result.eventType),
-            deviceTime: Value(
-              entry.event.dateTime.millisecondsSinceEpoch ~/ 1000,
-            ),
-            hikSerialNo: Value(entry.event.serialNo),
-            createdAt: Value(now),
-            reason: Value(
-              result.eventType == 'izin'
-                  ? encodeIzinReasonPayload(
-                      reason: result.reason,
-                      perkiraanKembali: result.estimatedReturnAt,
-                    )
-                  : result.reason,
-            ),
-            publishedAt: const Value(null),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-
-    ref.invalidate(recentRecordsProvider);
-    ref.invalidate(pendingSyncCountProvider);
-    unawaited(_syncInBackground());
-  }
-
-  Future<bool> _printIzinTicket(Student student, TapPopupResult result) async {
-    final reason = result.reason?.trim();
-    if (reason == null || reason.isEmpty) return false;
-    final config = ref.read(configProvider).asData?.value;
-    final preferredPrinterKey = config?.thermalPrinterKey;
-
-    final printerReady = await ref
-        .read(ticketPrinterServiceProvider)
-        .isPrinterReady(preferredPrinterKey: preferredPrinterKey);
-    if (!printerReady) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Printer thermal tidak terhubung. Proses izin dibatalkan.',
-          ),
-        ),
-      );
-      return false;
-    }
-
-    final payload = IzinTicketPayload(
-      studentName: student.nama,
-      nis: student.nis,
-      alasanIzin: reason,
-      waktuKeluar: DateTime.now(),
-      perkiraanKembali: result.estimatedReturnAt,
-    );
-
-    try {
-      await ref
-          .read(ticketPrinterServiceProvider)
-          .printIzinTicket(
-            payload,
-            copyNumber: 1,
-            preferredPrinterKey: preferredPrinterKey,
-          );
-    } catch (e) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Cetak tiket gagal: $e')));
-      return false;
-    }
-
-    if (!mounted) return false;
-    final confirmSecondCopy = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cetak Ulang Salinan Kedua'),
-        content: const Text(
-          'Copy pertama sudah tercetak. Lanjut cetak copy kedua?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Tidak'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Cetak'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmSecondCopy != true) return true;
-
-    try {
-      await ref
-          .read(ticketPrinterServiceProvider)
-          .printIzinTicket(
-            payload,
-            copyNumber: 2,
-            preferredPrinterKey: preferredPrinterKey,
-          );
-    } catch (e) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Cetak copy kedua gagal: $e')));
-    }
-    return true;
   }
 
   @override

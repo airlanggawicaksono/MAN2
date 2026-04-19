@@ -23,3 +23,11 @@ class AttendanceEventDTO(BaseModel):
 class BulkAttendanceSyncDTO(BaseModel):
     """Request to sync multiple attendance events via HTTP POST."""
     events: list[AttendanceEventDTO] = Field(..., description="List of events to sync")
+
+
+class CardAssignRequestDTO(BaseModel):
+    card_no: str = Field(..., min_length=1, max_length=50)
+
+
+class CardReplaceRequestDTO(BaseModel):
+    card_no: str = Field(..., min_length=1, max_length=50)

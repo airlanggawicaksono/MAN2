@@ -146,6 +146,8 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
               nama: Value(s['nama_lengkap'] as String),
               nis: Value(s['nis'] as String?),
               kelas: Value(s['kelas_jurusan'] as String?),
+              // card_no is now server-authoritative
+              cardNo: Value(s['card_no'] as String?),
               syncedAt: Value(now),
             );
           })
@@ -172,15 +174,17 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
         protectedUserIds: protectedUserIds,
       );
 
-      await ref.read(studentServiceProvider).applyPendingCardAssignments(config);
-
+      // Combine removed students with revoked cards from card_no changes
+      final allRemovedCardNos = [
+        ...syncResult.removedCardNos,
+        ...syncResult.revokedCardNos,
+      ];
       if (config.isHikvisionConfigured &&
-          (syncResult.removedUserIds.isNotEmpty ||
-              syncResult.removedCardNos.isNotEmpty)) {
+          (syncResult.removedUserIds.isNotEmpty || allRemovedCardNos.isNotEmpty)) {
         await ref.read(studentServiceProvider).reconcileRemovedFromHikvision(
               config: config,
               removedUserIds: syncResult.removedUserIds,
-              removedCardNos: syncResult.removedCardNos,
+              removedCardNos: allRemovedCardNos,
             );
       }
 

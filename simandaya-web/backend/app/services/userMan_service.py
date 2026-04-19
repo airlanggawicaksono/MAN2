@@ -11,8 +11,10 @@ from app.dto.struktural.assignment_dto import (
     GuruStructuralAssignmentDTO,
     StructuralRoleRefDTO,
 )
-from app.dto.userMan.userman_request import UpdateGuruRequestDTO, UpdateStudentRequestDTO
+from app.dto.userMan.userman_request import CreateStudentRequestDTO, UpdateGuruRequestDTO, UpdateStudentRequestDTO
 from app.dto.userMan.userman_response import (
+    BulkImportStudentResultDTO,
+    BulkImportStudentResultItem,
     GuruProfileResponseDTO,
     MessageResponseDTO,
     PaginatedPublicCivitasResponse,
@@ -25,7 +27,8 @@ from app.models.guru_profile import GuruProfile
 from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
-from app.enums import StructuralRole
+from app.models.user import User
+from app.enums import RegistrationStatus, StructuralRole, UserType
 from app.policy.user_management_policy import UserManagementPolicy
 from app.repositoriy.user_management_repository import UserManagementRepository
 
@@ -98,6 +101,79 @@ class StudentUserManagementService:
         self.policy.ensure_student_exists(profile, detail="Student profile not found")
         return await self._to_student_dto(profile)
 
+    async def create_student(self, request: CreateStudentRequestDTO) -> StudentProfileResponseDTO:
+        if request.nis:
+            existing = await self.repo.find_student_by_nis(request.nis)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"NIS '{request.nis}' sudah terdaftar.",
+                )
+        if request.card_no:
+            existing = await self.repo.find_student_by_card_no(request.card_no)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Nomor kartu '{request.card_no}' sudah dipakai siswa lain.",
+                )
+        user = User(
+            user_type=UserType.siswa,
+            registration_status=RegistrationStatus.pending,
+            is_active=True,
+        )
+        data = request.model_dump()
+        profile = SiswaProfile(user_id=user.user_id, **data)
+        await self.repo.add_user(user)
+        await self.repo.add_student_profile(profile)
+        await self.repo.commit()
+        await self.repo.refresh(profile)
+        profile_with_user = await self.repo.find_student_by_id_with_user(profile.siswa_id)
+        self.policy.ensure_student_exists(profile_with_user, detail="Student not found after create")
+        return await self._to_student_dto(profile_with_user)
+
+    async def bulk_create_students(
+        self, requests: list[CreateStudentRequestDTO]
+    ) -> BulkImportStudentResultDTO:
+        created = 0
+        skipped = 0
+        errors = 0
+        items: list[BulkImportStudentResultItem] = []
+
+        for i, req in enumerate(requests):
+            row = i + 2
+            try:
+                if req.nis:
+                    existing = await self.repo.find_student_by_nis(req.nis)
+                    if existing:
+                        skipped += 1
+                        items.append(BulkImportStudentResultItem(
+                            row=row, nama_lengkap=req.nama_lengkap, nis=req.nis,
+                            status="skipped", detail=f"NIS '{req.nis}' sudah ada",
+                        ))
+                        continue
+                user = User(
+                    user_type=UserType.siswa,
+                    registration_status=RegistrationStatus.pending,
+                    is_active=True,
+                )
+                data = req.model_dump()
+                profile = SiswaProfile(user_id=user.user_id, **data)
+                await self.repo.add_user(user)
+                await self.repo.add_student_profile(profile)
+                created += 1
+                items.append(BulkImportStudentResultItem(
+                    row=row, nama_lengkap=req.nama_lengkap, nis=req.nis, status="created",
+                ))
+            except Exception as e:
+                errors += 1
+                items.append(BulkImportStudentResultItem(
+                    row=row, nama_lengkap=req.nama_lengkap, nis=req.nis,
+                    status="error", detail=str(e),
+                ))
+
+        await self.repo.commit()
+        return BulkImportStudentResultDTO(created=created, skipped=skipped, errors=errors, items=items)
+
     async def update_student(
         self, siswa_id: UUID, request: UpdateStudentRequestDTO
     ) -> StudentProfileResponseDTO:
@@ -110,6 +186,13 @@ class StudentUserManagementService:
         if "nis" in update_data and update_data["nis"] != profile.nis:
             nis_check = await self.repo.find_student_by_nis(update_data["nis"])
             self.policy.ensure_nis_available(nis_check is not None, update_data["nis"])
+        if "card_no" in update_data and update_data["card_no"] != profile.card_no:
+            card_check = await self.repo.find_student_by_card_no(update_data["card_no"])
+            if card_check is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Nomor kartu '{update_data['card_no']}' sudah dipakai siswa lain.",
+                )
 
         for field, value in update_data.items():
             setattr(profile, field, value)
@@ -154,6 +237,7 @@ class StudentUserManagementService:
             semester_ke=None,
             kontak=profile.kontak,
             kewarganegaraan=profile.kewarganegaraan,
+            card_no=profile.card_no,
             is_active=profile.user.is_active if profile.user else False,
         )
 
@@ -488,6 +572,14 @@ class UserManagementService:
 
     async def get_student_by_user_id(self, user_id: UUID) -> StudentProfileResponseDTO:
         return await self.students.get_student_by_user_id(user_id)
+
+    async def create_student(self, request: CreateStudentRequestDTO) -> StudentProfileResponseDTO:
+        return await self.students.create_student(request)
+
+    async def bulk_create_students(
+        self, requests: list[CreateStudentRequestDTO]
+    ) -> BulkImportStudentResultDTO:
+        return await self.students.bulk_create_students(requests)
 
     async def update_student(
         self, siswa_id: UUID, request: UpdateStudentRequestDTO

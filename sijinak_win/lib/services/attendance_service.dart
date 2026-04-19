@@ -3,8 +3,6 @@ import '../data/local/database.dart';
 import '../data/hikvision/hik_event.dart';
 import 'hikvision_service.dart';
 
-/// Listens to the shared HikvisionService event stream and records
-/// attendance (tap in / tap out) for known cards.
 class AttendanceService {
   final AttendanceStorePort db;
   final HikvisionService hikService;
@@ -12,9 +10,9 @@ class AttendanceService {
   StreamSubscription? _sub;
   bool _running = false;
 
-  /// Callback fired when a card tap is detected and the student is known.
-  /// The UI is responsible for showing the popup and saving the record.
-  void Function(HikEvent event, Student student, String suggestedType)? onTapDetected;
+  void Function(HikEvent event, Student student, String eventType)? onAutoAttendance;
+  void Function(HikEvent event, Student student)? onIzinRequired;
+  void Function(Student student)? onAlreadySignedOff;
 
   AttendanceService({required this.db, required this.hikService});
 
@@ -30,7 +28,6 @@ class AttendanceService {
     _sub = null;
   }
 
-  /// Convert Hikvision employeeNo (32 hex, no hyphens) back to UUID format.
   String _toUuid(String employeeNo) {
     final h = employeeNo;
     if (h.length != 32) return employeeNo;
@@ -38,7 +35,6 @@ class AttendanceService {
         '-${h.substring(16, 20)}-${h.substring(20)}';
   }
 
-  /// Get the existing local record for today to check for duplicates.
   Future<TapRecord?> getExistingTodayRecord(String userId, String eventType) async {
     final today = await db.getTodayRecordsForStudent(userId);
     try {
@@ -51,17 +47,29 @@ class AttendanceService {
   Future<void> _handleEvent(HikEvent event) async {
     if (event.cardNo.isEmpty) return;
 
-    // Look up student: prefer employeeNo (device already validated the card)
     Student? student;
     if (event.employeeNo != null && event.employeeNo!.isNotEmpty) {
       final userId = _toUuid(event.employeeNo!);
       student = await db.getStudentByUserId(userId);
     }
-    // Fallback to cardNo lookup
     student ??= await db.getStudentByCard(event.cardNo);
-    if (student == null) return; // unknown card, ignore
+    if (student == null) return;
 
-    // Let the UI decide based on user input, we just notify a tap happened.
-    onTapDetected?.call(event, student, 'unknown');
+    // Break In → show izin popup (reason + ticket print required).
+    if (event.direction == HikEventDirection.breakIn) {
+      onIzinRequired?.call(event, student);
+      return;
+    }
+
+    final today = await db.getTodayRecordsForStudent(student.userId);
+    final alreadyMasuk = today.any((r) => r.eventType == 'absen_masuk');
+    final alreadyKeluar = today.any((r) => r.eventType == 'absen_keluar');
+
+    if (alreadyMasuk && alreadyKeluar) {
+      onAlreadySignedOff?.call(student);
+      return;
+    }
+
+    onAutoAttendance?.call(event, student, alreadyMasuk ? 'absen_keluar' : 'absen_masuk');
   }
 }

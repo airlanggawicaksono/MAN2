@@ -1,11 +1,14 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import verify_desktop_api_key
 from app.services.desktop_service import DesktopService
-from app.dto.desktop.desktop_request import BulkAttendanceSyncDTO
+from app.dto.desktop.desktop_request import BulkAttendanceSyncDTO, CardAssignRequestDTO, CardReplaceRequestDTO
 from app.dto.desktop.desktop_response import (
     BulkAttendanceResponseDTO,
+    CardReplaceResponseDTO,
     PingResponseDTO,
     StudentSyncDTO,
 )
@@ -28,6 +31,53 @@ async def list_students(
 ) -> list[StudentSyncDTO]:
     service = DesktopService(db)
     return await service.list_students()
+
+
+@router.post(
+    "/students/{user_id}/card-assign",
+    status_code=204,
+    summary="Assign RFID Card (Desktop)",
+    description="Assign a card_no to a student from desktop. Only allowed when student has no card.",
+    dependencies=[Depends(verify_desktop_api_key)],
+)
+async def assign_student_card(
+    user_id: UUID,
+    body: CardAssignRequestDTO,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    service = DesktopService(db)
+    await service.assign_student_card(user_id, body.card_no)
+
+
+@router.delete(
+    "/students/{user_id}/card",
+    response_model=CardReplaceResponseDTO,
+    summary="Remove RFID Card (Desktop)",
+    description="Remove a student's card from desktop. Returns old card_no for Hikvision revocation.",
+    dependencies=[Depends(verify_desktop_api_key)],
+)
+async def remove_student_card(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> CardReplaceResponseDTO:
+    service = DesktopService(db)
+    return await service.remove_student_card(user_id)
+
+
+@router.post(
+    "/students/{user_id}/card-replace",
+    response_model=CardReplaceResponseDTO,
+    summary="Replace RFID Card (Desktop)",
+    description="Replace a student's card from desktop. Returns the old card_no for Hikvision revocation.",
+    dependencies=[Depends(verify_desktop_api_key)],
+)
+async def replace_student_card(
+    user_id: UUID,
+    body: CardReplaceRequestDTO,
+    db: AsyncSession = Depends(get_db),
+) -> CardReplaceResponseDTO:
+    service = DesktopService(db)
+    return await service.replace_student_card(user_id, body.card_no)
 
 
 @router.post(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,63 +19,45 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateStudentMutation } from "@/api/admin/students";
-import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
+import { useCreateStudentMutation } from "@/api/admin/students";
+import type { CreateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
-import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
+import { formatIsoToApiDmy } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
 
-interface StudentEditDialogProps {
-  student: StudentProfile | null;
+interface StudentCreateDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function StudentEditDialog({ student, open, onClose }: StudentEditDialogProps) {
-  const [form, setForm] = useState<UpdateStudentRequest>({});
-  const [updateStudent, { isLoading, error, reset }] = useUpdateStudentMutation();
+const EMPTY_FORM: CreateStudentRequest = {
+  nama_lengkap: "",
+  kewarganegaraan: "Indonesia",
+};
 
-  useEffect(() => {
-    if (student) {
-      const dobIso = normalizeDateToIso(student.dob);
-      setForm({
-        nis: student.nis ?? undefined,
-        nama_lengkap: student.nama_lengkap,
-        dob: dobIso || undefined,
-        tempat_lahir: student.tempat_lahir ?? undefined,
-        jenis_kelamin: student.jenis_kelamin ?? undefined,
-        alamat: student.alamat ?? undefined,
-        nama_wali: student.nama_wali ?? undefined,
-        kelas_jurusan: student.kelas_jurusan ?? undefined,
-        tahun_masuk: student.tahun_masuk ?? undefined,
-        status_siswa: student.status_siswa,
-        kontak: student.kontak ?? undefined,
-        kewarganegaraan: student.kewarganegaraan,
-        card_no: student.card_no ?? undefined,
-      });
-    }
-  }, [student]);
+export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps) {
+  const [form, setForm] = useState<CreateStudentRequest>(EMPTY_FORM);
+  const [createStudent, { isLoading, error, reset }] = useCreateStudentMutation();
 
-  const handleChange = (field: keyof UpdateStudentRequest, value: string | number) => {
+  const handleChange = (field: keyof CreateStudentRequest, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const formatDateForApi = (isoDate: string | undefined): string => {
-    return formatIsoToApiDmy(isoDate) ?? "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!student) return;
     reset();
-    const payload = { ...form };
-    if (payload.dob) payload.dob = formatDateForApi(payload.dob);
-    const result = await updateStudent({ siswaId: student.siswa_id, body: payload });
-    if ("data" in result) onClose();
+    const payload: CreateStudentRequest = { ...form };
+    if (payload.dob) payload.dob = formatIsoToApiDmy(payload.dob) ?? payload.dob;
+    const result = await createStudent(payload);
+    if ("data" in result) {
+      setForm(EMPTY_FORM);
+      onClose();
+    }
   };
 
   const handleClose = () => {
     reset();
+    setForm(EMPTY_FORM);
     onClose();
   };
 
@@ -85,7 +67,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Data Siswa</DialogTitle>
+          <DialogTitle>Tambah Siswa Baru</DialogTitle>
         </DialogHeader>
         {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,13 +77,34 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Input
                 value={form.nis || ""}
                 onChange={(e) => handleChange("nis", e.target.value)}
+                placeholder="Opsional"
               />
             </div>
             <div className="grid gap-2">
-              <Label>Nama Lengkap</Label>
+              <Label>
+                Nama Lengkap <span className="text-destructive">*</span>
+              </Label>
               <Input
-                value={form.nama_lengkap || ""}
+                required
+                value={form.nama_lengkap}
                 onChange={(e) => handleChange("nama_lengkap", e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Kelas/Jurusan</Label>
+              <Input
+                value={form.kelas_jurusan || ""}
+                onChange={(e) => handleChange("kelas_jurusan", e.target.value)}
+                placeholder="Contoh: XII IPA 1"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Tahun Masuk</Label>
+              <Input
+                type="number"
+                value={form.tahun_masuk || ""}
+                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                placeholder={new Date().getFullYear().toString()}
               />
             </div>
             <div className="grid gap-2">
@@ -125,13 +128,20 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
                 onValueChange={(val) => handleChange("jenis_kelamin", val as JenisKelamin)}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Pilih..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Laki-Laki">Laki-Laki</SelectItem>
                   <SelectItem value="Perempuan">Perempuan</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Kontak</Label>
+              <Input
+                value={form.kontak || ""}
+                onChange={(e) => handleChange("kontak", e.target.value)}
+              />
             </div>
             <div className="grid gap-2 md:col-span-2">
               <Label>Alamat</Label>
@@ -148,17 +158,16 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               />
             </div>
             <div className="grid gap-2">
-              <Label>Tahun Masuk</Label>
+              <Label>Kewarganegaraan</Label>
               <Input
-                type="number"
-                value={form.tahun_masuk || ""}
-                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                value={form.kewarganegaraan || ""}
+                onChange={(e) => handleChange("kewarganegaraan", e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label>Status</Label>
               <Select
-                value={form.status_siswa}
+                value={form.status_siswa ?? "Aktif"}
                 onValueChange={(val) => handleChange("status_siswa", val as StatusSiswa)}
               >
                 <SelectTrigger>
@@ -167,30 +176,16 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
                 <SelectContent>
                   <SelectItem value="Aktif">Aktif</SelectItem>
                   <SelectItem value="Non-Aktif">Non-Aktif</SelectItem>
-                  <SelectItem value="Lulus">Lulus</SelectItem>
+                  <SelectItem value="Lulus">Lulus (Alumni)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Kontak</Label>
-              <Input
-                value={form.kontak || ""}
-                onChange={(e) => handleChange("kontak", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Kewarganegaraan</Label>
-              <Input
-                value={form.kewarganegaraan || ""}
-                onChange={(e) => handleChange("kewarganegaraan", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2 md:col-span-2">
               <Label>Nomor Kartu (RFID)</Label>
               <Input
                 value={form.card_no || ""}
                 onChange={(e) => handleChange("card_no", e.target.value)}
-                placeholder="Nomor dari kartu fisik siswa"
+                placeholder="Opsional — nomor dari kartu fisik"
                 className="font-mono"
               />
             </div>
@@ -200,7 +195,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               Batal
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
+              {isLoading ? "Menyimpan..." : "Tambah Siswa"}
             </Button>
           </DialogFooter>
         </form>

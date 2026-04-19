@@ -20,11 +20,13 @@ class TapPopupResult {
 class TapPopupDialog extends StatefulWidget {
   final Student student;
   final AttendanceService attendanceService;
+  final String? initialEventType;
 
   const TapPopupDialog({
     super.key,
     required this.student,
     required this.attendanceService,
+    this.initialEventType,
   });
 
   @override
@@ -36,6 +38,14 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
   final _keteranganCtrl = TextEditingController();
   final _perkiraanReturnCtrl = TextEditingController();
   bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialEventType != null) {
+      _selected = widget.initialEventType;
+    }
+  }
 
   @override
   void dispose() {
@@ -243,7 +253,74 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (_isChecking)
+                      if (widget.initialEventType == 'izin') ...[
+                        TextField(
+                          controller: _keteranganCtrl,
+                          autofocus: true,
+                          maxLines: 5,
+                          onChanged: (_) => setState(() {}),
+                          style: theme.textTheme.bodyLarge,
+                          decoration: InputDecoration(
+                            labelText: 'Alasan Izin Keluar',
+                            alignLabelWithHint: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Jam saat ini: $nowStr',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _perkiraanReturnCtrl,
+                          keyboardType: TextInputType.datetime,
+                          onChanged: (_) => setState(() {}),
+                          style: theme.textTheme.bodyLarge,
+                          decoration: InputDecoration(
+                            labelText: 'Perkiraan kembali (opsional)',
+                            hintText: 'Contoh: 15:03',
+                            helperText: 'Gunakan format 24 jam (HH:mm)',
+                            errorText: _perkiraanErrorText(),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 20,
+                            ),
+                            prefixIcon: const Icon(Icons.schedule),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          onPressed: _keteranganCtrl.text.trim().isEmpty ||
+                                  _perkiraanErrorText() != null
+                              ? null
+                              : () => _confirm(),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange.shade700,
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('SIMPAN IZIN'),
+                        ),
+                      ] else if (_isChecking)
                         const Center(
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: 40),

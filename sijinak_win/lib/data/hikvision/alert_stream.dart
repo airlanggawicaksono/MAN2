@@ -190,6 +190,13 @@ class AlertStream {
     final employeeNo = json['employeeNoString'] as String? ??
         ace?['employeeNoString'] as String?;
 
+    final hikType = ace?['type'] as String?;
+    final subEventType = ace?['subEventType'] as int? ??
+        json['subEventType'] as int?;
+    // DS-K series: string values e.g. "breakIn", "breakOut", "checkIn", "checkOut"
+    final attendanceStatus = ace?['attendanceStatus'] as String? ??
+        json['attendanceStatus'] as String?;
+
     DateTime dateTime;
     try {
       dateTime = dateTimeStr != null
@@ -204,6 +211,9 @@ class AlertStream {
       employeeNo: employeeNo,
       dateTime: dateTime,
       serialNo: serialNo,
+      subEventType: subEventType,
+      hikType: hikType,
+      attendanceStatus: attendanceStatus,
     );
   }
 
@@ -232,6 +242,9 @@ class AlertStream {
     final dateTimeStr = _extractTag(xml, 'dateTime');
     final serialNoStr = _extractTag(xml, 'serialNo');
     final employeeNo = _extractTag(xml, 'employeeNoString');
+    final hikType = _extractTag(xml, 'type');
+    final subEventTypeStr = _extractTag(xml, 'subEventType');
+    final attendanceStatusStr = _extractTag(xml, 'attendanceStatus');
 
     DateTime dateTime;
     try {
@@ -247,12 +260,24 @@ class AlertStream {
       employeeNo: employeeNo,
       dateTime: dateTime,
       serialNo: int.tryParse(serialNoStr ?? '0') ?? 0,
+      subEventType: int.tryParse(subEventTypeStr ?? ''),
+      hikType: hikType,
+      attendanceStatus: attendanceStatusStr,
     );
   }
 
   String? _extractTag(String xml, String tag) {
     final match = RegExp('<$tag>(.*?)</$tag>').firstMatch(xml);
     return match?.group(1);
+  }
+
+  // Handles both int and string-encoded int from Hikvision JSON
+  int? _parseIntField(Map<String, dynamic>? map, String key) {
+    if (map == null) return null;
+    final v = map[key];
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 }
 

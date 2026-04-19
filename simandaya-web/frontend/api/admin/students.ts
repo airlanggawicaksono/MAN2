@@ -2,7 +2,9 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { createBaseQuery } from "@/api/shared/base";
 import type {
   StudentProfile,
+  CreateStudentRequest,
   UpdateStudentRequest,
+  BulkImportResult,
   PaginatedStudentsResponse,
   ListStudentsParams,
 } from "@/types/students";
@@ -16,6 +18,16 @@ export const studentsApi = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: false,
   endpoints: (builder) => ({
+    createStudent: builder.mutation<StudentProfile, CreateStudentRequest>({
+      query: (body) => ({ url: "", method: "POST", body }),
+      invalidatesTags: [{ type: "Student", id: "LIST" }],
+    }),
+
+    bulkImportStudents: builder.mutation<BulkImportResult, CreateStudentRequest[]>({
+      query: (body) => ({ url: "/import", method: "POST", body }),
+      invalidatesTags: [{ type: "Student", id: "LIST" }],
+    }),
+
     listStudents: builder.query<PaginatedStudentsResponse, ListStudentsParams>({
       query: ({ skip, limit, search }) => {
         let url = `?skip=${skip}&limit=${limit}`;
@@ -65,6 +77,8 @@ export const studentsApi = createApi({
 });
 
 export const {
+  useCreateStudentMutation,
+  useBulkImportStudentsMutation,
   useListStudentsQuery,
   useGetStudentQuery,
   useUpdateStudentMutation,

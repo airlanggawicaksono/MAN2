@@ -38,9 +38,9 @@ help:
 	@echo "  make db-reset-hard  Reset database without prompt (FORCE)"
 	@echo ""
 	@echo "Scripts:"
-	@echo "  make seed-admins              Seed admin accounts (admin1-3)"
-	@echo "  make seed-academic-demo       Seed structural+akademik+jadwal+siswa_kelas demo data"
-	@echo "  make seed-all                 Seed admins then seed academic demo data"
+	@echo "  make seed-admins              Seed admin accounts"
+	@echo "  make seed-demo                Seed demo students + desktop settings"
+	@echo "  make seed-all                 Seed admins + demo students"
 	@echo "  make import-students FILE=x   Import students from xlsx"
 	@echo ""
 	@echo "Other:"
@@ -74,6 +74,7 @@ dev-reset-seed:
 	$(DEV) up -d
 	@timeout /t 10 /nobreak >nul
 	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_demo.py
 	@echo "Reset and seed complete"
 
 dev-nuke-seed:
@@ -84,6 +85,7 @@ dev-nuke-seed:
 	$(DEV) up -d
 	@timeout /t 12 /nobreak >nul
 	$(DEV) exec backend python scripts/seed_admins.py
+	$(DEV) exec backend python scripts/seed_demo.py
 	@echo "Nuke + seed complete"
 
 dev-backend:
@@ -108,7 +110,7 @@ prod-down:
 
 db-up:
 	$(DEV) up -d postgres-db
-	@sleep 3
+	@timeout /t 3 /nobreak >nul
 	@$(DEV) exec postgres-db pg_isready -U ${DB_USER}
 
 db-down:
@@ -137,6 +139,14 @@ db-reset-hard:
 
 seed-admins:
 	$(DEV) exec backend python scripts/seed_admins.py
+
+seed-demo:
+	$(DEV) exec backend python scripts/seed_demo.py
+
+seed-academic-demo:
+	@echo "No academic demo seed script yet."
+
+seed-all: seed-admins seed-demo
 
 import-students:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make import-students FILE=\"/path/to/file.xlsx\""; exit 1; fi

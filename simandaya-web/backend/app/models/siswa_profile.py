@@ -67,6 +67,12 @@ class SiswaProfile(Base):
         nullable=True
     )
 
+    card_no: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=True
+    )
+
     kelas_jurusan: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True

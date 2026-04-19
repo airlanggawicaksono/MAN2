@@ -13,10 +13,12 @@ from app.services.userMan_service import (
     UserManagementService,
 )
 from app.dto.userMan.userman_request import (
+    CreateStudentRequestDTO,
     UpdateStudentRequestDTO,
     UpdateGuruRequestDTO,
 )
 from app.dto.userMan.userman_response import (
+    BulkImportStudentResultDTO,
     StudentProfileResponseDTO,
     GuruProfileResponseDTO,
     PaginatedStudentsResponse,
@@ -68,6 +70,35 @@ async def list_public_civitas(
 
 
 # ── Student Endpoints ────────────────────────────────────────────────────────
+
+
+@student_router.post(
+    "",
+    response_model=StudentProfileResponseDTO,
+    status_code=201,
+    summary="Create Student",
+    description="Create a new student with a pending user account (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def create_student(
+    request: CreateStudentRequestDTO,
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> StudentProfileResponseDTO:
+    return await service.create_student(request)
+
+
+@student_router.post(
+    "/import",
+    response_model=BulkImportStudentResultDTO,
+    summary="Bulk Import Students",
+    description="Bulk import students from a JSON list (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def bulk_import_students(
+    students: list[CreateStudentRequestDTO],
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> BulkImportStudentResultDTO:
+    return await service.bulk_create_students(students)
 
 
 @student_router.get(

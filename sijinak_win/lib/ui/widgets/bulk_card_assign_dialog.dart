@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/app_config.dart';
+import '../../data/remote/api_client.dart';
 import '../../providers/providers.dart';
 import '../../services/student_service.dart';
 
 class BulkCardAssignDialog extends ConsumerStatefulWidget {
   final List<Map<String, String>> rows;
   final AppConfig config;
+  final BackendApiPort? api;
 
   const BulkCardAssignDialog({
     super.key,
     required this.rows,
     required this.config,
+    this.api,
   });
 
   @override
@@ -26,7 +29,10 @@ class _BulkCardAssignDialogState extends ConsumerState<BulkCardAssignDialog> {
   void _start() {
     setState(() => _started = true);
     final service = ref.read(studentServiceProvider);
-    service.bulkAssignCards(widget.rows, widget.config).listen((p) {
+    final stream = widget.api != null
+        ? service.bulkAssignCardsViaBackend(widget.rows, widget.config, widget.api!)
+        : service.bulkAssignCards(widget.rows, widget.config);
+    stream.listen((p) {
       if (mounted) setState(() => _progress = p);
     });
   }
@@ -40,7 +46,7 @@ class _BulkCardAssignDialogState extends ConsumerState<BulkCardAssignDialog> {
         title: const Text('Import Kartu CSV'),
         content: Text(
           'Ditemukan ${widget.rows.length} baris data.\n'
-          'Lanjutkan assign kartu ke Hikvision & DB?',
+          'Lanjutkan assign kartu${widget.api != null ? " via server" : ""}?',
         ),
         actions: [
           TextButton(

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 from app.enums import (
@@ -27,6 +27,7 @@ class StudentProfileResponseDTO(BaseModel):
     semester_ke: Optional[int] = None
     kontak: Optional[str] = None
     kewarganegaraan: str
+    card_no: Optional[str] = None
     is_active: bool = False
 
 
@@ -82,3 +83,18 @@ class PaginatedPublicCivitasResponse(BaseModel):
 
 class MessageResponseDTO(BaseModel):
     message: str
+
+
+class BulkImportStudentResultItem(BaseModel):
+    row: int
+    nama_lengkap: str
+    nis: Optional[str] = None
+    status: Literal["created", "skipped", "error"]
+    detail: Optional[str] = None
+
+
+class BulkImportStudentResultDTO(BaseModel):
+    created: int
+    skipped: int
+    errors: int
+    items: list[BulkImportStudentResultItem]

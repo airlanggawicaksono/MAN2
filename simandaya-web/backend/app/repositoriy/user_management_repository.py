@@ -66,6 +66,12 @@ class UserManagementRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_student_by_card_no(self, card_no: str) -> SiswaProfile | None:
+        result = await self.db.execute(
+            select(SiswaProfile).where(SiswaProfile.card_no == card_no)
+        )
+        return result.scalar_one_or_none()
+
     async def count_teachers(self, search: Optional[str] = None) -> int:
         query = select(func.count()).select_from(GuruProfile)
         search_filter = self._teacher_search_filter(search)
@@ -207,6 +213,12 @@ class UserManagementRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def add_user(self, user: User) -> None:
+        self.db.add(user)
+
+    async def add_student_profile(self, profile: SiswaProfile) -> None:
+        self.db.add(profile)
 
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)

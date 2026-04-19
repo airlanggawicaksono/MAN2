@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateInputId } from "@/components/ui/date-input-id";
+import { Users, LogOut, Clock } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -67,27 +68,32 @@ export default function AbsensiPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Absensi (Tanggal Dipilih)</CardDescription>
-            <CardTitle>{stats.totalAbsen}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>
-              Total Izin Keluar (Tanggal Dipilih)
+            <CardDescription className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              Total Absensi
             </CardDescription>
-            <CardTitle>{stats.totalIzinKeluar}</CardTitle>
+            <CardTitle className="text-3xl">{stats.totalAbsen}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Status Data</CardDescription>
-            <CardTitle>
-              {loadingAttendance || loadingIzin ? "Memuat..." : "Termuat penuh"}
-            </CardTitle>
+            <CardDescription className="flex items-center gap-1">
+              <LogOut className="h-3.5 w-3.5" />
+              Izin Keluar
+            </CardDescription>
+            <CardTitle className="text-3xl">{stats.totalIzinKeluar}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              Terlambat
+            </CardDescription>
+            <CardTitle className="text-3xl">{stats.byStatus.Terlambat}</CardTitle>
           </CardHeader>
         </Card>
       </div>

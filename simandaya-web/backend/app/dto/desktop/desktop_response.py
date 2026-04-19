@@ -9,6 +9,7 @@ class StudentSyncDTO(BaseModel):
     nama_lengkap: str = Field(..., description="Student full name")
     nis: str | None = Field(None, description="Student NIS")
     kelas_jurusan: str | None = Field(None, description="Class and major")
+    card_no: str | None = Field(None, description="RFID card number assigned via web admin")
     user_type: str = Field(..., description="Functional user type from user table")
 
     model_config = {"from_attributes": True}
@@ -30,3 +31,7 @@ class BulkAttendanceResponseDTO(BaseModel):
 class PingResponseDTO(BaseModel):
     status: str = Field(..., description="'ok' if API is reachable")
     server_time: datetime = Field(..., description="Server UTC timestamp")
+
+
+class CardReplaceResponseDTO(BaseModel):
+    old_card_no: str | None = Field(None, description="Previous card number, for Hikvision revocation")

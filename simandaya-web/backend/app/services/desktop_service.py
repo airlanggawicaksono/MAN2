@@ -3,7 +3,10 @@ from datetime import date, datetime, timedelta, timezone, time
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO
+from uuid import UUID
+
+from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO, CardAssignRequestDTO, CardReplaceRequestDTO
+from app.dto.desktop.desktop_response import CardReplaceResponseDTO
 from app.dto.desktop.desktop_response import (
     AttendanceAckDTO,
     BulkAttendanceResponseDTO,
@@ -48,6 +51,7 @@ class DesktopService:
                     nama_lengkap=row.nama_lengkap,
                     nis=row.nis,
                     kelas_jurusan=row.kelas_jurusan,
+                    card_no=row.card_no,
                     user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
                 )
                 for row in student_rows
@@ -72,6 +76,53 @@ class DesktopService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list students: {str(e)}",
             )
+
+    async def assign_student_card(self, user_id: UUID, card_no: str) -> None:
+        profile = await self.repo.find_student_profile_by_user_id(user_id)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+
+        if profile.card_no is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Student already has a card. Remove it via web admin first.",
+            )
+
+        existing = await self.repo.find_student_profile_by_card_no(card_no)
+        if existing is not None and existing.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Card {card_no} is already assigned to another student.",
+            )
+
+        profile.card_no = card_no
+        await self.repo.commit()
+
+    async def remove_student_card(self, user_id: UUID) -> CardReplaceResponseDTO:
+        profile = await self.repo.find_student_profile_by_user_id(user_id)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        old_card_no = profile.card_no
+        profile.card_no = None
+        await self.repo.commit()
+        return CardReplaceResponseDTO(old_card_no=old_card_no)
+
+    async def replace_student_card(self, user_id: UUID, new_card_no: str) -> CardReplaceResponseDTO:
+        profile = await self.repo.find_student_profile_by_user_id(user_id)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+
+        existing = await self.repo.find_student_profile_by_card_no(new_card_no)
+        if existing is not None and existing.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Card {new_card_no} is already assigned to another student.",
+            )
+
+        old_card_no = profile.card_no
+        profile.card_no = new_card_no
+        await self.repo.commit()
+        return CardReplaceResponseDTO(old_card_no=old_card_no)
 
     async def sync_attendance(self, request: BulkAttendanceSyncDTO) -> BulkAttendanceResponseDTO:
         results: list[AttendanceAckDTO] = []

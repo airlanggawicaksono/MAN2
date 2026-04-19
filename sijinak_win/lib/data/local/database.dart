@@ -44,10 +44,13 @@ abstract class SyncStorePort {
 class StudentSnapshotSyncResult {
   final List<String> removedUserIds;
   final List<String> removedCardNos;
+  // Cards that were cleared from existing students (card_no set to null on server)
+  final List<String> revokedCardNos;
 
   const StudentSnapshotSyncResult({
     this.removedUserIds = const [],
     this.removedCardNos = const [],
+    this.revokedCardNos = const [],
   });
 }
 
@@ -110,6 +113,8 @@ class AppDatabase extends _$AppDatabase
               nama: row.nama,
               nis: row.nis,
               kelas: row.kelas,
+              // card_no is now server-authoritative
+              cardNo: row.cardNo,
               syncedAt: row.syncedAt,
             ),
             target: [students.userId],
@@ -120,7 +125,7 @@ class AppDatabase extends _$AppDatabase
   }
 
   /// Mirror students table to match server snapshot exactly.
-  /// Also cascades cleanup of tap records for cards that no longer exist.
+  /// card_no is now server-authoritative: synced from server, resets hikRegistered on change.
   Future<StudentSnapshotSyncResult> syncStudentsSnapshot({
     required List<StudentsCompanion> rows,
     required Set<String> serverUserIds,
@@ -131,9 +136,32 @@ class AppDatabase extends _$AppDatabase
       for (final s in beforeRows) s.userId: s,
     };
 
+    // Detect card changes before upsert to compute revokedCardNos and reset hikRegistered
+    final cardChangedUserIds = <String>[];
+    final revokedCardNos = <String>[];
+    for (final row in rows) {
+      final userId = row.userId.value;
+      final newCard = row.cardNo.present ? row.cardNo.value : null;
+      final old = beforeByUserId[userId];
+      if (old != null && old.cardNo != newCard) {
+        cardChangedUserIds.add(userId);
+        // Old card removed or replaced — revoke from Hikvision
+        if (old.cardNo != null && old.cardNo!.isNotEmpty) {
+          revokedCardNos.add(old.cardNo!);
+        }
+      }
+    }
+
     await transaction(() async {
       if (rows.isNotEmpty) {
         await upsertStudents(rows);
+      }
+
+      // Reset hikRegistered for students with changed card → triggers re-push
+      if (cardChangedUserIds.isNotEmpty) {
+        await (update(students)
+              ..where((s) => s.userId.isIn(cardChangedUserIds)))
+            .write(const StudentsCompanion(hikRegistered: Value(false)));
       }
 
       final retainedUserIds = <String>{...serverUserIds, ...protectedUserIds};
@@ -178,6 +206,7 @@ class AppDatabase extends _$AppDatabase
     return StudentSnapshotSyncResult(
       removedUserIds: removedUserIds,
       removedCardNos: removedCardNos,
+      revokedCardNos: revokedCardNos,
     );
   }
 

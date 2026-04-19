@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import UserType
+from app.enums import StatusSiswa, UserType
 from app.models.absensi import Absensi
 from app.models.desktop_settings import DesktopSettings
 from app.models.izin_keluar import IzinKeluar
@@ -24,12 +24,13 @@ class DesktopRepository:
                 SiswaProfile.nama_lengkap,
                 SiswaProfile.nis,
                 SiswaProfile.kelas_jurusan,
+                SiswaProfile.card_no,
             )
             .join(SiswaProfile, User.user_id == SiswaProfile.user_id)
             .where(
                 and_(
                     User.user_type == UserType.siswa,
-                    User.is_active.is_(True),
+                    SiswaProfile.status_siswa != StatusSiswa.lulus,
                 )
             )
             .order_by(SiswaProfile.nama_lengkap)
@@ -106,6 +107,18 @@ class DesktopRepository:
 
     async def commit(self) -> None:
         await self.db.commit()
+
+    async def find_student_profile_by_user_id(self, user_id: UUID) -> SiswaProfile | None:
+        result = await self.db.execute(
+            select(SiswaProfile).where(SiswaProfile.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def find_student_profile_by_card_no(self, card_no: str) -> SiswaProfile | None:
+        result = await self.db.execute(
+            select(SiswaProfile).where(SiswaProfile.card_no == card_no)
+        )
+        return result.scalar_one_or_none()
 
     async def rollback(self) -> None:
         await self.db.rollback()

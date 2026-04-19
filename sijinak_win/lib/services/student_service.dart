@@ -1,6 +1,7 @@
 import '../config/app_config.dart';
 import '../data/local/database.dart';
 import '../data/hikvision/isapi_client.dart';
+import '../data/remote/api_client.dart';
 import 'pending_card_cache_service.dart';
 
 /// Result of a bulk push operation, emitted per-student.
@@ -405,6 +406,91 @@ class StudentService {
 
         await db.assignCardToStudent(student.userId, cardNo);
         success++;
+      } catch (e) {
+        failed++;
+        errors.add('NIS $nis: $e');
+      }
+    }
+
+    yield BulkCardAssignProgress(
+      current: rows.length,
+      total: rows.length,
+      currentNis: '',
+      success: success,
+      skipped: skipped,
+      failed: failed,
+      done: true,
+      errors: errors,
+    );
+  }
+
+  /// Bulk assign cards from CSV data, going through backend API first.
+  /// Only assigns to students where cardNo == null on server.
+  Stream<BulkCardAssignProgress> bulkAssignCardsViaBackend(
+    List<Map<String, String>> rows,
+    AppConfig config,
+    BackendApiPort api,
+  ) async* {
+    final hikClient = config.isHikvisionConfigured
+        ? _hikvisionClientFactory(config)
+        : null;
+
+    int success = 0;
+    int skipped = 0;
+    int failed = 0;
+    final errors = <String>[];
+
+    for (int i = 0; i < rows.length; i++) {
+      final nis = rows[i]['nis'] ?? '';
+      final cardNo = rows[i]['cardNo'] ?? '';
+
+      yield BulkCardAssignProgress(
+        current: i + 1,
+        total: rows.length,
+        currentNis: nis,
+        success: success,
+        skipped: skipped,
+        failed: failed,
+        done: false,
+      );
+
+      if (nis.isEmpty || cardNo.isEmpty) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        final student = await db.getStudentByNis(nis);
+        if (student == null) {
+          skipped++;
+          errors.add('NIS $nis: siswa tidak ditemukan di DB lokal');
+          continue;
+        }
+
+        if (student.cardNo != null) {
+          skipped++;
+          errors.add('NIS $nis: sudah punya kartu (${student.cardNo})');
+          continue;
+        }
+
+        await api.assignStudentCard(student.userId, cardNo);
+
+        if (hikClient != null) {
+          if (!student.hikRegistered) {
+            await hikClient.upsertPerson(
+              employeeNo: student.userId,
+              name: student.nama,
+            );
+            await db.markHikRegistered(student.userId);
+          }
+          await hikClient.upsertCard(cardNo: cardNo, employeeNo: student.userId);
+        }
+
+        await db.assignCardToStudent(student.userId, cardNo);
+        success++;
+      } on ApiException catch (e) {
+        failed++;
+        errors.add('NIS $nis: ${e.message}');
       } catch (e) {
         failed++;
         errors.add('NIS $nis: $e');
