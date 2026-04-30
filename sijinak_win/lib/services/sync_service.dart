@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../data/local/database.dart';
 import '../data/remote/api_client.dart';
@@ -66,7 +66,7 @@ class SyncService {
         await db.markPublished(recordId, publishedAt);
         successCount++;
       } else {
-        print('[SyncService] Failed to sync record $recordId: ${res['detail']}');
+        debugPrint('[SyncService] Failed to sync record $recordId: ${res["detail"]}');
       }
     }
 

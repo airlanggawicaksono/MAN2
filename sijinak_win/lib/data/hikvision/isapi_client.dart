@@ -400,7 +400,7 @@ class IsapiClient implements HikvisionDevicePort {
   }
 }
 
-/// Extract a value from simple XML like <tag>value</tag>.
+/// Extract a value from simple XML like `<tag>value</tag>`.
 String? _extractXml(String xml, String tag) {
   final match = RegExp('<$tag>(.*?)</$tag>').firstMatch(xml);
   return match?.group(1);

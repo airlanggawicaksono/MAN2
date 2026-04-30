@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../data/local/database.dart';
 import '../data/hikvision/isapi_client.dart';
@@ -304,15 +305,15 @@ class StudentService {
 
     // Only register person if not already on device
     if (!student.hikRegistered) {
-      print('[assignCard] registering person ${student.userId}');
+      debugPrint('[assignCard] registering person ${student.userId}');
       await client.upsertPerson(
         employeeNo: student.userId,
         name: student.nama,
       );
       await db.markHikRegistered(student.userId);
-      print('[assignCard] person registered');
+      debugPrint('[assignCard] person registered');
     } else {
-      print('[assignCard] person already registered, skipping');
+      debugPrint('[assignCard] person already registered, skipping');
     }
 
     print('[assignCard] assigning card $cardNo to ${student.userId}');

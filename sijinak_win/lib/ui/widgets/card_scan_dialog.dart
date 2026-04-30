@@ -45,7 +45,7 @@ class _CardScanDialogState extends ConsumerState<CardScanDialog> {
       if (event.cardNo.isEmpty) return;
       if (!event.dateTime.isAfter(_cutoff)) return;
 
-      print('[CardScan] GOT CARD: ${event.cardNo} time=${event.dateTime}');
+      debugPrint('[CardScan] GOT CARD: ${event.cardNo} time=${event.dateTime}');
       Navigator.of(context).pop(event.cardNo);
     });
   }

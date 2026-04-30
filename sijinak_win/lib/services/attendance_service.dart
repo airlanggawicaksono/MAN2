@@ -56,7 +56,7 @@ class AttendanceService {
     if (student == null) return;
 
     // Break In → show izin popup (reason + ticket print required).
-    if (event.direction == HikEventDirection.breakIn) {
+    if (event.isBreakIn) {
       onIzinRequired?.call(event, student);
       return;
     }

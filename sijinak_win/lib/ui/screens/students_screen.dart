@@ -36,12 +36,12 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     AppPubSub.subscribe(
       key: AppPubSubTopics.studentSynced,
       context: this,
-      handler: (_, __) => _loadStudents(),
+      handler: (_, _) => _loadStudents(),
     );
     AppPubSub.subscribe(
       key: AppPubSubTopics.globalSynced,
       context: this,
-      handler: (_, __) => _loadStudents(),
+      handler: (_, _) => _loadStudents(),
     );
     _loadStudents();
     _searchCtrl.addListener(_applyFilter);
@@ -130,6 +130,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     if (!await _ensureServerReady()) return;
     final config = ref.read(configProvider).asData?.value;
     if (config == null) return;
+    if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -177,6 +178,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     if (!await _ensureServerReady()) return;
     final config = ref.read(configProvider).asData?.value;
     if (config == null) return;
+    if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -249,6 +251,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     if (!await _ensureServerReady()) return;
     final config = ref.read(configProvider).asData?.value;
     if (config == null) return;
+    if (!mounted) return;
 
     final cardNo = await showDialog<String>(
       context: context,
@@ -587,7 +590,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2)),
-                    error: (_, __) => IconButton(
+                    error: (_, _) => IconButton(
                       icon: const Icon(Icons.sync_problem,
                           size: 20, color: Colors.red),
                       onPressed: _syncAndReload,

@@ -433,7 +433,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     child: IgnorePointer(
                       ignoring: true,
                       child: ColoredBox(
-                        color: colors.surface.withOpacity(0.45),
+                        color: colors.surface.withValues(alpha: 0.45),
                         child: const Center(
                           child: SizedBox(
                             width: 26,

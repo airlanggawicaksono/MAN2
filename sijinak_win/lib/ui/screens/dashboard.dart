@@ -21,12 +21,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     AppPubSub.subscribe(
       key: AppPubSubTopics.globalSynced,
       context: this,
-      handler: (_, __) => _refreshLocalViews(),
+      handler: (_, _) => _refreshLocalViews(),
     );
     AppPubSub.subscribe(
       key: AppPubSubTopics.studentSynced,
       context: this,
-      handler: (_, __) => _refreshLocalViews(),
+      handler: (_, _) => _refreshLocalViews(),
     );
     _autoSync();
   }
@@ -123,7 +123,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  error: (_, __) =>
+                  error: (_, _) =>
                       const Icon(Icons.sync_problem, color: Colors.red),
                 ),
                 IconButton(
@@ -186,7 +186,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   value: studentState.when(
                     data: (s) => '${s.count}',
                     loading: () => '...',
-                    error: (_, __) => '?',
+                    error: (_, _) => '?',
                   ),
                   color: Colors.blue,
                   subtitle: studentState.whenOrNull(
@@ -207,7 +207,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   value: pendingAsync.when(
                     data: (n) => '$n',
                     loading: () => '...',
-                    error: (_, __) => '?',
+                    error: (_, _) => '?',
                   ),
                   onTap: _refreshAll,
                   color:
@@ -303,7 +303,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: records.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final record = records[index];
                         final time = DateTime.fromMillisecondsSinceEpoch(
@@ -318,7 +318,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           leading: CircleAvatar(
                             backgroundColor: _eventColor(
                               record.eventType,
-                            ).withOpacity(0.1),
+                            ).withValues(alpha: 0.1),
                             child: Icon(
                               _eventIcon(record.eventType),
                               color: _eventColor(record.eventType),
@@ -369,9 +369,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.06),
+            color: color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.15)),
+            border: Border.all(color: color.withValues(alpha: 0.15)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +383,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Text(
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: color.withOpacity(0.8),
+                      color: color.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -401,7 +401,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Text(
                   subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: color.withOpacity(0.6),
+                    color: color.withValues(alpha: 0.6),
                     fontSize: 10,
                   ),
                 ),
@@ -481,9 +481,9 @@ class _SyncBanner extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [

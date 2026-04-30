@@ -81,8 +81,10 @@ class AppDatabase extends _$AppDatabase
 
   // ── Students ──────────────────────────────────────────────────────────
 
+  @override
   Future<List<Student>> getAllStudents() => select(students).get();
 
+  @override
   Future<int> getStudentCount() async {
     final count = countAll();
     final query = selectOnly(students)..addColumns([count]);
@@ -90,18 +92,22 @@ class AppDatabase extends _$AppDatabase
     return row.read(count)!;
   }
 
+  @override
   Future<Student?> getStudentByCard(String cardNo) => (select(students)
         ..where((s) => s.cardNo.equals(cardNo)))
       .getSingleOrNull();
 
+  @override
   Future<Student?> getStudentByUserId(String userId) => (select(students)
         ..where((s) => s.userId.equals(userId)))
       .getSingleOrNull();
 
+  @override
   Future<Student?> getStudentByNis(String nis) => (select(students)
         ..where((s) => s.nis.equals(nis)))
       .getSingleOrNull();
 
+  @override
   Future<void> upsertStudents(List<StudentsCompanion> rows) async {
     await batch((b) {
       for (final row in rows) {
@@ -126,6 +132,7 @@ class AppDatabase extends _$AppDatabase
 
   /// Mirror students table to match server snapshot exactly.
   /// card_no is now server-authoritative: synced from server, resets hikRegistered on change.
+  @override
   Future<StudentSnapshotSyncResult> syncStudentsSnapshot({
     required List<StudentsCompanion> rows,
     required Set<String> serverUserIds,
@@ -210,19 +217,23 @@ class AppDatabase extends _$AppDatabase
     );
   }
 
+  @override
   Future<List<Student>> getUnregisteredStudents() =>
       (select(students)..where((s) => s.hikRegistered.equals(false))).get();
 
+  @override
   Future<void> markHikRegistered(String userId) =>
       (update(students)..where((s) => s.userId.equals(userId))).write(
         const StudentsCompanion(hikRegistered: Value(true)),
       );
 
+  @override
   Future<void> assignCardToStudent(String userId, String cardNo) =>
       (update(students)..where((s) => s.userId.equals(userId))).write(
         StudentsCompanion(cardNo: Value(cardNo)),
       );
 
+  @override
   Future<void> removeCardFromStudent(String userId) =>
       (update(students)..where((s) => s.userId.equals(userId))).write(
         const StudentsCompanion(cardNo: Value(null)),
@@ -233,6 +244,7 @@ class AppDatabase extends _$AppDatabase
   Future<int> insertTapRecord(TapRecordsCompanion record) =>
       into(tapRecords).insert(record, mode: InsertMode.insertOrIgnore);
 
+  @override
   Future<List<TapRecord>> getUnpublishedRecords() =>
       (select(tapRecords)..where((r) => r.publishedAt.isNull())).get();
 
@@ -248,6 +260,7 @@ class AppDatabase extends _$AppDatabase
     return row.read(count)!;
   }
 
+  @override
   Future<List<TapRecord>> getTodayRecordsForCard(String cardNo) {
     final now = DateTime.now();
     final startOfDay =
@@ -264,6 +277,7 @@ class AppDatabase extends _$AppDatabase
         .get();
   }
 
+  @override
   Future<List<TapRecord>> getTodayRecordsForStudent(String userId) {
     final now = DateTime.now();
     final startOfDay =
@@ -280,6 +294,7 @@ class AppDatabase extends _$AppDatabase
         .get();
   }
 
+  @override
   Future<void> markPublished(String recordId, int publishedAt) =>
       (update(tapRecords)..where((r) => r.id.equals(recordId))).write(
         TapRecordsCompanion(publishedAt: Value(publishedAt)),

@@ -77,6 +77,7 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
             '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
         final label = _getLabel(type);
+        if (!mounted) return;
         final overwrite = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -96,6 +97,7 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
         );
 
         if (overwrite == true) {
+          if (!mounted) return;
           _confirm(existingRecordId: existing.id);
           return;
         }
@@ -202,7 +204,7 @@ class _TapPopupDialogState extends State<TapPopupDialog> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: colors.primaryContainer.withOpacity(0.5),
+                            color: colors.primaryContainer.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: Icon(Icons.person, size: 36, color: colors.primary),
@@ -481,16 +483,16 @@ class _ActionButton extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
           decoration: BoxDecoration(
-            color: selected ? color.withOpacity(0.15) : Colors.transparent,
+            color: selected ? color.withValues(alpha: 0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? color : Colors.grey.withOpacity(0.2),
+              color: selected ? color : Colors.grey.withValues(alpha: 0.2),
               width: selected ? 3 : 1.5,
             ),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: color.withOpacity(0.2),
+                      color: color.withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),

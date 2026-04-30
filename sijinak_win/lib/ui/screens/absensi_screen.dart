@@ -54,7 +54,7 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
                 return Card(
                   child: ListView.separated(
                     itemCount: rows.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final row = rows[index];
                       final dt = DateTime.fromMillisecondsSinceEpoch(
