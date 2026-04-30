@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import { StoreProvider } from "./StoreProvider";
 import "./styles/globals.css";
 import AppHeader from "./components/app-header";
@@ -8,7 +8,11 @@ import AuthGuard from "./components/auth-guard";
 import RouteChangeOverlay from "./components/route-change-overlay";
 import AppNotifications from "./components/app-notifications";
 
-const inter = Inter({ subsets: ["latin"] });
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 interface Props {
   readonly children: ReactNode;
@@ -17,7 +21,7 @@ interface Props {
 export default function RootLayout({ children }: Props) {
   return (
     <StoreProvider>
-      <html lang="en" className={inter.className}>
+      <html lang="en" className={sourceSans.className}>
         <body className="flex min-h-screen flex-col">
           <AuthGuard>
             <RouteChangeOverlay />

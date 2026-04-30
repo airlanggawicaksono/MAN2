@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { NavItem } from "@/config/navigation";
 import { isNavGroup } from "@/config/navigation";
 
@@ -29,15 +30,15 @@ export function NavSidebar({
     <div className="fixed inset-0 z-50 lg:hidden">
       <button
         aria-label="Tutup menu"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-foreground/35"
         onClick={() => onOpenChange(false)}
       />
-      <aside className="absolute right-0 top-0 h-full w-[86%] max-w-[360px] bg-[#173B52] text-[#F3F1EA] shadow-xl">
-        <div className="flex items-center justify-between border-b border-white/15 px-4 py-4">
-          <p className="text-sm font-semibold tracking-wide text-[#8FC3DD]">Menu Navigasi</p>
+      <aside className="absolute right-0 top-0 h-full w-[86%] max-w-[360px] border-l border-border/50 bg-secondary text-secondary-foreground shadow-xl">
+        <div className="flex items-center justify-between border-b border-secondary-foreground/15 px-4 py-4">
+          <p className="text-sm font-semibold tracking-wide text-secondary-foreground/80">Menu Navigasi</p>
           <button
             aria-label="Tutup menu"
-            className="rounded-md p-2 text-[#8FC3DD] hover:bg-white/10 hover:text-[#F3F1EA]"
+            className="rounded-md p-2 text-secondary-foreground/80 transition-colors duration-200 hover:bg-secondary-foreground/10 hover:text-secondary-foreground"
             onClick={() => onOpenChange(false)}
           >
             <X className="h-5 w-5" />
@@ -52,10 +53,10 @@ export function NavSidebar({
                 return (
                   <details
                     key={item.label}
-                    className="rounded-md bg-white/5"
+                    className="rounded-md bg-secondary-foreground/5"
                     open={isActive}
                   >
-                    <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-[#8FC3DD] hover:text-[#F3F1EA]">
+                    <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-secondary-foreground/80 hover:text-secondary-foreground">
                       {item.label}
                     </summary>
                     <div className="space-y-1 px-2 pb-2">
@@ -68,10 +69,10 @@ export function NavSidebar({
                             prefetch={false}
                             onClick={() => onOpenChange(false)}
                             className={
-                              "block rounded-md px-3 py-2 text-sm transition-colors " +
+                              "block rounded-md px-3 py-2 text-sm transition-colors duration-200 " +
                               (childActive
-                                ? "bg-white/15 text-[#EAD79A] font-semibold"
-                                : "text-[#8FC3DD] hover:bg-white/10 hover:text-[#F3F1EA]")
+                                ? "bg-accent/40 text-secondary-foreground font-semibold"
+                                : "text-secondary-foreground/80 hover:bg-secondary-foreground/10 hover:text-secondary-foreground")
                             }
                           >
                             {child.label}
@@ -91,10 +92,10 @@ export function NavSidebar({
                   prefetch={false}
                   onClick={() => onOpenChange(false)}
                   className={
-                    "block rounded-md px-3 py-2 text-sm transition-colors " +
+                    "block rounded-md px-3 py-2 text-sm transition-colors duration-200 " +
                     (isActive
-                      ? "bg-white/15 text-[#EAD79A] font-semibold"
-                      : "text-[#8FC3DD] hover:bg-white/10 hover:text-[#F3F1EA]")
+                      ? "bg-accent/40 text-secondary-foreground font-semibold"
+                      : "text-secondary-foreground/80 hover:bg-secondary-foreground/10 hover:text-secondary-foreground")
                   }
                 >
                   {item.label}
@@ -103,16 +104,17 @@ export function NavSidebar({
             })}
           </nav>
 
-          <div className="mt-4 border-t border-white/15 pt-4">
-            <button
+          <div className="mt-4 border-t border-secondary-foreground/15 pt-4">
+            <Button
+              variant="secondary"
               onClick={() => {
                 onOpenChange(false);
                 onActionClick();
               }}
-              className="w-full rounded-md border border-[#8FC3DD]/40 px-3 py-2 text-sm text-[#8FC3DD] transition-colors hover:bg-white/10 hover:text-[#F3F1EA]"
+              className="w-full"
             >
               {actionLabel}
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

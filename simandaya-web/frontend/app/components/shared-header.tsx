@@ -14,16 +14,17 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
+import { Button } from "@/components/ui/button";
 import type { NavItem } from "@/config/navigation";
 import { isNavGroup } from "@/config/navigation";
 import { NavSidebar } from "./nav-sidebar";
 
 const triggerStyle =
-  "text-[#8FC3DD] bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA] data-[active]:text-[#EAD79A]";
+  "h-10 rounded-md border border-transparent bg-transparent px-3 text-secondary-foreground/80 hover:bg-secondary-foreground/10 hover:text-secondary-foreground data-[state=open]:border-secondary-foreground/35 data-[state=open]:bg-secondary-foreground/10 data-[state=open]:text-secondary-foreground";
 const activeTriggerStyle =
-  "text-[#EAD79A] font-semibold bg-transparent hover:text-[#F3F1EA] hover:bg-white/5 data-[state=open]:text-[#F3F1EA]";
+  "h-10 rounded-md border border-secondary-foreground/40 bg-secondary-foreground/12 px-3 font-semibold text-secondary-foreground hover:bg-secondary-foreground/15 hover:text-secondary-foreground";
 const dropdownLinkStyle =
-  "block select-none rounded-md p-3 text-sm leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground";
+  "block select-none rounded-md p-3 text-sm leading-none no-underline outline-none transition-colors duration-200 hover:bg-muted hover:text-foreground focus:bg-muted focus:text-foreground";
 
 interface SharedHeaderProps {
   navItems: NavItem[];
@@ -40,29 +41,39 @@ export default function SharedHeader({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <header className="relative bg-[#173B52] text-[#F3F1EA] px-4 py-3 lg:px-8 lg:py-4 flex items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3 lg:gap-4">
-        <Image src="/man2.png" alt="Logo" width={48} height={48} priority className="shrink-0 lg:h-[60px] lg:w-[60px]" />
+    <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-secondary-foreground/20 bg-secondary px-4 py-3 text-secondary-foreground lg:px-8 lg:py-4">
+      <div className="flex min-w-0 items-center gap-4 lg:gap-6">
+        <Image
+          src="/man2.png"
+          alt="Logo MAN 2"
+          width={52}
+          height={52}
+          priority
+          className="shrink-0 rounded-md bg-card/10 p-1 ring-1 ring-white/25 lg:h-[62px] lg:w-[62px]"
+        />
         <div className="min-w-0 leading-tight">
           <h1 className="truncate text-sm font-semibold tracking-wide lg:text-xl">
             Madrasah Aliyah Negeri 2 Yogyakarta
           </h1>
-          <p className="truncate text-xs text-[#8FC3DD] italic lg:text-sm">Ukir prasasti dengan prestasi</p>
+          <p className="truncate text-xs text-secondary-foreground/70 lg:text-sm">
+            Ukir prasasti dengan prestasi
+          </p>
         </div>
       </div>
 
-      <div className="hidden items-center gap-4 lg:flex">
-        <NavigationMenu>
+      <div className="hidden min-w-0 items-center gap-3 lg:ml-auto lg:flex">
+        <NavigationMenu className="max-w-none">
           <NavigationMenuList className="gap-1">
-            {navItems.map((item) => {
+            {navItems.map((item, index) => {
               if (isNavGroup(item)) {
                 const isActive = item.children.some((child) => pathname === child.href);
+                const shouldAlignRight = index >= navItems.length - 2;
                 return (
                   <NavigationMenuItem key={item.label}>
                     <NavigationMenuTrigger className={isActive ? activeTriggerStyle : triggerStyle}>
                       {item.label}
                     </NavigationMenuTrigger>
-                    <NavigationMenuContent>
+                    <NavigationMenuContent className={shouldAlignRight ? "left-auto right-0" : undefined}>
                       <ul className={`${item.width ?? "w-[240px]"} p-2`}>
                         {item.children.map((child) => (
                           <li key={child.href}>
@@ -99,25 +110,28 @@ export default function SharedHeader({
                       navigationMenuTriggerStyle() + " " + (isActive ? activeTriggerStyle : triggerStyle)
                     }
                   >
-                    <Link href={item.href} prefetch={false}>{item.label}</Link>
+                    <Link href={item.href} prefetch={false}>
+                      {item.label}
+                    </Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               );
             })}
           </NavigationMenuList>
         </NavigationMenu>
-
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onActionClick}
-          className="text-[#8FC3DD] hover:text-[#F3F1EA] transition-colors text-sm px-4 py-2"
+          className="min-w-20 rounded-md border border-secondary-foreground/35 bg-transparent text-secondary-foreground hover:bg-secondary-foreground/10"
         >
           {actionLabel}
-        </button>
+        </Button>
       </div>
 
       <button
         aria-label="Buka menu"
-        className="inline-flex items-center justify-center rounded-md border border-[#8FC3DD]/40 p-2 text-[#8FC3DD] transition-colors hover:bg-white/10 hover:text-[#F3F1EA] lg:hidden"
+        className="inline-flex items-center justify-center rounded-md border border-secondary-foreground/35 p-2 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground/10 lg:hidden"
         onClick={() => setSidebarOpen(true)}
       >
         <Menu className="h-5 w-5" />

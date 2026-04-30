@@ -16,6 +16,8 @@ import { StudentCreateDialog } from "./student-create-dialog";
 import { StudentImportDialog } from "./student-import-dialog";
 import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
+import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function StudentRowActions({
   student,
@@ -87,15 +89,11 @@ export default function DataSiswaPage() {
   ];
 
   return (
-    <div className="space-y-8 p-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Pengaturan Data Siswa</h1>
-          <p className="mt-1 text-muted-foreground">
-            Kelola data siswa MAN 2 Kota Yogyakarta
-          </p>
-        </div>
-        <div className="flex gap-2 shrink-0">
+    <AdminPageShell
+      title="Pengaturan Data Siswa"
+      description="Kelola data siswa MAN 2 Kota Yogyakarta."
+      actions={
+        <>
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
@@ -104,11 +102,14 @@ export default function DataSiswaPage() {
             <UserPlus className="h-4 w-4 mr-2" />
             Tambah Siswa
           </Button>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Daftar Siswa</h2>
+        </>
+      }
+    >
+      <Card className="border-border/70">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Daftar Siswa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
 
         <EntitySearchInput
           placeholder="Cari siswa (NIS/NIM/Nama)..."
@@ -129,7 +130,8 @@ export default function DataSiswaPage() {
             onSkipChange={crud.setSkip}
           />
         ) : null}
-      </div>
+        </CardContent>
+      </Card>
 
       <StudentCreateDialog
         open={showCreate}
@@ -158,6 +160,6 @@ export default function DataSiswaPage() {
         open={!!crud.deleteTarget}
         onClose={() => crud.setDeleteTarget(null)}
       />
-    </div>
+    </AdminPageShell>
   );
 }

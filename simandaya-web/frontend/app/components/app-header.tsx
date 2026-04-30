@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "./confirm-dialog";
 import SharedHeader from "./shared-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -49,9 +52,7 @@ export default function AppHeader() {
   useEffect(() => {
     const onOpenLogin = (event: Event) => {
       if (isAuthenticated) return;
-      const detail = (
-        event as CustomEvent<{ targetPath?: string }>
-      ).detail;
+      const detail = (event as CustomEvent<{ targetPath?: string }>).detail;
       setPostLoginRedirect(detail?.targetPath ?? null);
       setLoginUsername("");
       setLoginPassword("");
@@ -98,7 +99,7 @@ export default function AppHeader() {
       startTransition(() => {
         router.replace(targetRoute);
       });
-      // Clear stale RTK Query cache after route transition starts to avoid blocking redirect.
+      // Clear stale RTK Query cache after route transition starts.
       setTimeout(() => {
         resetAllApiState(dispatch);
       }, 0);
@@ -121,11 +122,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <SharedHeader
-        navItems={navItems}
-        actionLabel={actionLabel}
-        onActionClick={onActionClick}
-      />
+      <SharedHeader navItems={navItems} actionLabel={actionLabel} onActionClick={onActionClick} />
 
       <Dialog
         open={showLoginDialog}
@@ -137,6 +134,7 @@ export default function AppHeader() {
         <DialogContent
           onInteractOutside={(e: Event) => e.preventDefault()}
           onEscapeKeyDown={() => setShowLoginDialog(false)}
+          className="max-w-md"
         >
           <DialogHeader>
             <DialogTitle>Masuk</DialogTitle>
@@ -145,21 +143,18 @@ export default function AppHeader() {
 
           <form className="space-y-4" onSubmit={handleLogin}>
             {loginError && (
-              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+              <div className="rounded-md border border-destructive/25 bg-destructive/10 p-3">
                 <p className="text-sm text-destructive">{loginError}</p>
               </div>
             )}
 
-            <div className="space-y-1">
-              <label htmlFor="login-username" className="text-sm font-medium">
-                Username
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="login-username">Username</Label>
+              <Input
                 id="login-username"
                 type="text"
                 autoComplete="username"
                 required
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="Username"
                 value={loginUsername}
                 onChange={(e) => setLoginUsername(e.target.value)}
@@ -167,16 +162,13 @@ export default function AppHeader() {
               />
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="login-password" className="text-sm font-medium">
-                Password
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Password</Label>
+              <Input
                 id="login-password"
                 type="password"
                 autoComplete="current-password"
                 required
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="Password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
@@ -184,15 +176,10 @@ export default function AppHeader() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="w-full py-2 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" disabled={loginLoading} className="w-full">
               {loginLoading ? "Memuat..." : "Masuk"}
-            </button>
+            </Button>
           </form>
-
         </DialogContent>
       </Dialog>
 

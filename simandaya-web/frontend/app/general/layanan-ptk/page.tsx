@@ -24,15 +24,15 @@ const LAYANAN_PTK = [
 
 export default function LayananPTKPage() {
   return (
-    <div className="min-h-screen bg-slate-50 w-full overflow-x-hidden">
-      <div className="w-full px-4 md:px-6 py-8 md:py-12 space-y-12">
+    <div className="w-full px-4 py-7 md:px-8 md:py-10 lg:px-12">
+      <div className="space-y-10">
         <ServicePageHeader
           title="Penelitian Tindakan Kelas (PTK)"
           description="Layanan yang ditujukan untuk mendukung pengembangan profesionalisme guru dan tenaga kependidikan di madrasah."
-          accentClassName="bg-blue-600"
+          accentClassName="bg-primary"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {LAYANAN_PTK.map((layanan) => (
             <ServiceLinkCard
               key={layanan.title}
@@ -40,8 +40,8 @@ export default function LayananPTKPage() {
               description={layanan.description}
               link={layanan.link}
               image={layanan.image}
-              hoverColorClassName="group-hover:text-blue-600"
-              buttonHoverClassName="hover:bg-blue-600"
+              hoverColorClassName="group-hover:text-foreground"
+              buttonHoverClassName="hover:bg-muted/45"
               overlayLabel="Portal Eksternal"
             />
           ))}

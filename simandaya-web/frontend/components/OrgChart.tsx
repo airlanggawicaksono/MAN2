@@ -3,7 +3,6 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
-  Panel,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -23,25 +22,25 @@ import '@xyflow/react/dist/style.css';
 // Custom Node for the Org Chart
 const OrgNode = ({ data }: NodeProps) => {
   return (
-    <div className="px-6 py-5 shadow-xl rounded-2xl bg-white border-2 border-slate-200 min-w-[300px] text-center transition-all hover:border-blue-500 hover:shadow-2xl">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-slate-400" />
+    <div className="min-w-[300px] rounded-lg border border-slate-300 bg-white px-6 py-5 text-center shadow-sm transition-colors hover:border-slate-400">
+      <Handle type="target" position={Position.Top} className="h-3 w-3 bg-slate-500" />
       <div className="flex flex-col gap-2">
         {!data.assignable ? (
           <div className="h-7" />
         ) : data.names && (data.names as string[]).length > 0 ? (
           (data.names as string[]).map((name, idx) => (
-            <div key={idx} className="font-extrabold text-slate-900 text-lg md:text-xl leading-tight">
+            <div key={idx} className="text-base font-semibold leading-tight text-slate-900 md:text-lg">
               {name}
             </div>
           ))
         ) : (
-          <div className="font-bold text-slate-400 text-lg italic">Belum Diisi</div>
+          <div className="text-base font-semibold italic text-slate-500">Belum Diisi</div>
         )}
-        <div className="text-xs md:text-sm font-bold text-blue-600 uppercase tracking-widest mt-1 border-t border-slate-100 pt-2">
+        <div className="mt-1 border-t border-slate-200 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-600 md:text-sm">
           {data.role as string}
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-slate-400" />
+      <Handle type="source" position={Position.Bottom} className="h-3 w-3 bg-slate-500" />
     </div>
   );
 };
@@ -58,7 +57,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 80 });
+  dagreGraph.setGraph({ rankdir: direction, ranksep: 90, nodesep: 70 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -199,8 +198,8 @@ export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
       source: h.parent!,
       target: h.id,
       type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#f2e94e', strokeWidth: 3 },
+      animated: false,
+      style: { stroke: '#8da0ba', strokeWidth: 2 },
     }));
 
     const coordinationEdges = COORDINATION_LINES.map(c => ({
@@ -211,7 +210,7 @@ export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
       animated: false,
       label: 'koordinasi',
       labelStyle: { fontSize: '10px', fill: '#94a3b8', fontWeight: 600 },
-      style: { stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: '5,5' },
+      style: { stroke: '#b9c6d8', strokeWidth: 2, strokeDasharray: '6,5' },
     }));
 
     return getLayoutedElements(nodes, [...hierarchyEdges, ...coordinationEdges]);
@@ -232,7 +231,7 @@ export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
   );
 
   return (
-    <div className="w-full h-full bg-slate-50 relative overflow-hidden" style={{ minHeight: '800px' }}>
+    <div className="relative h-full w-full overflow-hidden bg-slate-50/70" style={{ minHeight: '800px' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -249,11 +248,11 @@ export const OrgChart: React.FC<OrgChartProps> = ({ civitas }) => {
         nodesConnectable={false}
         elementsSelectable={false}
         defaultEdgeOptions={{
-          style: { stroke: '#f2e94e', strokeWidth: 3 },
+          style: { stroke: '#8da0ba', strokeWidth: 2 },
           type: 'smoothstep',
         }}
       >
-        <Background color="#cbd5e1" gap={20} />
+        <Background color="#cfd7e3" gap={20} />
         <Controls />
       </ReactFlow>
     </div>

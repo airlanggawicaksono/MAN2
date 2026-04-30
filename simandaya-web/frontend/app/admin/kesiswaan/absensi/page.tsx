@@ -25,6 +25,7 @@ import {
   type AttendanceStatus,
   useAbsensiController,
 } from "./use-absensi-controller";
+import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 
 export default function AbsensiPage() {
   const {
@@ -54,22 +55,19 @@ export default function AbsensiPage() {
   } = useAbsensiController();
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Kesiswaan: Manajemen Absensi</h1>
-          <p className="text-sm text-muted-foreground">
-            Kelola record absensi siswa secara individual.
-          </p>
-        </div>
+    <AdminPageShell
+      title="Kesiswaan: Manajemen Absensi"
+      description="Kelola record absensi siswa secara individual."
+      actions={
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Tanggal</label>
           <DateInputId value={tanggal} onValueChange={setTanggal} />
         </div>
-      </div>
+      }
+    >
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-border/70">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
@@ -78,7 +76,7 @@ export default function AbsensiPage() {
             <CardTitle className="text-3xl">{stats.totalAbsen}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="border-border/70">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <LogOut className="h-3.5 w-3.5" />
@@ -87,7 +85,7 @@ export default function AbsensiPage() {
             <CardTitle className="text-3xl">{stats.totalIzinKeluar}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="border-border/70">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
@@ -98,7 +96,7 @@ export default function AbsensiPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Pengaturan Keterlambatan</CardTitle>
           <CardDescription>
@@ -132,7 +130,7 @@ export default function AbsensiPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Distribusi Status Harian</CardTitle>
           <CardDescription>{formatIsoToIdDate(tanggal)}</CardDescription>
@@ -146,7 +144,7 @@ export default function AbsensiPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Raw Management (Admin)</CardTitle>
           <CardDescription>
@@ -170,7 +168,7 @@ export default function AbsensiPage() {
             <p className="text-sm text-muted-foreground">{rawMessage}</p>
           )}
 
-          <div className="max-h-80 overflow-auto rounded-md border">
+          <div className="max-h-80 overflow-auto rounded-md border border-border/70">
             {loadingAttendance ? (
               <p className="p-3 text-sm text-muted-foreground">
                 Memuat data absensi...
@@ -181,7 +179,7 @@ export default function AbsensiPage() {
               </p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-muted/40">
+                <thead className="bg-muted/35">
                   <tr>
                     <th className="px-3 py-2 text-left">Nama</th>
                     <th className="px-3 py-2 text-left">Kelas</th>
@@ -274,6 +272,6 @@ export default function AbsensiPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AdminPageShell>
   );
 }

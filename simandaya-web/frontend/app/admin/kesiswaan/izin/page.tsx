@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DateInputId } from "@/components/ui/date-input-id";
 import { formatIsoToIdDate } from "@/lib/date-id";
-import { Search, Clock, LogOut } from "lucide-react";
+import { Search, Clock } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
+import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 
 export default function AdminIzinKesiswaanPage() {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
@@ -22,103 +23,94 @@ export default function AdminIzinKesiswaanPage() {
   });
 
   return (
-    <div className="space-y-6 p-8">
-      {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <LogOut className="w-6 h-6 text-orange-600" />
-            Log Izin Keluar Siswa
-          </h1>
-          <p className="text-sm text-slate-500">Monitoring data izin siswa.</p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch gap-3">
-          <DateInputId
-            className="w-full sm:w-[200px] rounded-xl border-slate-200"
-            value={tanggal}
-            onValueChange={setTanggal}
-          />
+    <AdminPageShell
+      title="Log Izin Keluar Siswa"
+      description="Monitoring data izin siswa."
+      actions={
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row">
+          <DateInputId className="w-full sm:w-[200px]" value={tanggal} onValueChange={setTanggal} />
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Cari nama siswa..."
-              className="pl-10 w-full sm:w-[300px] rounded-xl border-slate-200"
+              className="w-full pl-10 sm:w-[300px]"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-8">
-        <Card className="border-slate-200 shadow-sm overflow-hidden rounded-2xl bg-white">
-          <CardHeader className="border-b border-slate-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Riwayat Izin</CardTitle>
-                <CardDescription>Menampilkan data untuk tanggal {formatIsoToIdDate(tanggal)}</CardDescription>
-              </div>
-              <Badge className="bg-orange-50 text-orange-700 border-orange-100">
-                {izins?.length || 0} Data
-              </Badge>
+      }
+    >
+      <Card className="overflow-hidden border-border/70">
+        <CardHeader className="border-b border-border/50">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg">Riwayat Izin</CardTitle>
+              <CardDescription>Menampilkan data untuk tanggal {formatIsoToIdDate(tanggal)}</CardDescription>
             </div>
-          </CardHeader>
+            <Badge variant="secondary">{izins?.length || 0} Data</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-slate-50">
+            <TableHeader className="bg-muted/35">
               <TableRow>
-                <TableHead className="font-bold text-slate-700">Waktu Keluar</TableHead>
-                <TableHead className="font-bold text-slate-700">Nama Siswa</TableHead>
-                <TableHead className="font-bold text-slate-700">Kelas</TableHead>
-                <TableHead className="font-bold text-slate-700">Keterangan</TableHead>
-                <TableHead className="font-bold text-slate-700 text-center">Perkiraan Kembali</TableHead>
+                <TableHead>Waktu Keluar</TableHead>
+                <TableHead>Nama Siswa</TableHead>
+                <TableHead>Kelas</TableHead>
+                <TableHead>Keterangan</TableHead>
+                <TableHead className="text-center">Perkiraan Kembali</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    Memuat data izin...
                   </TableCell>
                 </TableRow>
               ) : !izins || izins.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic text-sm">
+                  <TableCell colSpan={5} className="h-32 text-center text-sm italic text-muted-foreground">
                     Tidak ada data izin keluar untuk tanggal ini.
                   </TableCell>
                 </TableRow>
               ) : (
                 izins.map((izin) => (
-                  <TableRow key={izin.izin_id} className="hover:bg-slate-50/50">
-                    <TableCell className="font-mono text-sm text-slate-600">
+                  <TableRow key={izin.izin_id}>
+                    <TableCell className="font-mono text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(izin.created_at).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
+                        <Clock className="h-3.5 w-3.5" />
+                        {new Date(izin.created_at).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </TableCell>
-                    <TableCell className="font-bold text-slate-900">{izin.nama_siswa}</TableCell>
+                    <TableCell className="font-semibold text-foreground">{izin.nama_siswa}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
-                        {izin.kelas || "-"}
-                      </Badge>
+                      <Badge variant="outline">{izin.kelas || "-"}</Badge>
                     </TableCell>
-                    <TableCell className="text-slate-500 max-w-xs truncate">
-                      {izin.keterangan}
-                    </TableCell>
+                    <TableCell className="max-w-xs truncate text-muted-foreground">{izin.keterangan}</TableCell>
                     <TableCell className="text-center">
                       {izin.perkiraan_kembali ? (
-                        <Badge className="bg-blue-50 text-blue-700 border-blue-100">
-                          {new Date(izin.perkiraan_kembali).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
+                        <Badge variant="secondary">
+                          {new Date(izin.perkiraan_kembali).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </Badge>
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
-        </Card>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </AdminPageShell>
   );
 }

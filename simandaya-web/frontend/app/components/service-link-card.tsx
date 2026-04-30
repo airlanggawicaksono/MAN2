@@ -34,66 +34,64 @@ export function ServiceLinkCard({
   const rel = isExternal ? "noopener noreferrer" : undefined;
 
   return (
-    <Card className="group border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden rounded-2xl bg-white">
-      <div className="relative h-48 w-full overflow-hidden">
-        <img
-          src={image}
-          alt={title}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex items-end p-4">
+    <Card className="group flex h-full flex-col overflow-hidden border-border/80 bg-card transition-colors duration-200 hover:border-primary/30">
+      <div className="relative h-48 w-full overflow-hidden border-b border-border/70 bg-muted/25">
+        <img src={image} alt={title} loading="lazy" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 flex items-end p-4">
           {Icon ? (
-            <div className="bg-white/10 backdrop-blur-md p-2 rounded-lg border border-white/20">
-              <Icon className="w-5 h-5 text-white" />
+            <div className="rounded-sm border border-white/45 bg-foreground/25 p-2 text-white">
+              <Icon className="h-4 w-4" />
             </div>
           ) : overlayLabel ? (
-            <span className="text-white text-xs font-medium uppercase tracking-wider">
+            <span className="rounded-sm border border-white/35 bg-foreground/30 px-2 py-1 text-xs font-medium uppercase tracking-wide text-white">
               {overlayLabel}
             </span>
           ) : null}
         </div>
       </div>
 
-      <CardHeader className="pt-6">
-        <CardTitle className={`text-xl font-bold text-slate-900 transition-colors ${hoverColorClassName}`}>
+      <CardHeader className="pt-5">
+        <CardTitle className={`text-lg font-semibold text-foreground transition-colors duration-200 ${hoverColorClassName}`}>
           {title}
         </CardTitle>
       </CardHeader>
 
       <CardContent className="flex-1">
-        <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
       </CardContent>
 
-      <CardFooter className="pb-8 pt-2">
+      <CardFooter className="border-t border-border/70 pb-5 pt-4">
         {onActionClick ? (
           <Button
             onClick={onActionClick}
-            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+            variant="outline"
+            className={`group/btn h-10 w-full rounded-sm border-border/80 font-medium transition-colors duration-200 ${buttonHoverClassName}`}
           >
             <span className="flex items-center justify-center gap-2">
               Buka Layanan
-              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+              <ExternalLink className="h-4 w-4" />
             </span>
           </Button>
         ) : isExternal ? (
           <Button
             asChild
-            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+            variant="outline"
+            className={`group/btn h-10 w-full rounded-sm border-border/80 font-medium transition-colors duration-200 ${buttonHoverClassName}`}
           >
             <a href={link} target={target} rel={rel} className="flex items-center justify-center gap-2">
               Buka Layanan
-              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+              <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
         ) : (
           <Button
             asChild
-            className={`w-full h-12 rounded-xl bg-slate-900 text-white font-semibold transition-all shadow-md active:scale-95 group/btn ${buttonHoverClassName}`}
+            variant="outline"
+            className={`group/btn h-10 w-full rounded-sm border-border/80 font-medium transition-colors duration-200 ${buttonHoverClassName}`}
           >
             <Link href={link} prefetch={false} className="flex items-center justify-center gap-2">
               Buka Layanan
-              <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+              <ExternalLink className="h-4 w-4" />
             </Link>
           </Button>
         )}

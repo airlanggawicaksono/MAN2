@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SlideForm } from "./slide-form";
 import type { CarouselSlide, CreateSlideRequest, ContentType } from "@/types/cms";
+import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import {
   Pencil,
   Trash2,
@@ -114,11 +115,11 @@ function ContentBox({
   const isLokasi = section.key === "lokasi";
 
   return (
-    <Card>
+    <Card className="border-border/70">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
               <Icon className="h-5 w-5" />
             </div>
             <div>
@@ -145,8 +146,8 @@ function ContentBox({
             Memuat...
           </p>
         ) : items.length === 0 ? (
-          <div className="border border-dashed rounded-lg py-8 flex flex-col items-center gap-2">
-            <Icon className="h-8 w-8 text-blue-600/60" />
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 py-8">
+            <Icon className="h-8 w-8 text-primary/60" />
             <p className="text-sm text-muted-foreground">Belum ada konten</p>
             <Button variant="outline" size="sm" onClick={onAdd}>
               <Plus className="mr-1 h-3.5 w-3.5" />
@@ -158,7 +159,7 @@ function ContentBox({
             {items.map((slide) => (
               <div
                 key={slide.id}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/35"
               >
                 {/* Thumbnail */}
                 {slide.type === "video" && slide.link_url ? (
@@ -172,14 +173,14 @@ function ContentBox({
                         className="rounded w-20 h-14 object-cover shrink-0"
                       />
                     ) : (
-                      <div className="rounded w-20 h-14 bg-blue-50 shrink-0 flex items-center justify-center">
-                        <Video className="h-5 w-5 text-blue-600" />
+                      <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded bg-muted/45">
+                        <Video className="h-5 w-5 text-primary" />
                       </div>
                     );
                   })()
                 ) : slide.type === "lokasi" ? (
-                  <div className="rounded w-20 h-14 bg-blue-50 shrink-0 flex items-center justify-center">
-                    <MapPin className="h-5 w-5 text-blue-600" />
+                  <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded bg-muted/45">
+                    <MapPin className="h-5 w-5 text-primary" />
                   </div>
                 ) : slide.image_url ? (
                   <img
@@ -230,7 +231,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                    className="h-8 w-8"
                     onClick={() => onToggle(slide.id, slide.is_active)}
                     title={slide.is_active ? "Nonaktifkan" : "Aktifkan"}
                   >
@@ -243,7 +244,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                    className="h-8 w-8"
                     onClick={() => onEdit(slide)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -251,7 +252,7 @@ function ContentBox({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
                     onClick={() => onDelete(slide)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -329,13 +330,10 @@ export default function SettingPage() {
   }
 
   return (
-    <div className="w-full max-w-none px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Pengaturan Konten</h1>
-        <p className="mt-1 text-muted-foreground">
-          Kelola semua konten halaman utama
-        </p>
-      </div>
+    <AdminPageShell
+      title="Pengaturan Konten"
+      description="Kelola seluruh konten halaman utama."
+    >
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {sections.map((section) => (
@@ -414,6 +412,6 @@ export default function SettingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminPageShell>
   );
 }

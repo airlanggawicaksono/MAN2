@@ -11,6 +11,8 @@ import { TeacherDeleteDialog } from "./teacher-delete-dialog";
 import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
 import { withActionsColumn } from "@/app/components/admin/row-edit-delete-actions";
+import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function CivitasAkademikPage() {
   const crud = useCrudListPage<GuruProfile>();
@@ -31,16 +33,15 @@ export default function CivitasAkademikPage() {
   );
 
   return (
-    <div className="space-y-8 p-8">
-      <div>
-        <h1 className="text-2xl font-bold">Pengaturan Data Civitas Akademik</h1>
-        <p className="mt-1 text-muted-foreground">
-          Kelola data guru dan tenaga kependidikan MAN 2 Kota Yogyakarta
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Daftar Civitas Akademik</h2>
+    <AdminPageShell
+      title="Pengaturan Data Civitas Akademik"
+      description="Kelola data guru dan tenaga kependidikan MAN 2 Kota Yogyakarta."
+    >
+      <Card className="border-border/70">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Daftar Civitas Akademik</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
 
         <EntitySearchInput
           placeholder="Cari civitas..."
@@ -61,7 +62,8 @@ export default function CivitasAkademikPage() {
             onSkipChange={crud.setSkip}
           />
         ) : null}
-      </div>
+        </CardContent>
+      </Card>
 
       <TeacherEditDialog
         teacher={crud.editTarget}
@@ -77,6 +79,6 @@ export default function CivitasAkademikPage() {
         open={!!crud.deleteTarget}
         onClose={() => crud.setDeleteTarget(null)}
       />
-    </div>
+    </AdminPageShell>
   );
 }

@@ -33,15 +33,15 @@ const LAYANAN_PUBLIK = [
 
 export default function LayananPublikPage() {
   return (
-    <div className="min-h-screen bg-slate-50 w-full overflow-x-hidden">
-      <div className="w-full px-4 md:px-6 py-8 md:py-12 space-y-12">
+    <div className="w-full px-4 py-7 md:px-8 md:py-10 lg:px-12">
+      <div className="space-y-10">
         <ServicePageHeader
           title="Layanan Publik"
           description="Pusat layanan informasi dan keterbukaan publik MAN 2 Yogyakarta bagi masyarakat luas dan orang tua siswa."
-          accentClassName="bg-green-600"
+          accentClassName="bg-primary"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {LAYANAN_PUBLIK.map((layanan) => (
             <ServiceLinkCard
               key={layanan.title}
@@ -50,8 +50,8 @@ export default function LayananPublikPage() {
               link={layanan.link}
               image={layanan.image}
               icon={layanan.icon}
-              hoverColorClassName="group-hover:text-green-600"
-              buttonHoverClassName="hover:bg-green-600"
+              hoverColorClassName="group-hover:text-foreground"
+              buttonHoverClassName="hover:bg-muted/45"
             />
           ))}
         </div>

@@ -12,12 +12,10 @@ export function ServicePageHeader({
   accentClassName,
 }: ServicePageHeaderProps) {
   return (
-    <div className="space-y-4 max-w-4xl">
-      <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-        {title}
-      </h1>
-      <p className="text-lg text-slate-600 leading-relaxed">{description}</p>
-      <div className={`w-24 h-1.5 rounded-full ${accentClassName}`} />
+    <div className="max-w-4xl space-y-3">
+      <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{title}</h1>
+      <p className="max-w-[72ch] text-base leading-relaxed text-muted-foreground md:text-lg">{description}</p>
+      <div className={`h-1.5 w-20 rounded-full ${accentClassName}`} />
     </div>
   );
 }

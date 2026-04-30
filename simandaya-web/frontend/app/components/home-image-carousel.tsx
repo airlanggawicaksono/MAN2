@@ -24,8 +24,8 @@ export function HomeImageCarousel({
 }: HomeImageCarouselProps) {
   if (items.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
-        <p className="text-muted-foreground">Belum ada konten</p>
+      <div className="flex h-44 items-center justify-center rounded-lg border border-border/70 bg-muted/35">
+        <p className="text-sm text-muted-foreground">Belum ada konten</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function HomeImageCarousel({
       <CarouselContent>
         {items.map((item) => {
           const content = (
-            <Card className={`border-none overflow-hidden ${cardClassName}`}>
+            <Card className={`overflow-hidden border-border/60 ${cardClassName}`}>
               <CardContent className="flex flex-col p-0">
                 {item.image_url && (
                   <img
@@ -47,7 +47,7 @@ export function HomeImageCarousel({
                 )}
                 {item.title && (
                   <div className="p-4">
-                    <p className="font-semibold text-sm">{item.title}</p>
+                    <p className="text-sm font-semibold">{item.title}</p>
                   </div>
                 )}
               </CardContent>

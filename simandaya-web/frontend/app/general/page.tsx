@@ -78,21 +78,19 @@ export default function IndexPage() {
   }, [isAuthenticated, user?.user_type, router]);
 
   return (
-    <main className="flex flex-col gap-12 px-4 py-8 md:px-8 lg:px-16">
+    <main className="flex w-full flex-col gap-10 px-4 py-7 md:px-8 md:py-10 lg:px-12">
       {slides.length > 0 && (
         <Carousel opts={{ loop: true }} className="w-full">
           <CarouselContent>
             {slides.map((slide) => (
               <CarouselItem key={slide.id}>
-                <Card
-                  className={`${slide.bg} ${slide.fg} border-none overflow-hidden`}
-                >
+                <Card className="overflow-hidden border-border/60">
                   <CardContent className="flex flex-col p-0">
                     {slide.image_url && (
                       <img
                         src={slide.image_url}
                         alt={slide.title || ""}
-                        className="w-full max-h-[480px] object-contain"
+                        className="max-h-[460px] w-full object-contain bg-muted/25"
                       />
                     )}
                     {(slide.title ||
@@ -100,20 +98,16 @@ export default function IndexPage() {
                       (slide.link_url && slide.link_label)) && (
                       <div className="flex flex-col items-center p-6 text-center">
                         {slide.title && (
-                          <h2 className="text-2xl font-bold md:text-4xl">
-                            {slide.title}
-                          </h2>
+                          <h2 className="text-2xl font-semibold md:text-4xl">{slide.title}</h2>
                         )}
                         {slide.description && (
-                          <p className="mt-3 max-w-2xl text-base md:text-lg opacity-90">
+                          <p className="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
                             {slide.description}
                           </p>
                         )}
                         {slide.link_url && slide.link_label && (
                           <Button asChild variant="secondary" className="mt-6">
-                            <Link href={slide.link_url}>
-                              {slide.link_label}
-                            </Link>
+                            <Link href={slide.link_url}>{slide.link_label}</Link>
                           </Button>
                         )}
                       </div>
@@ -123,57 +117,60 @@ export default function IndexPage() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="left-4 md:left-6" />
-          <CarouselNext className="right-4 md:right-6" />
+          <CarouselPrevious className="left-3 md:left-4" />
+          <CarouselNext className="right-3 md:right-4" />
         </Carousel>
       )}
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {layananCards.map((item) => {
-          const Icon = item.icon;
-          const card = (
-            <Card
-              key={item.title}
-              className={`transition-shadow hover:shadow-lg h-full ${
-                item.href ? "cursor-pointer" : ""
-              }`}
-            >
-              <CardHeader className="items-center text-center">
-                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Icon className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-lg">{item.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-center">
-                  {item.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          );
-
-          if (!item.href) return card;
-          if (item.href.startsWith("http")) {
-            return (
-              <a
+      <section className="space-y-4">
+        <HomeSectionHeader icon={BookOpen} title="Akses Layanan" />
+        <div className="grid gap-5 md:grid-cols-3">
+          {layananCards.map((item) => {
+            const Icon = item.icon;
+            const card = (
+              <Card
                 key={item.title}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block h-full"
+                className={`h-full border-border/70 transition-colors duration-200 hover:border-primary/35 ${
+                  item.href ? "cursor-pointer" : ""
+                }`}
               >
-                {card}
-              </a>
+                <CardHeader className="items-center text-center">
+                  <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="text-lg font-semibold">{item.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-center leading-relaxed">
+                    {item.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
             );
-          }
 
-          return (
-            <Link key={item.title} href={item.href} prefetch={false} className="block h-full">
-              {card}
-            </Link>
-          );
-        })}
-      </div>
+            if (!item.href) return card;
+            if (item.href.startsWith("http")) {
+              return (
+                <a
+                  key={item.title}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block h-full"
+                >
+                  {card}
+                </a>
+              );
+            }
+
+            return (
+              <Link key={item.title} href={item.href} prefetch={false} className="block h-full">
+                {card}
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       <section>
         <HomeSectionHeader icon={ImageIcon} title="Flyer MAN 2" />
@@ -185,7 +182,7 @@ export default function IndexPage() {
         <HomeImageCarousel
           items={mediaItems}
           imageClassName="max-h-[260px]"
-          cardClassName="shadow-sm"
+          cardClassName="shadow-none"
         />
       </section>
 
@@ -197,14 +194,11 @@ export default function IndexPage() {
             const videoId = extractYouTubeId(video.link_url);
             if (!videoId) return null;
             return (
-              <Card key={video.id} className="overflow-hidden">
+              <Card key={video.id} className="overflow-hidden border-border/70">
                 <CardContent className="p-0">
-                  <div
-                    className="relative w-full"
-                    style={{ paddingBottom: "56.25%" }}
-                  >
+                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                     <iframe
-                      className="absolute inset-0 w-full h-full"
+                      className="absolute inset-0 h-full w-full"
                       src={`https://www.youtube-nocookie.com/embed/${videoId}`}
                       title={videoTitles[video.id] || "Video"}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -222,7 +216,7 @@ export default function IndexPage() {
             );
           })}
           {videoItems.length === 0 && (
-            <div className="col-span-2 flex items-center justify-center h-48 bg-muted rounded-lg">
+            <div className="col-span-2 flex h-48 items-center justify-center rounded-lg border border-border/70 bg-muted/35">
               <p className="text-muted-foreground">Belum ada video</p>
             </div>
           )}
@@ -233,12 +227,12 @@ export default function IndexPage() {
         <HomeSectionHeader icon={MapPin} title="Lokasi" />
         {lokasiItems.length > 0 ? (
           lokasiItems.map((loc) => (
-            <Card key={loc.id} className="overflow-hidden">
+            <Card key={loc.id} className="overflow-hidden border-border/70">
               <CardContent className="p-0">
                 {loc.link_url && (
                   <iframe
                     src={loc.link_url}
-                    className="w-full h-[400px]"
+                    className="h-[400px] w-full"
                     style={{ border: 0 }}
                     allowFullScreen
                     loading="lazy"
@@ -254,11 +248,11 @@ export default function IndexPage() {
             </Card>
           ))
         ) : (
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden border-border/70">
             <CardContent className="p-0">
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3953.1!2d110.365!3d-7.802!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e7a5787bd5b6bc5%3A0x21723fd4d3684f71!2sMAN%202%20Yogyakarta!5e0!3m2!1sid!2sid!4v1710000000000!5m2!1sid!2sid"
-                className="w-full h-[400px]"
+                className="h-[400px] w-full"
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"

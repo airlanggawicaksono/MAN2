@@ -17,15 +17,15 @@ const LAYANAN_AKADEMIK = [
 
 export default function LayananAkademikPage() {
   return (
-    <div className="min-h-screen bg-slate-50 w-full overflow-x-hidden">
-      <div className="w-full px-4 md:px-6 py-8 md:py-12 space-y-12">
+    <div className="w-full px-4 py-7 md:px-8 md:py-10 lg:px-12">
+      <div className="space-y-10">
         <ServicePageHeader
           title="Layanan Akademik"
           description="Akses cepat ke berbagai layanan pendukung akademik dan pembelajaran bagi siswa dan guru MAN 2 Yogyakarta."
-          accentClassName="bg-blue-600"
+          accentClassName="bg-primary"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {LAYANAN_AKADEMIK.map((layanan) => (
             <ServiceLinkCard
               key={layanan.title}
@@ -34,8 +34,8 @@ export default function LayananAkademikPage() {
               link={layanan.link}
               image={layanan.image}
               icon={layanan.icon}
-              hoverColorClassName="group-hover:text-blue-600"
-              buttonHoverClassName="hover:bg-blue-600"
+              hoverColorClassName="group-hover:text-foreground"
+              buttonHoverClassName="hover:bg-muted/45"
             />
           ))}
         </div>

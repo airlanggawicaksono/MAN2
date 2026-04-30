@@ -9,11 +9,11 @@ interface HomeSectionHeaderProps {
 
 export function HomeSectionHeader({ icon: Icon, title }: HomeSectionHeaderProps) {
   return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+    <div className="mb-4 flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border/70 bg-card text-primary shadow-sm">
         <Icon className="h-5 w-5" />
       </div>
-      <h2 className="text-xl font-bold md:text-2xl">{title}</h2>
+      <h2 className="text-xl font-semibold tracking-tight md:text-2xl">{title}</h2>
     </div>
   );
 }
