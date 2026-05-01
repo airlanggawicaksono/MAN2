@@ -39,7 +39,7 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
     if (student) {
       const dobIso = normalizeDateToIso(student.dob);
       setForm({
-        nis: student.nis ?? undefined,
+        nisn: student.nisn ?? undefined,
         nama_lengkap: student.nama_lengkap,
         dob: dobIso || undefined,
         tempat_lahir: student.tempat_lahir ?? undefined,
@@ -91,10 +91,10 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label>NIS</Label>
+              <Label>NISN</Label>
               <Input
-                value={form.nis || ""}
-                onChange={(e) => handleChange("nis", e.target.value)}
+                value={form.nisn || ""}
+                onChange={(e) => handleChange("nisn", e.target.value)}
               />
             </div>
             <div className="grid gap-2">

@@ -34,7 +34,7 @@ interface ProfileFormCardProps<TProfile, TUpdate extends object> {
   updateProfile: (payload: TUpdate) => Promise<{ data?: unknown; error?: unknown }>;
   isUpdating: boolean;
   updateError: unknown;
-  /** Read-only identifier field at the top (e.g. NIP or NIS) */
+  /** Read-only identifier field at the top (e.g. NIP or NISN) */
   identifierLabel: string;
   identifierValue: string;
   /** Map profile data to form initial values */

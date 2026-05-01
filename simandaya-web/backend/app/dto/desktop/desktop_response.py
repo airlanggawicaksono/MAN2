@@ -7,7 +7,7 @@ class StudentSyncDTO(BaseModel):
     """Student data for desktop app sync."""
     user_id: UUID = Field(..., description="Student user_id")
     nama_lengkap: str = Field(..., description="Student full name")
-    nis: str | None = Field(None, description="Student NIS")
+    nisn: str | None = Field(None, description="Student NISN")
     kelas_jurusan: str | None = Field(None, description="Class and major")
     card_no: str | None = Field(None, description="RFID card number assigned via web admin")
     user_type: str = Field(..., description="Functional user type from user table")

@@ -6,8 +6,8 @@ import type { StudentProfile } from "@/types/students";
 
 export const studentColumns: ColumnDef<StudentProfile>[] = [
   {
-    accessorKey: "nis",
-    header: "NIS",
+    accessorKey: "nisn",
+    header: "NISN",
   },
   {
     accessorKey: "nama_lengkap",

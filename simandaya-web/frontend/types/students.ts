@@ -3,7 +3,7 @@ import type { JenisKelamin, StatusSiswa } from "./enums";
 export interface StudentProfile {
   siswa_id: string;
   user_id: string;
-  nis: string | null;
+  nisn: string | null;
   nama_lengkap: string;
   dob: string | null;
   tempat_lahir: string | null;
@@ -23,7 +23,7 @@ export interface StudentProfile {
 }
 
 export interface PreRegisterStudentRequest {
-  nis: string;
+  nisn: string;
   nama_lengkap: string;
   dob?: string;
   tempat_lahir?: string;
@@ -41,7 +41,7 @@ export interface PreRegisterResponse {
 }
 
 export interface UpdateStudentRequest {
-  nis?: string;
+  nisn?: string;
   nama_lengkap?: string;
   dob?: string;
   tempat_lahir?: string;
@@ -70,7 +70,7 @@ export interface ListStudentsParams {
 }
 
 export interface CreateStudentRequest {
-  nis?: string;
+  nisn?: string;
   nama_lengkap: string;
   dob?: string;
   tempat_lahir?: string;
@@ -88,7 +88,7 @@ export interface CreateStudentRequest {
 export interface BulkImportResultItem {
   row: number;
   nama_lengkap: string;
-  nis?: string;
+  nisn?: string;
   status: "created" | "skipped" | "error";
   detail?: string;
 }

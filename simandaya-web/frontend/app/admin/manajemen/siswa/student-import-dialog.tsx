@@ -41,7 +41,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       return {
         row: {
           nama_lengkap: nama,
-          nis: helpers.get("nis") || undefined,
+          nisn: helpers.get("nisn") || helpers.get("nis") || undefined,
           kelas_jurusan: helpers.get("kelas_jurusan") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
@@ -106,7 +106,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             <p>
               <span className="font-mono bg-white border rounded px-1">nama_lengkap</span>{" "}
               (wajib),{" "}
-              <span className="font-mono bg-white border rounded px-1">nis</span>,{" "}
+              <span className="font-mono bg-white border rounded px-1">nisn</span>,{" "}
               <span className="font-mono bg-white border rounded px-1">kelas_jurusan</span>,{" "}
               <span className="font-mono bg-white border rounded px-1">tahun_masuk</span>,{" "}
               <span className="font-mono bg-white border rounded px-1">kontak</span>,{" "}
@@ -163,7 +163,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-slate-400 text-xs">
-                      {[s.nis && `NIS: ${s.nis}`, s.kelas_jurusan].filter(Boolean).join(" · ")}
+                      {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan].filter(Boolean).join(" · ")}
                     </span>
                   </div>
                 ))}

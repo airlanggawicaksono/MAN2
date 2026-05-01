@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from app.enums import (
     JenisKelamin,
     StatusSiswa,
@@ -13,7 +13,12 @@ from app.enums import (
 class CreateStudentRequestDTO(BaseModel):
     """Request DTO for creating a new student with user account (Admin only)"""
 
-    nis: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    nisn: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        validation_alias=AliasChoices("nisn", "nis"),
+    )
     nama_lengkap: str = Field(min_length=2, max_length=225)
     dob: Optional[str] = Field(default=None, max_length=50)
     tempat_lahir: Optional[str] = Field(default=None, max_length=100)
@@ -31,7 +36,12 @@ class CreateStudentRequestDTO(BaseModel):
 class UpdateStudentRequestDTO(BaseModel):
     """Request DTO for partial update of a student profile (Admin only)"""
 
-    nis: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    nisn: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        validation_alias=AliasChoices("nisn", "nis"),
+    )
     nama_lengkap: Optional[str] = Field(default=None, min_length=2, max_length=225)
     dob: Optional[str] = Field(default=None, min_length=1, max_length=50)
     tempat_lahir: Optional[str] = Field(default=None, max_length=100)

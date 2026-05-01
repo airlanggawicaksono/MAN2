@@ -37,7 +37,7 @@ export function StudentDeleteDialog({ student, open, onClose }: StudentDeleteDia
       description={
         <>
           Apakah Anda yakin ingin menghapus siswa{" "}
-          <strong>{student?.nama_lengkap}</strong> (NIS: {student?.nis})?
+          <strong>{student?.nama_lengkap}</strong> (NISN: {student?.nisn})?
           Tindakan ini tidak dapat dibatalkan. Akun login siswa juga akan dihapus.
         </>
       }

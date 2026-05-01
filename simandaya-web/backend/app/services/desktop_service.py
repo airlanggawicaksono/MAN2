@@ -49,7 +49,7 @@ class DesktopService:
                 StudentSyncDTO(
                     user_id=row.user_id,
                     nama_lengkap=row.nama_lengkap,
-                    nis=row.nis,
+                    nisn=row.nis,
                     kelas_jurusan=row.kelas_jurusan,
                     card_no=row.card_no,
                     user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
@@ -61,7 +61,7 @@ class DesktopService:
                 StudentSyncDTO(
                     user_id=row.user_id,
                     nama_lengkap=row.username,
-                    nis=None,
+                    nisn=None,
                     kelas_jurusan=None,
                     user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
                 )

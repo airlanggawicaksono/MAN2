@@ -112,7 +112,7 @@ export default function DataSiswaPage() {
         <CardContent className="space-y-4">
 
         <EntitySearchInput
-          placeholder="Cari siswa (NIS/NIM/Nama)..."
+          placeholder="Cari siswa (NISN/NIM/Nama)..."
           value={crud.searchInput}
           onChange={crud.handleSearchChange}
         />

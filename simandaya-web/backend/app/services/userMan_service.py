@@ -102,12 +102,12 @@ class StudentUserManagementService:
         return await self._to_student_dto(profile)
 
     async def create_student(self, request: CreateStudentRequestDTO) -> StudentProfileResponseDTO:
-        if request.nis:
-            existing = await self.repo.find_student_by_nis(request.nis)
+        if request.nisn:
+            existing = await self.repo.find_student_by_nisn(request.nisn)
             if existing:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"NIS '{request.nis}' sudah terdaftar.",
+                    detail=f"NISN '{request.nisn}' sudah terdaftar.",
                 )
         if request.card_no:
             existing = await self.repo.find_student_by_card_no(request.card_no)
@@ -121,7 +121,7 @@ class StudentUserManagementService:
             registration_status=RegistrationStatus.pending,
             is_active=True,
         )
-        data = request.model_dump()
+        data = self._map_student_payload_keys(request.model_dump())
         profile = SiswaProfile(user_id=user.user_id, **data)
         await self.repo.add_user(user)
         await self.repo.add_student_profile(profile)
@@ -142,13 +142,13 @@ class StudentUserManagementService:
         for i, req in enumerate(requests):
             row = i + 2
             try:
-                if req.nis:
-                    existing = await self.repo.find_student_by_nis(req.nis)
+                if req.nisn:
+                    existing = await self.repo.find_student_by_nisn(req.nisn)
                     if existing:
                         skipped += 1
                         items.append(BulkImportStudentResultItem(
-                            row=row, nama_lengkap=req.nama_lengkap, nis=req.nis,
-                            status="skipped", detail=f"NIS '{req.nis}' sudah ada",
+                            row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
+                            status="skipped", detail=f"NISN '{req.nisn}' sudah ada",
                         ))
                         continue
                 user = User(
@@ -156,18 +156,18 @@ class StudentUserManagementService:
                     registration_status=RegistrationStatus.pending,
                     is_active=True,
                 )
-                data = req.model_dump()
+                data = self._map_student_payload_keys(req.model_dump())
                 profile = SiswaProfile(user_id=user.user_id, **data)
                 await self.repo.add_user(user)
                 await self.repo.add_student_profile(profile)
                 created += 1
                 items.append(BulkImportStudentResultItem(
-                    row=row, nama_lengkap=req.nama_lengkap, nis=req.nis, status="created",
+                    row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn, status="created",
                 ))
             except Exception as e:
                 errors += 1
                 items.append(BulkImportStudentResultItem(
-                    row=row, nama_lengkap=req.nama_lengkap, nis=req.nis,
+                    row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
                     status="error", detail=str(e),
                 ))
 
@@ -183,9 +183,9 @@ class StudentUserManagementService:
         update_data = request.model_dump(exclude_unset=True)
         self.policy.ensure_update_payload(update_data)
 
-        if "nis" in update_data and update_data["nis"] != profile.nis:
-            nis_check = await self.repo.find_student_by_nis(update_data["nis"])
-            self.policy.ensure_nis_available(nis_check is not None, update_data["nis"])
+        if "nisn" in update_data and update_data["nisn"] != profile.nis:
+            nisn_check = await self.repo.find_student_by_nisn(update_data["nisn"])
+            self.policy.ensure_nisn_available(nisn_check is not None, update_data["nisn"])
         if "card_no" in update_data and update_data["card_no"] != profile.card_no:
             card_check = await self.repo.find_student_by_card_no(update_data["card_no"])
             if card_check is not None:
@@ -194,6 +194,7 @@ class StudentUserManagementService:
                     detail=f"Nomor kartu '{update_data['card_no']}' sudah dipakai siswa lain.",
                 )
 
+        update_data = self._map_student_payload_keys(update_data)
         for field, value in update_data.items():
             setattr(profile, field, value)
 
@@ -222,7 +223,7 @@ class StudentUserManagementService:
         return StudentProfileResponseDTO(
             siswa_id=profile.siswa_id,
             user_id=profile.user_id,
-            nis=profile.nis,
+            nisn=profile.nis,
             nama_lengkap=profile.nama_lengkap,
             dob=profile.dob,
             tempat_lahir=profile.tempat_lahir,
@@ -240,6 +241,13 @@ class StudentUserManagementService:
             card_no=profile.card_no,
             is_active=profile.user.is_active if profile.user else False,
         )
+
+    @staticmethod
+    def _map_student_payload_keys(data: dict) -> dict:
+        # Keep DB column/ORM attribute as `nis`, while API contract exposes `nisn`.
+        if "nisn" in data:
+            data["nis"] = data.pop("nisn")
+        return data
 
 
 class TeacherUserManagementService:

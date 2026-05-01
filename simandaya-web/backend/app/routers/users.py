@@ -113,7 +113,7 @@ async def list_students(
     limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
     search: Optional[str] = Query(
         default=None,
-        description="Search across NIS/NIM (username), nama, kelas, kontak, tempat_lahir",
+        description="Search across NISN/NIM (username), nama, kelas, kontak, tempat_lahir",
     ),
     service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> PaginatedStudentsResponse:

@@ -60,9 +60,9 @@ class UserManagementRepository:
         )
         return result.scalar_one_or_none()
 
-    async def find_student_by_nis(self, nis: str) -> SiswaProfile | None:
+    async def find_student_by_nisn(self, nisn: str) -> SiswaProfile | None:
         result = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.nis == nis)
+            select(SiswaProfile).where(SiswaProfile.nis == nisn)
         )
         return result.scalar_one_or_none()
 

@@ -73,10 +73,10 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label>NIS</Label>
+              <Label>NISN</Label>
               <Input
-                value={form.nis || ""}
-                onChange={(e) => handleChange("nis", e.target.value)}
+                value={form.nisn || ""}
+                onChange={(e) => handleChange("nisn", e.target.value)}
                 placeholder="Opsional"
               />
             </div>

@@ -21,11 +21,11 @@ class UserManagementPolicy:
             )
 
     @staticmethod
-    def ensure_nis_available(is_taken: bool, nis: str) -> None:
+    def ensure_nisn_available(is_taken: bool, nisn: str) -> None:
         if is_taken:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"NIS '{nis}' already exists",
+                detail=f"NISN '{nisn}' already exists",
             )
 
     @staticmethod

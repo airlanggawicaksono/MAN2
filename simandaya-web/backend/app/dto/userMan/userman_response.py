@@ -12,7 +12,7 @@ from app.dto.struktural.assignment_dto import GuruStructuralAssignmentDTO
 class StudentProfileResponseDTO(BaseModel):
     siswa_id: UUID
     user_id: UUID
-    nis: Optional[str] = None
+    nisn: Optional[str] = None
     nama_lengkap: str
     dob: Optional[str] = None
     tempat_lahir: Optional[str] = None
@@ -88,7 +88,7 @@ class MessageResponseDTO(BaseModel):
 class BulkImportStudentResultItem(BaseModel):
     row: int
     nama_lengkap: str
-    nis: Optional[str] = None
+    nisn: Optional[str] = None
     status: Literal["created", "skipped", "error"]
     detail: Optional[str] = None
 
