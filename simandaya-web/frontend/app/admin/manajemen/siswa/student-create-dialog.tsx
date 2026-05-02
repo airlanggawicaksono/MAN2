@@ -158,6 +158,14 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
               />
             </div>
             <div className="grid gap-2">
+              <Label>No. Telepon Wali</Label>
+              <Input
+                value={form.no_telephone_wali || ""}
+                onChange={(e) => handleChange("no_telephone_wali", e.target.value)}
+                placeholder="Contoh: 628123456789"
+              />
+            </div>
+            <div className="grid gap-2">
               <Label>Kewarganegaraan</Label>
               <Input
                 value={form.kewarganegaraan || ""}

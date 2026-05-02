@@ -10,6 +10,7 @@ export interface StudentProfile {
   jenis_kelamin: JenisKelamin | null;
   alamat: string | null;
   nama_wali: string | null;
+  no_telephone_wali: string | null;
   kelas_jurusan: string | null;
   kelas_nama?: string | null;
   tahun_masuk: number | null;
@@ -48,6 +49,7 @@ export interface UpdateStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
+  no_telephone_wali?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   status_siswa?: StatusSiswa;
@@ -77,6 +79,7 @@ export interface CreateStudentRequest {
   jenis_kelamin?: JenisKelamin;
   alamat?: string;
   nama_wali?: string;
+  no_telephone_wali?: string;
   kelas_jurusan?: string;
   tahun_masuk?: number;
   status_siswa?: StatusSiswa;

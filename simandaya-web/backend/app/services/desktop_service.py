@@ -52,6 +52,7 @@ class DesktopService:
                     nisn=row.nis,
                     kelas_jurusan=row.kelas_jurusan,
                     card_no=row.card_no,
+                    no_telephone_wali=row.no_telephone_wali,
                     user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
                 )
                 for row in student_rows

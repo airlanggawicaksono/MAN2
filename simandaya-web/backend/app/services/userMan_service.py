@@ -230,6 +230,7 @@ class StudentUserManagementService:
             jenis_kelamin=profile.jenis_kelamin,
             alamat=profile.alamat,
             nama_wali=profile.nama_wali,
+            no_telephone_wali=profile.no_telephone_wali,
             kelas_jurusan=profile.kelas_jurusan,
             kelas_nama=profile.kelas_jurusan,
             tahun_masuk=profile.tahun_masuk,

@@ -25,6 +25,7 @@ class DesktopRepository:
                 SiswaProfile.nis,
                 SiswaProfile.kelas_jurusan,
                 SiswaProfile.card_no,
+                SiswaProfile.no_telephone_wali,
             )
             .join(SiswaProfile, User.user_id == SiswaProfile.user_id)
             .where(

@@ -62,6 +62,11 @@ class SiswaProfile(Base):
         nullable=True
     )
 
+    no_telephone_wali: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True
+    )
+
     nik: Mapped[Optional[str]] = mapped_column(
         String(20),
         nullable=True

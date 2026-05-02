@@ -10,6 +10,7 @@ class StudentSyncDTO(BaseModel):
     nisn: str | None = Field(None, description="Student NISN")
     kelas_jurusan: str | None = Field(None, description="Class and major")
     card_no: str | None = Field(None, description="RFID card number assigned via web admin")
+    no_telephone_wali: str | None = Field(None, description="Guardian WhatsApp phone number")
     user_type: str = Field(..., description="Functional user type from user table")
 
     model_config = {"from_attributes": True}
