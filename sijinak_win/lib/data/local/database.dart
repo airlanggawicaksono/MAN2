@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase
   static final AppDatabase instance = AppDatabase._();
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +75,9 @@ class AppDatabase extends _$AppDatabase
           if (from < 4) {
             // Reset legacy history rows that were tied to mutable card ownership.
             await delete(tapRecords).go();
+          }
+          if (from < 5) {
+            await m.addColumn(students, students.noTelpWali);
           }
         },
       );
@@ -121,6 +124,7 @@ class AppDatabase extends _$AppDatabase
               kelas: row.kelas,
               // card_no is now server-authoritative
               cardNo: row.cardNo,
+              noTelpWali: row.noTelpWali,
               syncedAt: row.syncedAt,
             ),
             target: [students.userId],

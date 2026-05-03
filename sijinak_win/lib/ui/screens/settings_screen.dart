@@ -23,10 +23,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _hikMacCtrl;
   late TextEditingController _serverUrlCtrl;
   late TextEditingController _apiKeyCtrl;
+  late TextEditingController _wablasBaseUrlCtrl;
+  late TextEditingController _wablasApiKeyCtrl;
+  late TextEditingController _wablasSecKeyCtrl;
   late TextEditingController _thermalPrinterCtrl;
   String _thermalPrinterKey = '';
   bool _obscurePass = true;
   bool _obscureKey = true;
+  bool _obscureWablasApiKey = true;
+  bool _obscureWablasSecKey = true;
   bool _fieldsPopulated = false;
   bool _scanningThermal = false;
   bool _testingPrint = false;
@@ -53,6 +58,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikMacCtrl = TextEditingController();
     _serverUrlCtrl = TextEditingController();
     _apiKeyCtrl = TextEditingController();
+    _wablasBaseUrlCtrl = TextEditingController();
+    _wablasApiKeyCtrl = TextEditingController();
+    _wablasSecKeyCtrl = TextEditingController();
     _thermalPrinterCtrl = TextEditingController();
   }
 
@@ -64,6 +72,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikMacCtrl.dispose();
     _serverUrlCtrl.dispose();
     _apiKeyCtrl.dispose();
+    _wablasBaseUrlCtrl.dispose();
+    _wablasApiKeyCtrl.dispose();
+    _wablasSecKeyCtrl.dispose();
     _thermalPrinterCtrl.dispose();
     super.dispose();
   }
@@ -75,6 +86,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _hikMacCtrl.text = config.hikvisionMac;
     _serverUrlCtrl.text = config.serverUrl;
     _apiKeyCtrl.text = config.apiKey;
+    _wablasBaseUrlCtrl.text = config.wablasBaseUrl;
+    _wablasApiKeyCtrl.text = config.wablasApiKey;
+    _wablasSecKeyCtrl.text = config.wablasSecKey;
     _thermalPrinterCtrl.text = config.thermalPrinterName;
     _thermalPrinterKey = config.thermalPrinterKey;
     _fieldsPopulated = true;
@@ -328,6 +342,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       hikvisionMac: _hikMacCtrl.text.trim(),
       serverUrl: _serverUrlCtrl.text.trim(),
       apiKey: _apiKeyCtrl.text.trim(),
+      wablasBaseUrl: _wablasBaseUrlCtrl.text.trim(),
+      wablasApiKey: _wablasApiKeyCtrl.text.trim(),
+      wablasSecKey: _wablasSecKeyCtrl.text.trim(),
       thermalPrinterKey: _thermalPrinterKey,
       thermalPrinterName: _thermalPrinterCtrl.text.trim(),
     );
@@ -647,6 +664,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _testResultBanner(
                         _serverTestResult!, _serverTestSuccess!),
                   ],
+
+                  const SizedBox(height: 32),
+
+                  Text('Wablas Webhook',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _wablasBaseUrlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Wablas Base URL',
+                      hintText: 'https://wablas.com',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _wablasApiKeyCtrl,
+                    obscureText: _obscureWablasApiKey,
+                    decoration: InputDecoration(
+                      labelText: 'Wablas API Key',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureWablasApiKey
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setState(
+                          () => _obscureWablasApiKey = !_obscureWablasApiKey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _wablasSecKeyCtrl,
+                    obscureText: _obscureWablasSecKey,
+                    decoration: InputDecoration(
+                      labelText: 'Wablas Secret Key',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureWablasSecKey
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setState(
+                          () => _obscureWablasSecKey = !_obscureWablasSecKey,
+                        ),
+                      ),
+                    ),
+                  ),
 
                   const SizedBox(height: 32),
 

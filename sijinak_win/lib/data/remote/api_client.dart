@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../config/app_config.dart';
+import 'dto/student_sync_response_dto.dart';
 
 abstract class BackendApiPort {
   Future<void> testConnection();
-  Future<List<Map<String, dynamic>>> fetchStudents();
+  Future<List<StudentSyncResponseDTO>> fetchStudents();
   Future<List<Map<String, dynamic>>> syncAttendance(
     List<Map<String, dynamic>> events,
   );
@@ -56,7 +57,7 @@ class ApiClient implements BackendApiPort {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> fetchStudents() async {
+  Future<List<StudentSyncResponseDTO>> fetchStudents() async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
     final url = '$baseUrl/api/desktop/students';
@@ -75,7 +76,10 @@ class ApiClient implements BackendApiPort {
       }
 
       final list = jsonDecode(body) as List;
-      return list.cast<Map<String, dynamic>>();
+      return list
+          .cast<Map<String, dynamic>>()
+          .map(StudentSyncResponseDTO.fromJson)
+          .toList();
     } finally {
       client.close();
     }

@@ -75,6 +75,7 @@ async def seed() -> None:
                 card_no=card_no,
                 tahun_masuk=2024 if nis.startswith("24") else 2023,
                 kewarganegaraan="Indonesia",
+                no_telephone_wali="+6287887617782",
             )
             session.add(profile)
             print(f"  CREATE student: {nis} {nama} [{status.value}]")

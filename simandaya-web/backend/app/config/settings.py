@@ -57,10 +57,6 @@ class Settings(BaseSettings):
     # Desktop App Configuration
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"
     CORS_ORIGINS: str = ""
-    WABLAS_BASE_URL: str = "https://wablas.com"
-    WABLAS_API_KEY: str = ""
-    WABLAS_SEC_KEY: str = ""
-    WABLAS_TIMEOUT_SECONDS: float = 20.0
 
     @property
     def database_url(self) -> str:

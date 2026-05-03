@@ -6,6 +6,7 @@ class Students extends Table {
   TextColumn get nama => text()();
   TextColumn get nis => text().nullable()();
   TextColumn get kelas => text().nullable()();
+  TextColumn get noTelpWali => text().nullable()();
   IntColumn get syncedAt => integer().nullable()();
   BoolColumn get hikRegistered => boolean().withDefault(const Constant(false))();
 

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 
-from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO, CardAssignRequestDTO, CardReplaceRequestDTO
+from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO
 from app.dto.desktop.desktop_response import CardReplaceResponseDTO
 from app.dto.desktop.desktop_response import (
     AttendanceAckDTO,
@@ -275,3 +275,4 @@ class DesktopService:
             status="ok",
             published_at=datetime.now(timezone.utc),
         )
+

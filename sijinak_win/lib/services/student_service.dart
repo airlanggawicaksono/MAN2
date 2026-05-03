@@ -316,14 +316,14 @@ class StudentService {
       debugPrint('[assignCard] person already registered, skipping');
     }
 
-    print('[assignCard] assigning card $cardNo to ${student.userId}');
+    debugPrint('[assignCard] assigning card $cardNo to ${student.userId}');
     await client.upsertCard(
       cardNo: cardNo,
       employeeNo: student.userId,
     );
-    print('[assignCard] card assigned on device');
+    debugPrint('[assignCard] card assigned on device');
     await db.assignCardToStudent(student.userId, cardNo);
-    print('[assignCard] card saved to DB');
+    debugPrint('[assignCard] card saved to DB');
   }
 
   /// Remove card from student (local DB + Hikvision).

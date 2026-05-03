@@ -53,6 +53,17 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _noTelpWaliMeta = const VerificationMeta(
+    'noTelpWali',
+  );
+  @override
+  late final GeneratedColumn<String> noTelpWali = GeneratedColumn<String>(
+    'no_telp_wali',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _syncedAtMeta = const VerificationMeta(
     'syncedAt',
   );
@@ -86,6 +97,7 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
     nama,
     nis,
     kelas,
+    noTelpWali,
     syncedAt,
     hikRegistered,
   ];
@@ -135,6 +147,15 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
         kelas.isAcceptableOrUnknown(data['kelas']!, _kelasMeta),
       );
     }
+    if (data.containsKey('no_telp_wali')) {
+      context.handle(
+        _noTelpWaliMeta,
+        noTelpWali.isAcceptableOrUnknown(
+          data['no_telp_wali']!,
+          _noTelpWaliMeta,
+        ),
+      );
+    }
     if (data.containsKey('synced_at')) {
       context.handle(
         _syncedAtMeta,
@@ -179,6 +200,10 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
         DriftSqlType.string,
         data['${effectivePrefix}kelas'],
       ),
+      noTelpWali: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}no_telp_wali'],
+      ),
       syncedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}synced_at'],
@@ -202,6 +227,7 @@ class Student extends DataClass implements Insertable<Student> {
   final String nama;
   final String? nis;
   final String? kelas;
+  final String? noTelpWali;
   final int? syncedAt;
   final bool hikRegistered;
   const Student({
@@ -210,6 +236,7 @@ class Student extends DataClass implements Insertable<Student> {
     required this.nama,
     this.nis,
     this.kelas,
+    this.noTelpWali,
     this.syncedAt,
     required this.hikRegistered,
   });
@@ -226,6 +253,9 @@ class Student extends DataClass implements Insertable<Student> {
     }
     if (!nullToAbsent || kelas != null) {
       map['kelas'] = Variable<String>(kelas);
+    }
+    if (!nullToAbsent || noTelpWali != null) {
+      map['no_telp_wali'] = Variable<String>(noTelpWali);
     }
     if (!nullToAbsent || syncedAt != null) {
       map['synced_at'] = Variable<int>(syncedAt);
@@ -245,6 +275,9 @@ class Student extends DataClass implements Insertable<Student> {
       kelas: kelas == null && nullToAbsent
           ? const Value.absent()
           : Value(kelas),
+      noTelpWali: noTelpWali == null && nullToAbsent
+          ? const Value.absent()
+          : Value(noTelpWali),
       syncedAt: syncedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(syncedAt),
@@ -263,6 +296,7 @@ class Student extends DataClass implements Insertable<Student> {
       nama: serializer.fromJson<String>(json['nama']),
       nis: serializer.fromJson<String?>(json['nis']),
       kelas: serializer.fromJson<String?>(json['kelas']),
+      noTelpWali: serializer.fromJson<String?>(json['noTelpWali']),
       syncedAt: serializer.fromJson<int?>(json['syncedAt']),
       hikRegistered: serializer.fromJson<bool>(json['hikRegistered']),
     );
@@ -276,6 +310,7 @@ class Student extends DataClass implements Insertable<Student> {
       'nama': serializer.toJson<String>(nama),
       'nis': serializer.toJson<String?>(nis),
       'kelas': serializer.toJson<String?>(kelas),
+      'noTelpWali': serializer.toJson<String?>(noTelpWali),
       'syncedAt': serializer.toJson<int?>(syncedAt),
       'hikRegistered': serializer.toJson<bool>(hikRegistered),
     };
@@ -287,6 +322,7 @@ class Student extends DataClass implements Insertable<Student> {
     String? nama,
     Value<String?> nis = const Value.absent(),
     Value<String?> kelas = const Value.absent(),
+    Value<String?> noTelpWali = const Value.absent(),
     Value<int?> syncedAt = const Value.absent(),
     bool? hikRegistered,
   }) => Student(
@@ -295,6 +331,7 @@ class Student extends DataClass implements Insertable<Student> {
     nama: nama ?? this.nama,
     nis: nis.present ? nis.value : this.nis,
     kelas: kelas.present ? kelas.value : this.kelas,
+    noTelpWali: noTelpWali.present ? noTelpWali.value : this.noTelpWali,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
     hikRegistered: hikRegistered ?? this.hikRegistered,
   );
@@ -305,6 +342,9 @@ class Student extends DataClass implements Insertable<Student> {
       nama: data.nama.present ? data.nama.value : this.nama,
       nis: data.nis.present ? data.nis.value : this.nis,
       kelas: data.kelas.present ? data.kelas.value : this.kelas,
+      noTelpWali: data.noTelpWali.present
+          ? data.noTelpWali.value
+          : this.noTelpWali,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
       hikRegistered: data.hikRegistered.present
           ? data.hikRegistered.value
@@ -320,6 +360,7 @@ class Student extends DataClass implements Insertable<Student> {
           ..write('nama: $nama, ')
           ..write('nis: $nis, ')
           ..write('kelas: $kelas, ')
+          ..write('noTelpWali: $noTelpWali, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('hikRegistered: $hikRegistered')
           ..write(')'))
@@ -327,8 +368,16 @@ class Student extends DataClass implements Insertable<Student> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(userId, cardNo, nama, nis, kelas, syncedAt, hikRegistered);
+  int get hashCode => Object.hash(
+    userId,
+    cardNo,
+    nama,
+    nis,
+    kelas,
+    noTelpWali,
+    syncedAt,
+    hikRegistered,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -338,6 +387,7 @@ class Student extends DataClass implements Insertable<Student> {
           other.nama == this.nama &&
           other.nis == this.nis &&
           other.kelas == this.kelas &&
+          other.noTelpWali == this.noTelpWali &&
           other.syncedAt == this.syncedAt &&
           other.hikRegistered == this.hikRegistered);
 }
@@ -348,6 +398,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   final Value<String> nama;
   final Value<String?> nis;
   final Value<String?> kelas;
+  final Value<String?> noTelpWali;
   final Value<int?> syncedAt;
   final Value<bool> hikRegistered;
   final Value<int> rowid;
@@ -357,6 +408,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     this.nama = const Value.absent(),
     this.nis = const Value.absent(),
     this.kelas = const Value.absent(),
+    this.noTelpWali = const Value.absent(),
     this.syncedAt = const Value.absent(),
     this.hikRegistered = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -367,6 +419,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     required String nama,
     this.nis = const Value.absent(),
     this.kelas = const Value.absent(),
+    this.noTelpWali = const Value.absent(),
     this.syncedAt = const Value.absent(),
     this.hikRegistered = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -378,6 +431,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     Expression<String>? nama,
     Expression<String>? nis,
     Expression<String>? kelas,
+    Expression<String>? noTelpWali,
     Expression<int>? syncedAt,
     Expression<bool>? hikRegistered,
     Expression<int>? rowid,
@@ -388,6 +442,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
       if (nama != null) 'nama': nama,
       if (nis != null) 'nis': nis,
       if (kelas != null) 'kelas': kelas,
+      if (noTelpWali != null) 'no_telp_wali': noTelpWali,
       if (syncedAt != null) 'synced_at': syncedAt,
       if (hikRegistered != null) 'hik_registered': hikRegistered,
       if (rowid != null) 'rowid': rowid,
@@ -400,6 +455,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     Value<String>? nama,
     Value<String?>? nis,
     Value<String?>? kelas,
+    Value<String?>? noTelpWali,
     Value<int?>? syncedAt,
     Value<bool>? hikRegistered,
     Value<int>? rowid,
@@ -410,6 +466,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
       nama: nama ?? this.nama,
       nis: nis ?? this.nis,
       kelas: kelas ?? this.kelas,
+      noTelpWali: noTelpWali ?? this.noTelpWali,
       syncedAt: syncedAt ?? this.syncedAt,
       hikRegistered: hikRegistered ?? this.hikRegistered,
       rowid: rowid ?? this.rowid,
@@ -434,6 +491,9 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     if (kelas.present) {
       map['kelas'] = Variable<String>(kelas.value);
     }
+    if (noTelpWali.present) {
+      map['no_telp_wali'] = Variable<String>(noTelpWali.value);
+    }
     if (syncedAt.present) {
       map['synced_at'] = Variable<int>(syncedAt.value);
     }
@@ -454,6 +514,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
           ..write('nama: $nama, ')
           ..write('nis: $nis, ')
           ..write('kelas: $kelas, ')
+          ..write('noTelpWali: $noTelpWali, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('hikRegistered: $hikRegistered, ')
           ..write('rowid: $rowid')
@@ -1008,6 +1069,7 @@ typedef $$StudentsTableCreateCompanionBuilder =
       required String nama,
       Value<String?> nis,
       Value<String?> kelas,
+      Value<String?> noTelpWali,
       Value<int?> syncedAt,
       Value<bool> hikRegistered,
       Value<int> rowid,
@@ -1019,6 +1081,7 @@ typedef $$StudentsTableUpdateCompanionBuilder =
       Value<String> nama,
       Value<String?> nis,
       Value<String?> kelas,
+      Value<String?> noTelpWali,
       Value<int?> syncedAt,
       Value<bool> hikRegistered,
       Value<int> rowid,
@@ -1055,6 +1118,11 @@ class $$StudentsTableFilterComposer
 
   ColumnFilters<String> get kelas => $composableBuilder(
     column: $table.kelas,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get noTelpWali => $composableBuilder(
+    column: $table.noTelpWali,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1103,6 +1171,11 @@ class $$StudentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get noTelpWali => $composableBuilder(
+    column: $table.noTelpWali,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get syncedAt => $composableBuilder(
     column: $table.syncedAt,
     builder: (column) => ColumnOrderings(column),
@@ -1137,6 +1210,11 @@ class $$StudentsTableAnnotationComposer
 
   GeneratedColumn<String> get kelas =>
       $composableBuilder(column: $table.kelas, builder: (column) => column);
+
+  GeneratedColumn<String> get noTelpWali => $composableBuilder(
+    column: $table.noTelpWali,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get syncedAt =>
       $composableBuilder(column: $table.syncedAt, builder: (column) => column);
@@ -1180,6 +1258,7 @@ class $$StudentsTableTableManager
                 Value<String> nama = const Value.absent(),
                 Value<String?> nis = const Value.absent(),
                 Value<String?> kelas = const Value.absent(),
+                Value<String?> noTelpWali = const Value.absent(),
                 Value<int?> syncedAt = const Value.absent(),
                 Value<bool> hikRegistered = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -1189,6 +1268,7 @@ class $$StudentsTableTableManager
                 nama: nama,
                 nis: nis,
                 kelas: kelas,
+                noTelpWali: noTelpWali,
                 syncedAt: syncedAt,
                 hikRegistered: hikRegistered,
                 rowid: rowid,
@@ -1200,6 +1280,7 @@ class $$StudentsTableTableManager
                 required String nama,
                 Value<String?> nis = const Value.absent(),
                 Value<String?> kelas = const Value.absent(),
+                Value<String?> noTelpWali = const Value.absent(),
                 Value<int?> syncedAt = const Value.absent(),
                 Value<bool> hikRegistered = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -1209,6 +1290,7 @@ class $$StudentsTableTableManager
                 nama: nama,
                 nis: nis,
                 kelas: kelas,
+                noTelpWali: noTelpWali,
                 syncedAt: syncedAt,
                 hikRegistered: hikRegistered,
                 rowid: rowid,

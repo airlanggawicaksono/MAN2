@@ -9,6 +9,7 @@ import '../services/student_service.dart';
 import '../services/sync_service.dart';
 import '../services/app_pubsub.dart';
 import '../services/ticket_printer_service.dart';
+import '../services/izin_dispatch_service.dart';
 import '../data/hikvision/alert_stream.dart';
 
 // Database - singleton
@@ -68,6 +69,10 @@ final syncServiceProvider = Provider<SyncService>((ref) {
 
 final ticketPrinterServiceProvider = Provider<TicketPrinterPort>((_) {
   return TicketPrinterService();
+});
+
+final izinDispatchServiceProvider = Provider<IzinDispatchService>((_) {
+  return IzinDispatchService();
 });
 
 // Dashboard data
@@ -139,33 +144,27 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
       final rows = data
-          .where((s) => ((s['user_type'] as String?)?.toLowerCase() ?? 'siswa') == 'siswa')
-          .map((s) {
-            return StudentsCompanion(
-              userId: Value(s['user_id'] as String),
-              nama: Value(s['nama_lengkap'] as String),
-              nis: Value(s['nis'] as String?),
-              kelas: Value(s['kelas_jurusan'] as String?),
-              // card_no is now server-authoritative
-              cardNo: Value(s['card_no'] as String?),
-              syncedAt: Value(now),
-            );
-          })
+          .where((s) => s.isSiswa)
+          .map((s) => StudentsCompanion(
+                userId: Value(s.userId),
+                nama: Value(s.nama),
+                nis: Value(s.nis),
+                kelas: Value(s.kelas),
+                // card_no is now server-authoritative
+                cardNo: Value(s.cardNo),
+                noTelpWali: Value(s.noTelpWali),
+                syncedAt: Value(now),
+              ))
           .toList();
 
       final serverUserIds = data
-          .where((s) => ((s['user_type'] as String?)?.toLowerCase() ?? 'siswa') == 'siswa')
-          .map((s) => s['user_id'] as String?)
-          .whereType<String>()
+          .where((s) => s.isSiswa)
+          .map((s) => s.userId)
           .toSet();
 
       final protectedUserIds = data
-          .where((s) {
-            final role = ((s['user_type'] as String?)?.toLowerCase() ?? '');
-            return role == 'admin' || role == 'administrator';
-          })
-          .map((s) => s['user_id'] as String?)
-          .whereType<String>()
+          .where((s) => s.isAdmin)
+          .map((s) => s.userId)
           .toSet();
 
       final syncResult = await db.syncStudentsSnapshot(

@@ -33,7 +33,7 @@ class _CardScanDialogState extends ConsumerState<CardScanDialog> {
     final baseline = service.lastDeviceTime ?? DateTime(2000);
     _cutoff = baseline.add(const Duration(seconds: 2));
 
-    print('[CardScan] cutoff=$_cutoff connected=$_connected');
+    debugPrint('[CardScan] cutoff=$_cutoff connected=$_connected');
 
     _statusSub = service.status.listen((s) {
       if (!mounted || _manualMode) return;

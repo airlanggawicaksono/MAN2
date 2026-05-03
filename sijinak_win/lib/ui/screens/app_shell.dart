@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/app_config.dart';
 import '../../data/hikvision/hik_event.dart';
 import '../../data/local/database.dart';
+import '../../data/remote/dto/izin_dispatch_request_dto.dart';
 import '../../providers/providers.dart';
 import '../../services/network_discovery_service.dart';
 import '../../services/izin_payload.dart';
@@ -91,6 +92,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             hikvisionMac: config.hikvisionMac,
             serverUrl: config.serverUrl,
             apiKey: config.apiKey,
+            wablasBaseUrl: config.wablasBaseUrl,
+            wablasApiKey: config.wablasApiKey,
+            wablasSecKey: config.wablasSecKey,
             thermalPrinterKey: config.thermalPrinterKey,
             thermalPrinterName: config.thermalPrinterName,
           );
@@ -233,6 +237,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Future<void> _saveIzinRecord(_IzinEntry entry, TapPopupResult result) async {
     final db = ref.read(databaseProvider);
+    final config = ref.read(configProvider).asData?.value;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final recordId =
         result.existingRecordId ??
@@ -254,6 +259,29 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
       mode: InsertMode.insertOrReplace,
     );
+
+    if (config != null) {
+      final dispatchResult = await ref.read(izinDispatchServiceProvider).dispatch(
+            config: config,
+            request: IzinDispatchRequestDTO(
+              recordId: recordId,
+              userId: entry.student.userId,
+              deviceTime: entry.event.dateTime,
+              reason: result.reason?.trim() ?? '',
+              perkiraanKembali: result.estimatedReturnAt,
+              studentName: entry.student.nama,
+              nis: entry.student.nis,
+            ),
+          );
+
+      if (dispatchResult.backendAccepted) {
+        final publishedAt = (dispatchResult.backendPublishedAt ??
+                DateTime.now())
+            .millisecondsSinceEpoch ~/
+            1000;
+        await db.markPublished(recordId, publishedAt);
+      }
+    }
 
     ref.invalidate(recentRecordsProvider);
     ref.invalidate(pendingSyncCountProvider);
