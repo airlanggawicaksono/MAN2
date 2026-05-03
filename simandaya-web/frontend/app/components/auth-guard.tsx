@@ -11,7 +11,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const { isError } = useVerifyQuery(undefined, {
     skip: !token,
-    refetchOnMountOrArgChange: true,
   });
 
   useEffect(() => {

@@ -10,6 +10,8 @@ const badgeVariants = cva(
         default: "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
         secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive: "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+        success: "border-transparent bg-[oklch(var(--chart-3)/0.18)] text-[oklch(var(--chart-3))]",
+        warning: "border-transparent bg-[oklch(var(--chart-1)/0.22)] text-[oklch(var(--accent-foreground))]",
         outline: "text-foreground",
       },
     },

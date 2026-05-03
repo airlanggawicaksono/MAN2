@@ -13,6 +13,8 @@ import { EntityTablePagination } from "@/app/components/admin/entity-table-pagin
 import { withActionsColumn } from "@/app/components/admin/row-edit-delete-actions";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableSkeleton } from "@/app/components/admin/table-skeleton";
+import { Button } from "@/components/ui/button";
 
 export default function CivitasAkademikPage() {
   const crud = useCrudListPage<GuruProfile>();
@@ -34,8 +36,9 @@ export default function CivitasAkademikPage() {
 
   return (
     <AdminPageShell
-      title="Pengaturan Data Civitas Akademik"
-      description="Kelola data guru dan tenaga kependidikan MAN 2 Kota Yogyakarta."
+      eyebrow="Manajemen Data"
+      title="Civitas Akademik"
+      description="Kelola data guru dan tenaga kependidikan MAN 2 Yogyakarta."
     >
       <Card className="border-border/70">
         <CardHeader className="pb-4">
@@ -49,8 +52,13 @@ export default function CivitasAkademikPage() {
           onChange={crud.handleSearchChange}
         />
 
-        {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
-        {error && <p className="text-destructive">Gagal memuat data civitas.</p>}
+        {isLoading && <TableSkeleton label="Memuat data civitas" />}
+        {error && (
+          <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-sm text-destructive">Gagal memuat data civitas.</p>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Coba Lagi</Button>
+          </div>
+        )}
         {data && <DataTable columns={columnsWithActions} data={data.items} />}
 
         {data ? (

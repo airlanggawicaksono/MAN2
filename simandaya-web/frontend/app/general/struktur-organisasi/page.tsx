@@ -14,7 +14,7 @@ const OrgChart = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-[760px] w-full items-center justify-center bg-muted/35">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
       </div>
     ),
   },
@@ -71,7 +71,7 @@ export default function StrukturOrganisasiPage() {
                 <OrgChart civitas={civitas} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-muted/35">
-                  <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
                 </div>
               )}
             </div>
@@ -90,7 +90,7 @@ export default function StrukturOrganisasiPage() {
           <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20">
             {loading ? (
               <div className="flex justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
               </div>
             ) : error ? (
               <div className="m-4 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">

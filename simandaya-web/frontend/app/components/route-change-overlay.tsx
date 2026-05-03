@@ -3,43 +3,39 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
+const MIN_VISIBLE_MS = 320;
+const MAX_VISIBLE_MS = 900;
+
 export default function RouteChangeOverlay() {
-  const enabled = process.env.NEXT_PUBLIC_ROUTE_OVERLAY === "1";
   const pathname = usePathname();
   const firstRender = useRef(true);
-  const prevPathname = useRef<string | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!enabled) return;
-
     if (firstRender.current) {
       firstRender.current = false;
-      prevPathname.current = pathname;
-      return;
-    }
-
-    const prev = prevPathname.current ?? "";
-    const isLayananTransition =
-      prev.startsWith("/general/layanan") && pathname.startsWith("/general/layanan");
-    prevPathname.current = pathname;
-    if (isLayananTransition) {
-      setVisible(false);
       return;
     }
 
     setVisible(true);
-    const timer = setTimeout(() => setVisible(false), 120);
-    return () => clearTimeout(timer);
-  }, [enabled, pathname]);
+    const startedAt = Date.now();
+    const minTimer = setTimeout(() => {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+      setTimeout(() => setVisible(false), remaining);
+    }, MIN_VISIBLE_MS);
+    const safety = setTimeout(() => setVisible(false), MAX_VISIBLE_MS);
+    return () => {
+      clearTimeout(minTimer);
+      clearTimeout(safety);
+    };
+  }, [pathname]);
 
-  if (!enabled || !visible) return null;
+  if (!visible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60] bg-background/35">
-      <div className="absolute left-0 right-0 top-0 h-1 overflow-hidden">
-        <div className="h-full w-1/3 animate-[route-loading_0.65s_linear_infinite] bg-primary" />
-      </div>
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-[3px] overflow-hidden bg-primary/10">
+      <div className="h-full w-2/5 animate-[route-loading_0.8s_cubic-bezier(0.4,0,0.2,1)_infinite] bg-primary shadow-[0_0_8px_oklch(var(--primary)/0.6)]" />
     </div>
   );
 }

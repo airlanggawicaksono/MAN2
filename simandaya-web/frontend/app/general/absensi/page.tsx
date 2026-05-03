@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useGeneralAbsensiController } from "./use-general-absensi-controller";
+import { TableSkeleton } from "@/app/components/skeletons";
 
 const STATUS_VARIANT: Record<
   string,
@@ -145,9 +146,7 @@ export default function AbsensiPage() {
           <CardContent className="flex-1">
             <div className="h-[400px] overflow-y-auto">
               {fetchingAtt ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Memuat...
-                </p>
+                <div className="p-2"><TableSkeleton rows={6} label="Memuat absensi" /></div>
               ) : attendance.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   {debouncedAbsensiSearch
@@ -214,9 +213,7 @@ export default function AbsensiPage() {
           <CardContent className="flex-1">
             <div className="h-[400px] overflow-y-auto">
               {fetchingIzin ? (
-                <p className="text-center text-muted-foreground py-8">
-                  Memuat...
-                </p>
+                <div className="p-2"><TableSkeleton rows={6} label="Memuat izin" /></div>
               ) : izinKeluar.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   {debouncedIzinSearch

@@ -15,13 +15,33 @@ interface HomeImageCarouselProps {
   items: CarouselSlide[];
   cardClassName?: string;
   imageClassName?: string;
+  loading?: boolean;
 }
 
 export function HomeImageCarousel({
   items,
   cardClassName = "",
   imageClassName = "max-h-[360px]",
+  loading = false,
 }: HomeImageCarouselProps) {
+  if (loading && items.length === 0) {
+    return (
+      <div
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        role="status"
+        aria-busy="true"
+        aria-label="Memuat konten"
+      >
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-44 animate-pulse rounded-lg border border-border/60 bg-muted/40 ${cardClassName}`}
+          />
+        ))}
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="flex h-44 items-center justify-center rounded-lg border border-border/70 bg-muted/35">

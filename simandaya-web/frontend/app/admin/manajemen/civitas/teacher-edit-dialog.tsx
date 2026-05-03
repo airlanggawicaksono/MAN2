@@ -308,9 +308,9 @@ export function TeacherEditDialog({
           <div
             className={cn(
               "rounded-md border px-3 py-2 text-sm",
-              statusNotice.type === "success" && "border-emerald-200 bg-emerald-50 text-emerald-900",
-              statusNotice.type === "error" && "border-red-200 bg-red-50 text-red-900",
-              statusNotice.type === "info" && "border-slate-200 bg-slate-50 text-slate-900",
+              statusNotice.type === "success" && "border-[oklch(var(--chart-3)/0.45)] bg-[oklch(var(--chart-3)/0.12)] text-[oklch(var(--chart-3))]",
+              statusNotice.type === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
+              statusNotice.type === "info" && "border-border/70 bg-muted text-foreground",
             )}
           >
             {statusNotice.message}

@@ -26,6 +26,7 @@ import {
   useAbsensiController,
 } from "./use-absensi-controller";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { TableSkeleton } from "@/app/components/admin/table-skeleton";
 
 export default function AbsensiPage() {
   const {
@@ -56,8 +57,9 @@ export default function AbsensiPage() {
 
   return (
     <AdminPageShell
-      title="Kesiswaan: Manajemen Absensi"
-      description="Kelola record absensi siswa secara individual."
+      eyebrow="Kesiswaan"
+      title="Manajemen Absensi"
+      description="Kelola catatan absensi siswa secara individual."
       actions={
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Tanggal</label>
@@ -146,10 +148,10 @@ export default function AbsensiPage() {
 
       <Card className="border-border/70">
         <CardHeader>
-          <CardTitle>Raw Management (Admin)</CardTitle>
+          <CardTitle>Pencarian & Koreksi Manual</CardTitle>
           <CardDescription>
-            Cari siswa langsung, edit status absensi, atau hapus record tanpa
-            harus pilih kelas.
+            Cari siswa langsung, edit status absensi, atau hapus catatan tanpa
+            harus memilih kelas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -170,9 +172,9 @@ export default function AbsensiPage() {
 
           <div className="max-h-80 overflow-auto rounded-md border border-border/70">
             {loadingAttendance ? (
-              <p className="p-3 text-sm text-muted-foreground">
-                Memuat data absensi...
-              </p>
+              <div className="p-3">
+                <TableSkeleton rows={4} label="Memuat data absensi" />
+              </div>
             ) : attendance.length === 0 ? (
               <p className="p-3 text-sm text-muted-foreground">
                 Tidak ada data absensi untuk filter ini.

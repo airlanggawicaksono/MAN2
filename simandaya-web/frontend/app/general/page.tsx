@@ -32,6 +32,7 @@ import { HomeSectionHeader } from "@/app/components/home-section-header";
 import { useGeneralHomeController } from "./use-general-home-controller";
 import { useAppSelector } from "@/store/hooks";
 import { roleRoutePrefix } from "@/config/navigation";
+import { HeroSkeleton, VideoGridSkeleton } from "@/app/components/skeletons";
 
 const layananCards = [
   {
@@ -66,8 +67,16 @@ function extractYouTubeId(url: string): string | null {
 export default function IndexPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-  const { flyerItems, lokasiItems, mediaItems, slides, videoItems, videoTitles } =
-    useGeneralHomeController();
+  const {
+    flyerItems,
+    lokasiItems,
+    mediaItems,
+    slides,
+    videoItems,
+    videoTitles,
+    loadingSlides,
+    loadingCms,
+  } = useGeneralHomeController();
 
   useEffect(() => {
     if (!isAuthenticated || !user?.user_type) return;
@@ -79,6 +88,7 @@ export default function IndexPage() {
 
   return (
     <main className="flex w-full flex-col gap-10 px-4 py-7 md:px-8 md:py-10 lg:px-12">
+      {loadingSlides && slides.length === 0 && <HeroSkeleton />}
       {slides.length > 0 && (
         <Carousel opts={{ loop: true }} className="w-full">
           <CarouselContent>
@@ -174,7 +184,7 @@ export default function IndexPage() {
 
       <section>
         <HomeSectionHeader icon={ImageIcon} title="Flyer MAN 2" />
-        <HomeImageCarousel items={flyerItems} imageClassName="max-h-[400px]" />
+        <HomeImageCarousel items={flyerItems} imageClassName="max-h-[400px]" loading={loadingCms} />
       </section>
 
       <section>
@@ -183,11 +193,15 @@ export default function IndexPage() {
           items={mediaItems}
           imageClassName="max-h-[260px]"
           cardClassName="shadow-none"
+          loading={loadingCms}
         />
       </section>
 
       <section>
         <HomeSectionHeader icon={Video} title="Video" />
+        {loadingCms && videoItems.length === 0 ? (
+          <VideoGridSkeleton count={2} />
+        ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {videoItems.map((video) => {
             if (!video.link_url) return null;
@@ -221,6 +235,7 @@ export default function IndexPage() {
             </div>
           )}
         </div>
+        )}
       </section>
 
       <section>

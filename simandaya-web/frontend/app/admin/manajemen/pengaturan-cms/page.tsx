@@ -30,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SlideForm } from "./slide-form";
 import type { CarouselSlide, CreateSlideRequest, ContentType } from "@/types/cms";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { MediaListSkeleton } from "@/app/components/skeletons";
 import {
   Pencil,
   Trash2,
@@ -142,9 +143,7 @@ function ContentBox({
       </CardHeader>
       <CardContent className="pt-0">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Memuat...
-          </p>
+          <MediaListSkeleton rows={3} />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 py-8">
             <Icon className="h-8 w-8 text-primary/60" />
@@ -331,6 +330,7 @@ export default function SettingPage() {
 
   return (
     <AdminPageShell
+      eyebrow="Manajemen Data"
       title="Pengaturan Konten"
       description="Kelola seluruh konten halaman utama."
     >

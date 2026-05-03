@@ -18,6 +18,8 @@ import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { TableSkeleton } from "@/app/components/admin/table-skeleton";
 
 function StudentRowActions({
   student,
@@ -29,11 +31,13 @@ function StudentRowActions({
   onDelete: (s: StudentProfile) => void;
 }) {
   const [updateStudent, { isLoading }] = useUpdateStudentMutation();
+  const [confirmAlumni, setConfirmAlumni] = useState(false);
   const isAlumni = student.status_siswa === "Lulus";
 
   const handleAlumni = async () => {
     if (isAlumni) return;
     await updateStudent({ siswaId: student.siswa_id, body: { status_siswa: "Lulus" } });
+    setConfirmAlumni(false);
   };
 
   return (
@@ -45,15 +49,32 @@ function StudentRowActions({
         <Trash2 className="h-4 w-4 text-destructive" />
       </Button>
       {!isAlumni && (
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Jadikan Alumni"
-          disabled={isLoading}
-          onClick={handleAlumni}
-        >
-          <GraduationCap className="h-4 w-4 text-amber-600" />
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Jadikan Alumni"
+            disabled={isLoading}
+            onClick={() => setConfirmAlumni(true)}
+          >
+            <GraduationCap className="h-4 w-4 text-primary" />
+          </Button>
+          <ConfirmDialog
+            open={confirmAlumni}
+            onOpenChange={setConfirmAlumni}
+            title="Tandai sebagai Alumni"
+            description={
+              <>
+                Status <b>{student.nama_lengkap}</b> akan diubah menjadi <b>Lulus</b>.
+                Tindakan ini tidak dapat dibatalkan dari halaman ini.
+              </>
+            }
+            confirmLabel={isLoading ? "Memproses..." : "Ya, Tandai Alumni"}
+            confirmVariant="destructive"
+            confirmDisabled={isLoading}
+            onConfirm={handleAlumni}
+          />
+        </>
       )}
     </div>
   );
@@ -90,13 +111,14 @@ export default function DataSiswaPage() {
 
   return (
     <AdminPageShell
-      title="Pengaturan Data Siswa"
-      description="Kelola data siswa MAN 2 Kota Yogyakarta."
+      eyebrow="Manajemen Data"
+      title="Data Siswa"
+      description="Kelola profil siswa MAN 2 Yogyakarta — tambah, ubah, dan tandai alumni."
       actions={
         <>
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Impor CSV
           </Button>
           <Button onClick={() => setShowCreate(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
@@ -117,8 +139,13 @@ export default function DataSiswaPage() {
           onChange={crud.handleSearchChange}
         />
 
-        {isLoading && <p className="text-muted-foreground">Memuat data...</p>}
-        {error && <p className="text-destructive">Gagal memuat data siswa.</p>}
+        {isLoading && <TableSkeleton label="Memuat data siswa" />}
+        {error && (
+          <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-sm text-destructive">Gagal memuat data siswa.</p>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Coba Lagi</Button>
+          </div>
+        )}
         {data && <DataTable columns={columnsWithActions} data={data.items} />}
 
         {data ? (

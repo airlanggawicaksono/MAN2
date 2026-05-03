@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, startTransition, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getNavForRole, roleRoutePrefix } from "@/config/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -96,15 +96,18 @@ export default function AppHeader() {
           ? postLoginRedirect
           : roleHomeRoute;
       setPostLoginRedirect(null);
-      startTransition(() => {
-        router.replace(targetRoute);
-      });
-      // Clear stale RTK Query cache after route transition starts.
-      setTimeout(() => {
-        resetAllApiState(dispatch);
-      }, 0);
+      router.replace(targetRoute);
     } catch (err: any) {
-      setLoginError(err.data?.detail || "Login gagal. Silakan coba lagi.");
+      const status = err?.status;
+      if (status === 401 || status === 403) {
+        setLoginError("Username atau password salah.");
+      } else if (status === 429) {
+        setLoginError("Terlalu banyak percobaan. Coba lagi sebentar.");
+      } else if (typeof status === "number" && status >= 500) {
+        setLoginError("Layanan sedang bermasalah. Coba lagi nanti.");
+      } else {
+        setLoginError("Tidak dapat masuk. Periksa koneksi dan coba lagi.");
+      }
     }
   };
 
@@ -131,11 +134,7 @@ export default function AppHeader() {
           if (!open) setPostLoginRedirect(null);
         }}
       >
-        <DialogContent
-          onInteractOutside={(e: Event) => e.preventDefault()}
-          onEscapeKeyDown={() => setShowLoginDialog(false)}
-          className="max-w-md"
-        >
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Masuk</DialogTitle>
             <DialogDescription>Masuk ke akun Simandaya Anda.</DialogDescription>

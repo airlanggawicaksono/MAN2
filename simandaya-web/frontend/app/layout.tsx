@@ -21,7 +21,7 @@ interface Props {
 export default function RootLayout({ children }: Props) {
   return (
     <StoreProvider>
-      <html lang="en" className={sourceSans.className}>
+      <html lang="id" className={sourceSans.className}>
         <body className="flex min-h-screen flex-col">
           <AuthGuard>
             <RouteChangeOverlay />

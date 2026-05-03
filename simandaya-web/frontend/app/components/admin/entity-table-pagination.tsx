@@ -36,7 +36,7 @@ export function EntityTablePagination({
           onClick={() => onSkipChange(Math.max(0, skip - limit))}
         >
           <ChevronLeft className="mr-1 h-4 w-4" />
-          Prev
+          Sebelumnya
         </Button>
         <span className="text-sm">
           Hal {currentPage} / {totalPages}
@@ -47,7 +47,7 @@ export function EntityTablePagination({
           disabled={skip + limit >= total}
           onClick={() => onSkipChange(skip + limit)}
         >
-          Next
+          Berikutnya
           <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
       </div>

@@ -11,6 +11,7 @@ import { formatIsoToIdDate } from "@/lib/date-id";
 import { Search, Clock } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { TableBodyRowSkeleton } from "@/app/components/skeletons";
 
 export default function AdminIzinKesiswaanPage() {
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
@@ -24,8 +25,9 @@ export default function AdminIzinKesiswaanPage() {
 
   return (
     <AdminPageShell
-      title="Log Izin Keluar Siswa"
-      description="Monitoring data izin siswa."
+      eyebrow="Kesiswaan"
+      title="Log Izin Keluar"
+      description="Monitor catatan izin keluar siswa."
       actions={
         <div className="flex flex-col items-stretch gap-3 sm:flex-row">
           <DateInputId className="w-full sm:w-[200px]" value={tanggal} onValueChange={setTanggal} />
@@ -64,11 +66,7 @@ export default function AdminIzinKesiswaanPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    Memuat data izin...
-                  </TableCell>
-                </TableRow>
+                <TableBodyRowSkeleton rows={5} cols={5} />
               ) : !izins || izins.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-32 text-center text-sm italic text-muted-foreground">

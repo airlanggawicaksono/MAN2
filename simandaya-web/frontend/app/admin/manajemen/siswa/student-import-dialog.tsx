@@ -101,18 +101,18 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
 
         <div className="space-y-4">
           {/* Format info */}
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-1">
-            <p className="font-semibold text-slate-700">Format header kolom:</p>
+          <div className="rounded-lg bg-muted/40 border border-border/70 p-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">Format header kolom:</p>
             <p>
-              <span className="font-mono bg-white border rounded px-1">nama_lengkap</span>{" "}
+              <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
               (wajib),{" "}
-              <span className="font-mono bg-white border rounded px-1">nisn</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">kelas_jurusan</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">tahun_masuk</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">kontak</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">nama_wali</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">tempat_lahir</span>,{" "}
-              <span className="font-mono bg-white border rounded px-1">alamat</span>
+              <span className="font-mono bg-background border rounded px-1">nisn</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">kelas_jurusan</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">tahun_masuk</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">kontak</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">nama_wali</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">alamat</span>
             </p>
           </div>
 
@@ -135,7 +135,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                 Pilih File
               </Button>
               {fileName && (
-                <span className="flex items-center gap-1.5 text-sm text-slate-600">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <FileSpreadsheet className="h-4 w-4" />
                   {fileName}
                 </span>
@@ -145,9 +145,9 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
 
           {/* Parse errors */}
           {parseErrors.length > 0 && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
               {parseErrors.map((e, i) => (
-                <p key={i} className="text-xs text-red-600">{e}</p>
+                <p key={i} className="text-xs text-destructive">{e}</p>
               ))}
             </div>
           )}
@@ -155,20 +155,20 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
           {/* Preview */}
           {parsed.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 {parsed.length} siswa siap diimport:
               </p>
-              <div className="max-h-52 overflow-y-auto rounded border border-slate-200 divide-y divide-slate-100">
+              <div className="max-h-52 overflow-y-auto rounded border border-border/70 divide-y divide-border/60">
                 {parsed.slice(0, 50).map((s, i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
-                    <span className="text-slate-400 text-xs">
+                    <span className="text-muted-foreground/70 text-xs">
                       {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan].filter(Boolean).join(" · ")}
                     </span>
                   </div>
                 ))}
                 {parsed.length > 50 && (
-                  <p className="text-xs text-slate-400 px-3 py-2">
+                  <p className="text-xs text-muted-foreground/70 px-3 py-2">
                     ...dan {parsed.length - 50} siswa lainnya
                   </p>
                 )}
@@ -198,7 +198,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                 )}
               </div>
               {(result.skipped > 0 || result.errors > 0) && (
-                <div className="max-h-40 overflow-y-auto rounded border border-slate-200 divide-y text-xs">
+                <div className="max-h-40 overflow-y-auto rounded border border-border/70 divide-y text-xs">
                   {result.items
                     .filter((it) => it.status !== "created")
                     .map((it, i) => (
@@ -209,7 +209,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                         >
                           {it.status === "skipped" ? "Lewati" : "Error"}
                         </Badge>
-                        <span className="text-slate-700">
+                        <span className="text-foreground">
                           Baris {it.row}: {it.nama_lengkap}
                           {it.detail && ` — ${it.detail}`}
                         </span>

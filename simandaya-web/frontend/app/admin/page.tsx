@@ -8,26 +8,24 @@ import {
   Settings2,
   ShieldCheck,
   Users,
-  UserCircle2,
-  LayoutGrid,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { useListStudentsQuery } from "@/api/admin/students";
 import { useListTeachersQuery } from "@/api/admin/teachers";
 import { useListPublicCivitasQuery } from "@/api/admin/userman";
 import { useListSlidesQuery } from "@/api/admin/setContentManagement";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { StatLineSkeleton } from "@/app/components/skeletons";
 
 const QUICK_ACTIONS = [
   {
     title: "Data Siswa",
-    description: "Lihat, edit, dan hapus data profil seluruh siswa.",
+    description: "Lihat, edit, dan kelola profil seluruh siswa.",
     href: "/admin/manajemen/siswa",
     icon: Users,
   },
   {
-    title: "Data Civitas Akademik",
+    title: "Civitas Akademik",
     description: "Kelola data guru dan tenaga kependidikan.",
     href: "/admin/manajemen/civitas",
     icon: ShieldCheck,
@@ -55,6 +53,15 @@ function formatDate(d: Date) {
   });
 }
 
+function StatLine({ label, value }: { label: string; value: number | string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="font-mono text-base font-semibold tabular-nums text-foreground">{value}</span>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
 export default function AdminDashboardPage() {
   const user = useAppSelector((s) => s.auth.user);
   const [now, setNow] = useState<Date | null>(null);
@@ -63,86 +70,86 @@ export default function AdminDashboardPage() {
     setNow(new Date());
   }, []);
 
-  const { data: students } = useListStudentsQuery({ skip: 0, limit: 1 });
-  const { data: teachers } = useListTeachersQuery({ skip: 0, limit: 1 });
-  const { data: civitas } = useListPublicCivitasQuery({ skip: 0, limit: 1 });
-  const { data: slides } = useListSlidesQuery();
+  const studentsQuery = useListStudentsQuery({ skip: 0, limit: 1 });
+  const teachersQuery = useListTeachersQuery({ skip: 0, limit: 1 });
+  const civitasQuery = useListPublicCivitasQuery({ skip: 0, limit: 1 });
+  const slidesQuery = useListSlidesQuery();
+
+  const statsLoading =
+    studentsQuery.isLoading ||
+    teachersQuery.isLoading ||
+    civitasQuery.isLoading ||
+    slidesQuery.isLoading;
 
   const stats = [
-    { label: "Total Siswa", value: students?.total ?? "-" },
-    { label: "Total Guru", value: teachers?.total ?? "-" },
-    { label: "Civitas Publik", value: civitas?.total ?? "-" },
-    { label: "Konten CMS", value: slides?.length ?? "-" },
+    { label: "Siswa", value: studentsQuery.data?.total ?? "—" },
+    { label: "Guru", value: teachersQuery.data?.total ?? "—" },
+    { label: "Civitas", value: civitasQuery.data?.total ?? "—" },
+    { label: "Konten", value: slidesQuery.data?.length ?? "—" },
   ];
 
   return (
-    <AdminPageShell
-      title="Dasbor Admin"
-      description="Ringkasan operasional dan akses cepat modul manajemen."
-    >
-      <Card className="border-border/70 bg-card">
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border/70 bg-muted/45">
-              <LayoutGrid className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Selamat datang kembali</p>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                {user?.username ?? "Admin"}
-              </h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CalendarDays className="h-4 w-4" />
-            <span>{now ? formatDate(now) : ""}</span>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="w-full space-y-8 px-4 py-7 md:px-8 md:py-10 lg:px-12">
+      <header className="space-y-2">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Dasbor Admin
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          Selamat datang, {user?.username ?? "Admin"}.
+        </h1>
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {now ? formatDate(now) : "Memuat tanggal..."}
+        </p>
+      </header>
 
-      <section>
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          {stats.map((s) => (
-            <Card key={s.label} className="border-border/70">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tracking-tight text-foreground">{s.value}</p>
-              </CardContent>
-            </Card>
+      {statsLoading ? (
+        <StatLineSkeleton count={stats.length} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 border-y border-border/60 py-3">
+          {stats.map((s, i) => (
+            <span key={s.label} className="flex items-center gap-8">
+              <StatLine label={s.label} value={s.value} />
+              {i < stats.length - 1 ? (
+                <span aria-hidden className="hidden h-4 w-px bg-border md:inline-block" />
+              ) : null}
+            </span>
           ))}
         </div>
-      </section>
+      )}
 
-      <section>
-        <div className="mb-4 flex items-center gap-2">
-          <UserCircle2 className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Akses Cepat
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Modul Operasional
           </h2>
+          <span className="text-xs text-muted-foreground">{QUICK_ACTIONS.length} modul</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/70 bg-card">
           {QUICK_ACTIONS.map((item) => (
-            <Link key={item.href} href={item.href} className="h-full">
-              <Card className="h-full border-border/70 transition-colors duration-200 hover:border-primary/35">
-                <CardContent className="flex items-start gap-4 p-5">
-                  <div className="mt-0.5 rounded-md border border-border/70 bg-muted/45 p-2.5">
-                    <item.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-foreground">{item.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className="group flex items-start gap-4 px-4 py-4 transition-colors duration-200 hover:bg-accent/30 focus-visible:bg-accent/30 sm:px-6"
+              >
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50 text-primary transition-colors group-hover:border-primary/40 group-hover:bg-accent/40">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="text-base font-semibold text-foreground">{item.title}</span>
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground/60 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+                  </span>
+                  <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </span>
+                </span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
-    </AdminPageShell>
+    </div>
   );
 }

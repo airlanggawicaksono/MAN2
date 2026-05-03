@@ -17,10 +17,8 @@ export function isNavGroup(item: NavItem): item is NavGroup {
   return "children" in item;
 }
 
-export const roleRoutePrefix: Record<UserType, string> = {
+export const roleRoutePrefix: Partial<Record<UserType, string>> = {
   Admin: "/admin",
-  Guru: "/guru",
-  Siswa: "/siswa",
 };
 
 export const generalNav: NavItem[] = [
@@ -49,8 +47,6 @@ export const adminNav: NavItem[] = [
       { label: "Pengaturan Manajemen Konten", href: "/admin/manajemen/pengaturan-cms" },
     ],
   },
-
-
   {
     label: "Kesiswaan",
     width: "w-[240px]",
@@ -61,23 +57,7 @@ export const adminNav: NavItem[] = [
   },
 ];
 
-export const guruNav: NavItem[] = [
-  { label: "Dasbor Guru", href: "/guru" },
-];
-
-export const siswaNav: NavItem[] = [
-  { label: "Dasbor Siswa", href: "/siswa" },
-];
-
 export function getNavForRole(role?: UserType): NavItem[] {
-  switch (role) {
-    case "Admin":
-      return adminNav;
-    case "Guru":
-      return guruNav;
-    case "Siswa":
-      return siswaNav;
-    default:
-      return generalNav;
-  }
+  if (role === "Admin") return adminNav;
+  return generalNav;
 }

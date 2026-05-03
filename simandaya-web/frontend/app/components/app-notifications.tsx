@@ -4,6 +4,16 @@ import { useEffect, useState } from "react";
 import type { AppNotice } from "@/lib/app-notify";
 import { subscribeNotice } from "@/lib/app-notify";
 
+function toneClass(type: AppNotice["type"]): string {
+  if (type === "success") {
+    return "border-[oklch(var(--chart-3)/0.45)] bg-[oklch(var(--chart-3)/0.12)] text-[oklch(var(--chart-3))]";
+  }
+  if (type === "error") {
+    return "border-destructive/40 bg-destructive/10 text-destructive";
+  }
+  return "border-border/70 bg-card text-foreground";
+}
+
 export default function AppNotifications() {
   const [items, setItems] = useState<AppNotice[]>([]);
 
@@ -20,17 +30,15 @@ export default function AppNotifications() {
   if (items.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed right-6 top-6 z-[120] flex max-w-sm flex-col gap-2">
+    <div
+      className="pointer-events-none fixed right-4 top-20 z-[120] flex max-w-sm flex-col gap-2 lg:top-24"
+      role="status"
+      aria-live="polite"
+    >
       {items.map((notice) => (
         <div
           key={notice.id}
-          className={`rounded-md border px-4 py-2 text-sm shadow-lg ${
-            notice.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : notice.type === "error"
-                ? "border-red-200 bg-red-50 text-red-900"
-                : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={`rounded-md border px-4 py-2 text-sm shadow-lg ${toneClass(notice.type)}`}
         >
           {notice.message}
         </div>

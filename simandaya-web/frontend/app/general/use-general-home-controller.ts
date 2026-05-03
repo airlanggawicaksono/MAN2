@@ -17,31 +17,49 @@ export function useGeneralHomeController() {
   const [videoItems, setVideoItems] = useState<CarouselSlide[]>([]);
   const [lokasiItems, setLokasiItems] = useState<CarouselSlide[]>([]);
   const [videoTitles, setVideoTitles] = useState<Record<string, string>>({});
+  const [loadingSlides, setLoadingSlides] = useState(true);
+  const [loadingCms, setLoadingCms] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/data.json")
       .then((res) => (res.ok ? res.json() : []))
       .then((data: CarouselSlide[]) => {
+        if (cancelled) return;
         setSlides(
           data
             .filter((s) => s.is_active)
             .filter((s) => !s.type || s.type === "carousel"),
         );
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingSlides(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/cms/slides")
       .then((res) => (res.ok ? res.json() : []))
       .then((data: CarouselSlide[]) => {
+        if (cancelled) return;
         const active = data.filter((s) => s.is_active);
         setFlyerItems(active.filter((s) => s.type === "flyer"));
         setMediaItems(active.filter((s) => s.type === "media"));
         setVideoItems(active.filter((s) => s.type === "video"));
         setLokasiItems(active.filter((s) => s.type === "lokasi"));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingCms(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -71,6 +89,7 @@ export function useGeneralHomeController() {
     slides,
     videoItems,
     videoTitles,
+    loadingSlides,
+    loadingCms,
   };
 }
-
