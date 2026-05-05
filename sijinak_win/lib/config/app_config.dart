@@ -3,6 +3,31 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+Map<String, String> _parseEnvFile(String content) {
+  final result = <String, String>{};
+  for (final line in content.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+    final idx = trimmed.indexOf('=');
+    if (idx < 1) continue;
+    final key = trimmed.substring(0, idx).trim();
+    final value = trimmed.substring(idx + 1).trim();
+    result[key] = value;
+  }
+  return result;
+}
+
+Future<Map<String, String>> _loadEnv() async {
+  final candidates = [
+    File(p.join(p.dirname(Platform.resolvedExecutable), '.env')),
+    File('.env'),
+  ];
+  for (final f in candidates) {
+    if (await f.exists()) return _parseEnvFile(await f.readAsString());
+  }
+  return {};
+}
+
 class AppConfig {
   String hikvisionIp;
   String hikvisionUser;
@@ -23,7 +48,7 @@ class AppConfig {
     this.hikvisionMac = '4c:24:ce:99:a0:aa',
     this.serverUrl = 'http://localhost:2385',
     this.apiKey = '',
-    this.wablasBaseUrl = 'https://wablas.com',
+    this.wablasBaseUrl = 'https://jogja.wablas.com',
     this.wablasApiKey = '',
     this.wablasSecKey = '',
     this.thermalPrinterKey = '',
@@ -49,6 +74,7 @@ class AppConfig {
   }
 
   static Future<AppConfig> load() async {
+    final env = await _loadEnv();
     try {
       final file = await _configFile;
       if (await file.exists()) {
@@ -56,20 +82,25 @@ class AppConfig {
         return AppConfig(
           hikvisionIp: json['hikvision_ip'] as String? ?? '192.168.40.181',
           hikvisionUser: json['hikvision_user'] as String? ?? 'admin',
-          hikvisionPassword: json['hikvision_password'] as String? ?? '',
+          hikvisionPassword: json['hikvision_password'] as String? ?? env['HIK_PASSWORD'] ?? '',
           hikvisionMac: json['hikvision_mac'] as String? ?? '4c:24:ce:99:a0:aa',
           serverUrl: json['server_url'] as String? ?? 'http://localhost:2385',
-          apiKey: json['api_key'] as String? ?? '',
-          wablasBaseUrl:
-              json['wablas_base_url'] as String? ?? 'https://wablas.com',
-          wablasApiKey: json['wablas_api_key'] as String? ?? '',
-          wablasSecKey: json['wablas_sec_key'] as String? ?? '',
+          apiKey: json['api_key'] as String? ?? env['DESKTOP_API_KEY'] ?? '',
+          wablasBaseUrl: json['wablas_base_url'] as String? ?? env['WABLAS_BASE_URL'] ?? 'https://jogja.wablas.com',
+          wablasApiKey: json['wablas_api_key'] as String? ?? env['WABLAS_API_KEY'] ?? '',
+          wablasSecKey: json['wablas_sec_key'] as String? ?? env['WABLAS_SEC_KEY'] ?? '',
           thermalPrinterKey: json['thermal_printer_key'] as String? ?? '',
           thermalPrinterName: json['thermal_printer_name'] as String? ?? '',
         );
       }
     } catch (_) {}
-    return AppConfig();
+    return AppConfig(
+      hikvisionPassword: env['HIK_PASSWORD'] ?? '',
+      apiKey: env['DESKTOP_API_KEY'] ?? '',
+      wablasBaseUrl: env['WABLAS_BASE_URL'] ?? 'https://jogja.wablas.com',
+      wablasApiKey: env['WABLAS_API_KEY'] ?? '',
+      wablasSecKey: env['WABLAS_SEC_KEY'] ?? '',
+    );
   }
 
   Future<void> save() async {

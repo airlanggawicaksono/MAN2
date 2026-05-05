@@ -114,6 +114,24 @@ class IzinDispatchService {
     ].join('\n');
   }
 
+  Future<bool> testWebhook({
+    required AppConfig config,
+    required String phone,
+  }) async {
+    if (!config.isWablasConfigured) {
+      throw Exception('Wablas belum dikonfigurasi.');
+    }
+    return _sendWablas(
+      baseUrl: config.wablasBaseUrl,
+      apiKey: config.wablasApiKey,
+      secKey: config.wablasSecKey,
+      request: WablasSendMessageRequestDTO(
+        phone: phone,
+        message: '*[Test Webhook SIJINAK]*\nIni adalah pesan uji dari aplikasi SIJINAK.\nKonfigurasi Wablas berhasil terhubung.',
+      ),
+    );
+  }
+
   Future<bool> _sendWablas({
     required String baseUrl,
     required String apiKey,
@@ -139,7 +157,12 @@ class IzinDispatchService {
       final resp = await req.close();
       final body = await resp.transform(utf8.decoder).join();
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
-        throw HttpException('Wablas HTTP ${resp.statusCode}: $body');
+        String detail = body;
+        try {
+          final json = jsonDecode(body) as Map<String, dynamic>;
+          detail = json['message']?.toString() ?? body;
+        } catch (_) {}
+        throw Exception('Wablas HTTP ${resp.statusCode}: $detail');
       }
       return true;
     } finally {

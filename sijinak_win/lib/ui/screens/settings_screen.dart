@@ -49,6 +49,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool? _serverTestSuccess;
   String? _serverErrorField; // 'url' or 'key'
 
+  // Wablas test state
+  bool _testingWablas = false;
+  String? _wablasTestResult;
+  bool? _wablasTestSuccess;
+
   @override
   void initState() {
     super.initState();
@@ -265,6 +270,99 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _serverErrorField = result.errorField;
         _testingServer = false;
       });
+    }
+  }
+
+  // ── Wablas Test ─────────────────────────────────────────────────────
+
+  Future<void> _testWablas() async {
+    final baseUrl = _wablasBaseUrlCtrl.text.trim();
+    final apiKey = _wablasApiKeyCtrl.text.trim();
+    final secKey = _wablasSecKeyCtrl.text.trim();
+
+    if (baseUrl.isEmpty || apiKey.isEmpty || secKey.isEmpty) {
+      setState(() {
+        _wablasTestResult = 'Isi Wablas Base URL, API Key, dan Secret Key terlebih dahulu.';
+        _wablasTestSuccess = false;
+      });
+      return;
+    }
+
+    final phoneCtrl = TextEditingController();
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Test Webhook Wablas'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Masukkan nomor HP tujuan untuk pengiriman pesan uji.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nomor HP',
+                hintText: '628xxxxxxxxxx',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(phoneCtrl.text.trim()),
+            child: const Text('Kirim'),
+          ),
+        ],
+      ),
+    );
+
+    if (phone == null || phone.isEmpty || !mounted) return;
+
+    setState(() {
+      _testingWablas = true;
+      _wablasTestResult = null;
+      _wablasTestSuccess = null;
+    });
+
+    try {
+      final service = ref.read(izinDispatchServiceProvider);
+      final tempConfig = AppConfig(
+        hikvisionIp: _hikIpCtrl.text.trim(),
+        hikvisionUser: _hikUserCtrl.text.trim(),
+        hikvisionPassword: _hikPassCtrl.text,
+        hikvisionMac: _hikMacCtrl.text.trim(),
+        serverUrl: _serverUrlCtrl.text.trim(),
+        apiKey: _apiKeyCtrl.text.trim(),
+        wablasBaseUrl: baseUrl,
+        wablasApiKey: apiKey,
+        wablasSecKey: secKey,
+        thermalPrinterKey: _thermalPrinterKey,
+        thermalPrinterName: _thermalPrinterCtrl.text.trim(),
+      );
+      await service.testWebhook(config: tempConfig, phone: phone);
+      if (mounted) {
+        setState(() {
+          _wablasTestResult = 'Pesan uji berhasil dikirim ke $phone.';
+          _wablasTestSuccess = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _wablasTestResult = 'Gagal: $e';
+          _wablasTestSuccess = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _testingWablas = false);
     }
   }
 
@@ -674,7 +772,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     controller: _wablasBaseUrlCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Wablas Base URL',
-                      hintText: 'https://wablas.com',
+                      hintText: 'https://jogja.wablas.com',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -712,6 +810,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _testingWablas ? null : _testWablas,
+                      icon: _testingWablas
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(_testingWablas ? 'Mengirim...' : 'Test Webhook'),
+                    ),
+                  ),
+                  if (_wablasTestResult != null) ...[
+                    const SizedBox(height: 8),
+                    _testResultBanner(_wablasTestResult!, _wablasTestSuccess!),
+                  ],
 
                   const SizedBox(height: 32),
 
