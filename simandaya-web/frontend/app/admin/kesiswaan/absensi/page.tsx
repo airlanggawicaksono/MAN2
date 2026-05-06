@@ -33,6 +33,8 @@ export default function AbsensiPage() {
     deletingAttendance,
     editingAbsensiId,
     editingStatus,
+    editingTimeIn,
+    editingTimeOut,
     handleSaveSettings,
     lateCutoffInput,
     loadingAttendance,
@@ -45,6 +47,8 @@ export default function AbsensiPage() {
     savingSettings,
     setEditingAbsensiId,
     setEditingStatus,
+    setEditingTimeIn,
+    setEditingTimeOut,
     setLateCutoffInput,
     setRawSearch,
     settingsMessage,
@@ -186,6 +190,8 @@ export default function AbsensiPage() {
                     <th className="px-3 py-2 text-left">Nama</th>
                     <th className="px-3 py-2 text-left">Kelas</th>
                     <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Time In</th>
+                    <th className="px-3 py-2 text-left">Time Out</th>
                     <th className="px-3 py-2 text-left">Aksi</th>
                   </tr>
                 </thead>
@@ -217,6 +223,30 @@ export default function AbsensiPage() {
                             </Select>
                           ) : (
                             <Badge variant="outline">{row.status}</Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {isEditing ? (
+                            <Input
+                              type="time"
+                              value={editingTimeIn}
+                              onChange={(e) => setEditingTimeIn(e.target.value)}
+                              className="w-[120px]"
+                            />
+                          ) : (
+                            row.time_in ? row.time_in.slice(11, 16) : "-"
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {isEditing ? (
+                            <Input
+                              type="time"
+                              value={editingTimeOut}
+                              onChange={(e) => setEditingTimeOut(e.target.value)}
+                              className="w-[120px]"
+                            />
+                          ) : (
+                            row.time_out ? row.time_out.slice(11, 16) : "-"
                           )}
                         </td>
                         <td className="px-3 py-2">

@@ -30,6 +30,8 @@ export function useAbsensiController() {
   const [rawMessage, setRawMessage] = useState<string | null>(null);
   const [editingAbsensiId, setEditingAbsensiId] = useState<string | null>(null);
   const [editingStatus, setEditingStatus] = useState<AttendanceStatus>("Hadir");
+  const [editingTimeIn, setEditingTimeIn] = useState<string>("");
+  const [editingTimeOut, setEditingTimeOut] = useState<string>("");
   const [lateCutoffInput, setLateCutoffInput] = useState("07:15");
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
 
@@ -96,13 +98,19 @@ export function useAbsensiController() {
         ? (row.status as AttendanceStatus)
         : "Hadir",
     );
+    setEditingTimeIn(row.time_in ? row.time_in.slice(11, 16) : "");
+    setEditingTimeOut(row.time_out ? row.time_out.slice(11, 16) : "");
     setRawMessage(null);
   };
 
   const saveEdit = async (absensiId: string) => {
     const result = await updateAttendance({
       absensi_id: absensiId,
-      payload: { status: editingStatus },
+      payload: {
+        status: editingStatus,
+        time_in: editingTimeIn ? `${tanggal}T${editingTimeIn}:00` : null,
+        time_out: editingTimeOut ? `${tanggal}T${editingTimeOut}:00` : null,
+      },
     });
     if ("error" in result) {
       setRawMessage("Gagal update absensi.");
@@ -153,6 +161,8 @@ export function useAbsensiController() {
     deletingAttendance,
     editingAbsensiId,
     editingStatus,
+    editingTimeIn,
+    editingTimeOut,
     handleRefreshAll,
     handleSaveSettings,
     lateCutoffInput,
@@ -166,6 +176,8 @@ export function useAbsensiController() {
     savingSettings,
     setEditingAbsensiId,
     setEditingStatus,
+    setEditingTimeIn,
+    setEditingTimeOut,
     setLateCutoffInput,
     setRawSearch,
     settingsMessage,
