@@ -121,7 +121,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   // ── Auto masuk/keluar (no popup) ─────────────────────────────────────────
 
   void _onAutoAttendance(HikEvent event, Student student, String eventType) {
-    final key = student.cardNo ?? event.cardNo;
+    final key = student.rfidNumber ?? event.rfidNumber;
     if (_inProgress.contains(key)) return;
     _inProgress.add(key);
     unawaited(_saveAutoRecord(event, student, eventType));
@@ -132,16 +132,16 @@ class _AppShellState extends ConsumerState<AppShell> {
     Student student,
     String eventType,
   ) async {
-    final key = student.cardNo ?? event.cardNo;
+    final key = student.rfidNumber ?? event.rfidNumber;
     try {
       final db = ref.read(databaseProvider);
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final recordId = '${student.userId}_${event.cardNo}_${event.serialNo}';
+      final recordId = '${student.userId}_${event.rfidNumber}_${event.serialNo}';
 
       await db.into(db.tapRecords).insert(
         TapRecordsCompanion(
           id: Value(recordId),
-          cardNo: Value(event.cardNo),
+          rfidNumber: Value(event.rfidNumber),
           eventType: Value(eventType),
           deviceTime: Value(event.dateTime.millisecondsSinceEpoch ~/ 1000),
           hikSerialNo: Value(event.serialNo),
@@ -196,7 +196,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   // ── Izin popup + ticket print ─────────────────────────────────────────────
 
   void _onIzinRequired(HikEvent event, Student student) {
-    final key = student.cardNo ?? event.cardNo;
+    final key = student.rfidNumber ?? event.rfidNumber;
     if (_inProgress.contains(key)) return;
     _inProgress.add(key);
     _izinQueue.add(_IzinEntry(event, student));
@@ -229,7 +229,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         }
       }
     } finally {
-      _inProgress.remove(entry.student.cardNo ?? entry.event.cardNo);
+      _inProgress.remove(entry.student.rfidNumber ?? entry.event.rfidNumber);
       _popupShowing = false;
       _maybeShowIzinPopup();
     }
@@ -241,12 +241,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final recordId =
         result.existingRecordId ??
-        '${entry.student.userId}_${entry.event.cardNo}_${entry.event.serialNo}';
+        '${entry.student.userId}_${entry.event.rfidNumber}_${entry.event.serialNo}';
 
     await db.into(db.tapRecords).insert(
       TapRecordsCompanion(
         id: Value(recordId),
-        cardNo: Value(entry.event.cardNo),
+        rfidNumber: Value(entry.event.rfidNumber),
         eventType: const Value('izin'),
         deviceTime: Value(entry.event.dateTime.millisecondsSinceEpoch ~/ 1000),
         hikSerialNo: Value(entry.event.serialNo),

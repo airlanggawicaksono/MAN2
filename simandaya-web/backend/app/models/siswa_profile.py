@@ -72,7 +72,7 @@ class SiswaProfile(Base):
         nullable=True
     )
 
-    card_no: Mapped[Optional[str]] = mapped_column(
+    rfid_number: Mapped[Optional[str]] = mapped_column(
         String(50),
         unique=True,
         nullable=True

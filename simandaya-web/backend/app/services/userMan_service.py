@@ -28,7 +28,7 @@ from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
-from app.enums import RegistrationStatus, StructuralRole, UserType
+from app.enums import RegistrationStatus, StatusSiswa, StructuralRole, UserType
 from app.policy.user_management_policy import UserManagementPolicy
 from app.repositoriy.user_management_repository import UserManagementRepository
 
@@ -77,10 +77,14 @@ class StudentUserManagementService:
         self.policy = policy
 
     async def list_students(
-        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+        self,
+        skip: int = 0,
+        limit: int = 30,
+        search: Optional[str] = None,
+        status_siswa: Optional[StatusSiswa] = None,
     ) -> PaginatedStudentsResponse:
-        total = await self.repo.count_students(search=search)
-        profiles = await self.repo.list_students(skip=skip, limit=limit, search=search)
+        total = await self.repo.count_students(search=search, status_siswa=status_siswa)
+        profiles = await self.repo.list_students(skip=skip, limit=limit, search=search, status_siswa=status_siswa)
         items: list[StudentProfileResponseDTO] = []
         for profile in profiles:
             items.append(await self._to_student_dto(profile))
@@ -109,12 +113,12 @@ class StudentUserManagementService:
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"NISN '{request.nisn}' sudah terdaftar.",
                 )
-        if request.card_no:
-            existing = await self.repo.find_student_by_card_no(request.card_no)
+        if request.rfid_number:
+            existing = await self.repo.find_student_by_rfid_number(request.rfid_number)
             if existing:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Nomor kartu '{request.card_no}' sudah dipakai siswa lain.",
+                    detail=f"Nomor kartu '{request.rfid_number}' sudah dipakai siswa lain.",
                 )
         user = User(
             user_type=UserType.siswa,
@@ -186,12 +190,12 @@ class StudentUserManagementService:
         if "nisn" in update_data and update_data["nisn"] != profile.nis:
             nisn_check = await self.repo.find_student_by_nisn(update_data["nisn"])
             self.policy.ensure_nisn_available(nisn_check is not None, update_data["nisn"])
-        if "card_no" in update_data and update_data["card_no"] != profile.card_no:
-            card_check = await self.repo.find_student_by_card_no(update_data["card_no"])
+        if "rfid_number" in update_data and update_data["rfid_number"] != profile.rfid_number:
+            card_check = await self.repo.find_student_by_rfid_number(update_data["rfid_number"])
             if card_check is not None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Nomor kartu '{update_data['card_no']}' sudah dipakai siswa lain.",
+                    detail=f"Nomor kartu '{update_data['rfid_number']}' sudah dipakai siswa lain.",
                 )
 
         update_data = self._map_student_payload_keys(update_data)
@@ -239,7 +243,7 @@ class StudentUserManagementService:
             semester_ke=None,
             kontak=profile.kontak,
             kewarganegaraan=profile.kewarganegaraan,
-            card_no=profile.card_no,
+            rfid_number=profile.rfid_number,
             is_active=profile.user.is_active if profile.user else False,
         )
 
@@ -572,9 +576,13 @@ class UserManagementService:
         self.teachers = TeacherUserManagementService(self.repo, self.policy)
 
     async def list_students(
-        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+        self,
+        skip: int = 0,
+        limit: int = 30,
+        search: Optional[str] = None,
+        status_siswa: Optional[StatusSiswa] = None,
     ) -> PaginatedStudentsResponse:
-        return await self.students.list_students(skip=skip, limit=limit, search=search)
+        return await self.students.list_students(skip=skip, limit=limit, search=search, status_siswa=status_siswa)
 
     async def get_student(self, siswa_id: UUID) -> StudentProfileResponseDTO:
         return await self.students.get_student(siswa_id)

@@ -150,8 +150,7 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
                 nama: Value(s.nama),
                 nis: Value(s.nis),
                 kelas: Value(s.kelas),
-                // card_no is now server-authoritative
-                cardNo: Value(s.cardNo),
+                rfidNumber: Value(s.rfidNumber),
                 noTelpWali: Value(s.noTelpWali),
                 syncedAt: Value(now),
               ))
@@ -173,7 +172,7 @@ class StudentSyncNotifier extends AsyncNotifier<StudentSyncState> {
         protectedUserIds: protectedUserIds,
       );
 
-      // Combine removed students with revoked cards from card_no changes
+      // Combine removed students with revoked cards from rfid_number changes
       final allRemovedCardNos = [
         ...syncResult.removedCardNos,
         ...syncResult.revokedCardNos,

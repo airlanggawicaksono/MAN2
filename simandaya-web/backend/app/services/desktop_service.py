@@ -51,7 +51,7 @@ class DesktopService:
                     nama_lengkap=row.nama_lengkap,
                     nisn=row.nis,
                     kelas_jurusan=row.kelas_jurusan,
-                    card_no=row.card_no,
+                    rfid_number=row.rfid_number,
                     no_telephone_wali=row.no_telephone_wali,
                     user_type=row.user_type.value if hasattr(row.user_type, "value") else str(row.user_type),
                 )
@@ -78,52 +78,52 @@ class DesktopService:
                 detail=f"Failed to list students: {str(e)}",
             )
 
-    async def assign_student_card(self, user_id: UUID, card_no: str) -> None:
+    async def assign_student_card(self, user_id: UUID, rfid_number: str) -> None:
         profile = await self.repo.find_student_profile_by_user_id(user_id)
         if profile is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-        if profile.card_no is not None:
+        if profile.rfid_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Student already has a card. Remove it via web admin first.",
             )
 
-        existing = await self.repo.find_student_profile_by_card_no(card_no)
+        existing = await self.repo.find_student_profile_by_rfid_number(rfid_number)
         if existing is not None and existing.user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Card {card_no} is already assigned to another student.",
+                detail=f"Card {rfid_number} is already assigned to another student.",
             )
 
-        profile.card_no = card_no
+        profile.rfid_number = rfid_number
         await self.repo.commit()
 
     async def remove_student_card(self, user_id: UUID) -> CardReplaceResponseDTO:
         profile = await self.repo.find_student_profile_by_user_id(user_id)
         if profile is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
-        old_card_no = profile.card_no
-        profile.card_no = None
+        old_rfid_number = profile.rfid_number
+        profile.rfid_number = None
         await self.repo.commit()
-        return CardReplaceResponseDTO(old_card_no=old_card_no)
+        return CardReplaceResponseDTO(old_rfid_number=old_rfid_number)
 
-    async def replace_student_card(self, user_id: UUID, new_card_no: str) -> CardReplaceResponseDTO:
+    async def replace_student_card(self, user_id: UUID, new_rfid_number: str) -> CardReplaceResponseDTO:
         profile = await self.repo.find_student_profile_by_user_id(user_id)
         if profile is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-        existing = await self.repo.find_student_profile_by_card_no(new_card_no)
+        existing = await self.repo.find_student_profile_by_rfid_number(new_rfid_number)
         if existing is not None and existing.user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Card {new_card_no} is already assigned to another student.",
+                detail=f"Card {new_rfid_number} is already assigned to another student.",
             )
 
-        old_card_no = profile.card_no
-        profile.card_no = new_card_no
+        old_rfid_number = profile.rfid_number
+        profile.rfid_number = new_rfid_number
         await self.repo.commit()
-        return CardReplaceResponseDTO(old_card_no=old_card_no)
+        return CardReplaceResponseDTO(old_rfid_number=old_rfid_number)
 
     async def sync_attendance(self, request: BulkAttendanceSyncDTO) -> BulkAttendanceResponseDTO:
         results: list[AttendanceAckDTO] = []

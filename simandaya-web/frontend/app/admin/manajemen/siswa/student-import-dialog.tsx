@@ -38,6 +38,8 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       if (!nama) return { skip: true };
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw) : undefined;
+      const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
+      const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
       return {
         row: {
           nama_lengkap: nama,
@@ -46,9 +48,12 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
           nama_wali: helpers.get("nama_wali") || undefined,
+          no_telephone_wali: helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || undefined,
           alamat: helpers.get("alamat") || undefined,
           tahun_masuk: !isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
+          rfid_number: helpers.get("rfid_number") || helpers.get("card_number") || undefined,
+          status_siswa: isAlumni ? "Lulus" : undefined,
         },
       };
     },
@@ -101,18 +106,25 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
 
         <div className="space-y-4">
           {/* Format info */}
-          <div className="rounded-lg bg-muted/40 border border-border/70 p-3 text-xs text-muted-foreground space-y-1">
+          <div className="rounded-lg bg-muted/40 border border-border/70 p-3 text-xs text-muted-foreground space-y-2">
             <p className="font-semibold text-foreground">Format header kolom:</p>
-            <p>
+            <p className="leading-relaxed">
               <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
-              (wajib),{" "}
+              <span className="text-destructive font-medium">(wajib)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">nisn</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kelas_jurusan</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tahun_masuk</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kontak</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">nama_wali</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">no_telephone_wali</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">alamat</span>
+              <span className="font-mono bg-background border rounded px-1">alamat</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">rfid_number</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">is_alumni</span>
+            </p>
+            <p>
+              Kolom <span className="font-mono bg-background border rounded px-1">is_alumni</span>{" "}
+              diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> / <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
             </p>
           </div>
 
@@ -163,7 +175,13 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-muted-foreground/70 text-xs">
-                      {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan].filter(Boolean).join(" · ")}
+                      {[
+                        s.nisn && `NISN: ${s.nisn}`,
+                        s.kelas_jurusan,
+                        s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`,
+                        s.rfid_number && `RFID: ${s.rfid_number}`,
+                        s.status_siswa === "Lulus" && "Alumni",
+                      ].filter(Boolean).join(" · ")}
                     </span>
                   </div>
                 ))}

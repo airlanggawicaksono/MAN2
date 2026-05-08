@@ -176,12 +176,11 @@ class AlertStream {
   }
 
   HikEvent? _parseJsonEvent(Map<String, dynamic> json) {
-    // The cardNo can be at top level or inside AccessControllerEvent
     final ace = json['AccessControllerEvent'] as Map<String, dynamic>?;
 
-    final cardNo = json['cardNo'] as String? ??
+    final rfidNumber = json['cardNo'] as String? ??
         ace?['cardNo'] as String?;
-    if (cardNo == null || cardNo.isEmpty) return null;
+    if (rfidNumber == null || rfidNumber.isEmpty) return null;
 
     final dateTimeStr = json['dateTime'] as String? ??
         ace?['time'] as String?;
@@ -204,7 +203,7 @@ class AlertStream {
     }
 
     return HikEvent(
-      cardNo: cardNo,
+      rfidNumber: rfidNumber,
       employeeNo: employeeNo,
       dateTime: dateTime,
       serialNo: serialNo,
@@ -231,8 +230,8 @@ class AlertStream {
   }
 
   HikEvent? _parseXmlEvent(String xml) {
-    final cardNo = _extractTag(xml, 'cardNo');
-    if (cardNo == null || cardNo.isEmpty) return null;
+    final rfidNumber = _extractTag(xml, 'cardNo');
+    if (rfidNumber == null || rfidNumber.isEmpty) return null;
 
     final dateTimeStr = _extractTag(xml, 'dateTime');
     final serialNoStr = _extractTag(xml, 'serialNo');
@@ -249,7 +248,7 @@ class AlertStream {
     }
 
     return HikEvent(
-      cardNo: cardNo,
+      rfidNumber: rfidNumber,
       employeeNo: employeeNo,
       dateTime: dateTime,
       serialNo: int.tryParse(serialNoStr ?? '0') ?? 0,

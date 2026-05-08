@@ -81,7 +81,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
           return s.nama.toLowerCase().contains(q) ||
               (s.nis?.toLowerCase().contains(q) ?? false) ||
               (s.kelas?.toLowerCase().contains(q) ?? false) ||
-              (s.cardNo?.toLowerCase().contains(q) ?? false);
+              (s.rfidNumber?.toLowerCase().contains(q) ?? false);
         }).toList();
       }
     });
@@ -97,7 +97,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text('Kartu ${student.cardNo}'),
+        title: Text('Kartu ${student.rfidNumber}'),
         children: [
           SimpleDialogOption(
             onPressed: () {
@@ -136,7 +136,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus Kartu'),
-        content: Text('Hapus kartu "${student.cardNo}" dari ${student.nama}?\nKartu juga dihapus dari Hikvision.'),
+        content: Text('Hapus kartu "${student.rfidNumber}" dari ${student.nama}?\nKartu juga dihapus dari Hikvision.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -185,7 +185,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Ganti Kartu'),
         content: Text(
-          'Kartu "${student.cardNo}" akan diganti.\n'
+          'Kartu "${student.rfidNumber}" akan diganti.\n'
           'Tap kartu baru pada reader.',
         ),
         actions: [
@@ -246,35 +246,35 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
   }
 
   // Card assign: server-first, then Hikvision if configured.
-  // Only callable when student.cardNo == null (button hidden otherwise).
+  // Only callable when student.rfidNumber == null (button hidden otherwise).
   Future<void> _assignCard(Student student) async {
     if (!await _ensureServerReady()) return;
     final config = ref.read(configProvider).asData?.value;
     if (config == null) return;
     if (!mounted) return;
 
-    final cardNo = await showDialog<String>(
+    final rfidNumber = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const CardScanDialog(),
     );
-    if (cardNo == null || !mounted) return;
+    if (rfidNumber == null || !mounted) return;
 
     try {
       final api = ApiClient.fromConfig(config);
-      await api.assignStudentCard(student.userId, cardNo);
+      await api.assignStudentCard(student.userId, rfidNumber);
 
       if (config.isHikvisionConfigured) {
         await ref
             .read(studentServiceProvider)
-            .assignCard(student, cardNo, config);
+            .assignCard(student, rfidNumber, config);
       } else {
         await ref
             .read(databaseProvider)
-            .assignCardToStudent(student.userId, cardNo);
+            .assignCardToStudent(student.userId, rfidNumber);
       }
 
-      _showSnack('Kartu $cardNo berhasil didaftarkan ke ${student.nama}');
+      _showSnack('Kartu $rfidNumber berhasil didaftarkan ke ${student.nama}');
       await _loadStudents();
     } on ApiException catch (e) {
       _showSnack(e.message);
@@ -350,9 +350,9 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       final cols = lines[i].split(',').map((c) => c.trim()).toList();
       if (cols.length <= nisIdx || cols.length <= cardIdx) continue;
       final nis = cols[nisIdx];
-      final cardNo = cols[cardIdx];
-      if (nis.isEmpty || cardNo.isEmpty) continue;
-      rows.add({'nis': nis, 'cardNo': cardNo});
+      final rfidNumber = cols[cardIdx];
+      if (nis.isEmpty || rfidNumber.isEmpty) continue;
+      rows.add({'nis': nis, 'rfidNumber': rfidNumber});
     }
     return rows;
   }
@@ -379,9 +379,9 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       final row = allRows[i];
       if (row.length <= nisIdx || row.length <= cardIdx) continue;
       final nis = _normalizeNumericLike(_cellText(row[nisIdx]));
-      final cardNo = _normalizeNumericLike(_cellText(row[cardIdx]));
-      if (nis.isEmpty || cardNo.isEmpty) continue;
-      rows.add({'nis': nis, 'cardNo': cardNo});
+      final rfidNumber = _normalizeNumericLike(_cellText(row[cardIdx]));
+      if (nis.isEmpty || rfidNumber.isEmpty) continue;
+      rows.add({'nis': nis, 'rfidNumber': rfidNumber});
     }
     return rows;
   }
@@ -391,6 +391,8 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
 
   int _findCardNumberIndex(List<String> header) => header.indexWhere(
         (h) =>
+            h == 'rfid_number' ||
+            h == 'rfidnumber' ||
             h == 'card_number' ||
             h == 'cardno' ||
             h == 'card_no' ||
@@ -433,7 +435,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                 Text('Format file CSV/XLSX dengan header:'),
                 SizedBox(height: 6),
                 Text('1. nis'),
-                Text('2. card_number'),
+                Text('2. rfid_number  (atau card_number)'),
                 SizedBox(height: 8),
                 Text(
                   'Hanya siswa tanpa kartu yang akan diproses.',
@@ -698,10 +700,10 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                                   color: colors.onSurfaceVariant,
                                   fontSize: 12),
                             ),
-                            trailing: s.cardNo != null
+                            trailing: s.rfidNumber != null
                                 ? Chip(
                                     label: Text(
-                                      s.cardNo!,
+                                      s.rfidNumber!,
                                       style: const TextStyle(fontSize: 11),
                                     ),
                                     avatar: Icon(

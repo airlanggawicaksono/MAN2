@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -10,8 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DateInputId } from "@/components/ui/date-input-id";
-import { Users, LogOut, Clock } from "lucide-react";
+import { Users, LogOut, Clock, Trash } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -26,11 +28,16 @@ import {
   useAbsensiController,
 } from "./use-absensi-controller";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
+import { BulkActionBar } from "@/app/components/admin/bulk-action-bar";
+import { ConfirmDialog } from "@/app/components/confirm-dialog";
 import { TableSkeleton } from "@/app/components/admin/table-skeleton";
 
 export default function AbsensiPage() {
   const {
+    attendance,
+    bulkRemoveRecords,
     deletingAttendance,
+    deletingBulk,
     editingAbsensiId,
     editingStatus,
     editingTimeIn,
@@ -38,9 +45,7 @@ export default function AbsensiPage() {
     handleSaveSettings,
     lateCutoffInput,
     loadingAttendance,
-    loadingIzin,
     rawMessage,
-    rawSearch,
     removeRecord,
     saveEdit,
     savingEdit,
@@ -54,10 +59,56 @@ export default function AbsensiPage() {
     settingsMessage,
     startEdit,
     stats,
-    attendance,
     tanggal,
     setTanggal,
+    rawSearch,
   } = useAbsensiController();
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false);
+
+  const allIds = attendance.map((r) => r.absensi_id);
+  const selectedCount = allIds.filter((id) => selectedIds.has(id)).length;
+  const allSelected = allIds.length > 0 && selectedCount === allIds.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  function handleToggle(id: string, index: number, shiftHeld: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (shiftHeld && lastSelectedIndex !== null) {
+        const lo = Math.min(lastSelectedIndex, index);
+        const hi = Math.max(lastSelectedIndex, index);
+        const shouldSelect = !prev.has(id);
+        for (let i = lo; i <= hi; i++) {
+          if (shouldSelect) next.add(allIds[i]);
+          else next.delete(allIds[i]);
+        }
+      } else {
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+      }
+      setLastSelectedIndex(index);
+      return next;
+    });
+  }
+
+  function handleToggleAll() {
+    const allSel = allIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSel) allIds.forEach((id) => next.delete(id));
+      else allIds.forEach((id) => next.add(id));
+      return next;
+    });
+    setLastSelectedIndex(null);
+  }
+
+  async function handleBulkDelete() {
+    await bulkRemoveRecords(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    setBulkConfirmDelete(false);
+  }
 
   return (
     <AdminPageShell
@@ -187,6 +238,14 @@ export default function AbsensiPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/35">
                   <tr>
+                    <th className="w-8 px-3 py-2">
+                      <Checkbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={handleToggleAll}
+                        aria-label="Pilih semua"
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left">Nama</th>
                     <th className="px-3 py-2 text-left">Kelas</th>
                     <th className="px-3 py-2 text-left">Status</th>
@@ -196,10 +255,24 @@ export default function AbsensiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendance.map((row) => {
+                  {attendance.map((row, index) => {
                     const isEditing = editingAbsensiId === row.absensi_id;
                     return (
                       <tr key={row.absensi_id} className="border-t">
+                        <td className="w-8 px-3 py-2">
+                          <Checkbox
+                            checked={selectedIds.has(row.absensi_id)}
+                            onChange={(e) =>
+                              handleToggle(
+                                row.absensi_id,
+                                index,
+                                (e.nativeEvent as MouseEvent).shiftKey,
+                              )
+                            }
+                            aria-label={`Pilih ${row.nama_siswa}`}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
                         <td className="px-3 py-2">{row.nama_siswa}</td>
                         <td className="px-3 py-2">{row.kelas ?? "-"}</td>
                         <td className="px-3 py-2">
@@ -284,9 +357,7 @@ export default function AbsensiPage() {
                                   type="button"
                                   size="sm"
                                   variant="destructive"
-                                  onClick={() =>
-                                    void removeRecord(row.absensi_id)
-                                  }
+                                  onClick={() => void removeRecord(row.absensi_id)}
                                   disabled={deletingAttendance}
                                 >
                                   Hapus
@@ -304,6 +375,31 @@ export default function AbsensiPage() {
           </div>
         </CardContent>
       </Card>
+
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        actions={[
+          {
+            label: "Hapus",
+            icon: <Trash className="h-4 w-4" />,
+            variant: "destructive",
+            disabled: deletingBulk,
+            onClick: () => setBulkConfirmDelete(true),
+          },
+        ]}
+        onClear={() => setSelectedIds(new Set())}
+      />
+
+      <ConfirmDialog
+        open={bulkConfirmDelete}
+        onOpenChange={setBulkConfirmDelete}
+        title="Hapus Absensi Terpilih"
+        description={`${selectedIds.size} record absensi akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel={deletingBulk ? "Menghapus..." : `Hapus ${selectedIds.size} Record`}
+        confirmVariant="destructive"
+        confirmDisabled={deletingBulk}
+        onConfirm={handleBulkDelete}
+      />
     </AdminPageShell>
   );
 }

@@ -45,14 +45,14 @@ class AttendanceService {
   }
 
   Future<void> _handleEvent(HikEvent event) async {
-    if (event.cardNo.isEmpty) return;
+    if (event.rfidNumber.isEmpty) return;
 
     Student? student;
     if (event.employeeNo != null && event.employeeNo!.isNotEmpty) {
       final userId = _toUuid(event.employeeNo!);
       student = await db.getStudentByUserId(userId);
     }
-    student ??= await db.getStudentByCard(event.cardNo);
+    student ??= await db.getStudentByCard(event.rfidNumber);
     if (student == null) return;
 
     // Break In → show izin popup (reason + ticket print required).

@@ -28,7 +28,7 @@ class StudentProfileResponseDTO(BaseModel):
     semester_ke: Optional[int] = None
     kontak: Optional[str] = None
     kewarganegaraan: str
-    card_no: Optional[str] = None
+    rfid_number: Optional[str] = None
     is_active: bool = False
 
 

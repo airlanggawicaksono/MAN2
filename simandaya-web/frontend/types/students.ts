@@ -19,7 +19,7 @@ export interface StudentProfile {
   semester_ke?: number | null;
   kontak: string | null;
   kewarganegaraan: string;
-  card_no: string | null;
+  rfid_number: string | null;
   is_active: boolean;
 }
 
@@ -55,7 +55,7 @@ export interface UpdateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
-  card_no?: string;
+  rfid_number?: string;
 }
 
 export interface PaginatedStudentsResponse {
@@ -69,6 +69,7 @@ export interface ListStudentsParams {
   skip: number;
   limit: number;
   search?: string;
+  status_siswa?: import("./enums").StatusSiswa;
 }
 
 export interface CreateStudentRequest {
@@ -85,7 +86,7 @@ export interface CreateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
-  card_no?: string;
+  rfid_number?: string;
 }
 
 export interface BulkImportResultItem {

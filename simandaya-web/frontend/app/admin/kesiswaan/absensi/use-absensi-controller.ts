@@ -63,6 +63,8 @@ export function useAbsensiController() {
     useUpdateAttendanceMutation();
   const [deleteAttendance, { isLoading: deletingAttendance }] =
     useDeleteAttendanceMutation();
+  const [deleteAttendanceBulk, { isLoading: deletingBulk }] =
+    useDeleteAttendanceMutation();
   const [updateAttendanceSettings, { isLoading: savingSettings }] =
     useUpdateAttendanceSettingsMutation();
 
@@ -152,13 +154,23 @@ export function useAbsensiController() {
     await refetchAttendanceSettings();
   };
 
+  const bulkRemoveRecords = async (absensiIds: string[]) => {
+    for (const id of absensiIds) {
+      await deleteAttendanceBulk({ absensi_id: id });
+    }
+    setRawMessage(`${absensiIds.length} record absensi berhasil dihapus.`);
+    await refetchAttendance();
+  };
+
   const handleRefreshAll = async () => {
     await Promise.all([refetchAttendance(), refetchIzin()]);
   };
 
   return {
     attendance,
+    bulkRemoveRecords,
     deletingAttendance,
+    deletingBulk,
     editingAbsensiId,
     editingStatus,
     editingTimeIn,

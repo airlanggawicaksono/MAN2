@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from app.enums import StatusSiswa
 from uuid import UUID
 
 from sqlalchemy import func, or_, select, update
@@ -18,23 +19,33 @@ class UserManagementRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def count_students(self, search: Optional[str] = None) -> int:
+    async def count_students(
+        self, search: Optional[str] = None, status_siswa: Optional[StatusSiswa] = None
+    ) -> int:
         query = select(func.count()).select_from(SiswaProfile)
         search_filter = self._student_search_filter(search)
         if search_filter is not None:
             query = query.join(User, User.user_id == SiswaProfile.user_id)
             query = query.where(search_filter)
+        if status_siswa is not None:
+            query = query.where(SiswaProfile.status_siswa == status_siswa)
         result = await self.db.execute(query)
         return result.scalar_one()
 
     async def list_students(
-        self, skip: int = 0, limit: int = 30, search: Optional[str] = None
+        self,
+        skip: int = 0,
+        limit: int = 30,
+        search: Optional[str] = None,
+        status_siswa: Optional[StatusSiswa] = None,
     ) -> list[SiswaProfile]:
         query = select(SiswaProfile).options(selectinload(SiswaProfile.user))
         search_filter = self._student_search_filter(search)
         if search_filter is not None:
             query = query.join(User, User.user_id == SiswaProfile.user_id)
             query = query.where(search_filter)
+        if status_siswa is not None:
+            query = query.where(SiswaProfile.status_siswa == status_siswa)
         result = await self.db.execute(query.offset(skip).limit(limit))
         return list(result.scalars().all())
 
@@ -66,9 +77,9 @@ class UserManagementRepository:
         )
         return result.scalar_one_or_none()
 
-    async def find_student_by_card_no(self, card_no: str) -> SiswaProfile | None:
+    async def find_student_by_rfid_number(self, rfid_number: str) -> SiswaProfile | None:
         result = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.card_no == card_no)
+            select(SiswaProfile).where(SiswaProfile.rfid_number == rfid_number)
         )
         return result.scalar_one_or_none()
 

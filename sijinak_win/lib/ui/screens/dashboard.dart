@@ -63,13 +63,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ref.invalidate(pendingSyncCountProvider);
   }
 
-  String _studentName(String cardNo, String recordId) {
+  String _studentName(String rfidNumber, String recordId) {
     final students = ref.read(allStudentsProvider).asData?.value ?? [];
     final userIdFromRecord = _extractUserIdFromRecordId(recordId);
     final student = userIdFromRecord != null
         ? students.where((s) => s.userId == userIdFromRecord).firstOrNull
-        : students.where((s) => s.cardNo == cardNo).firstOrNull;
-    return student?.nama ?? cardNo;
+        : students.where((s) => s.rfidNumber == rfidNumber).firstOrNull;
+    return student?.nama ?? rfidNumber;
   }
 
   @override
@@ -326,7 +326,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           title: Text(
-                            _studentName(record.cardNo, record.id),
+                            _studentName(record.rfidNumber, record.id),
                             style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(

@@ -9,7 +9,7 @@ class StudentSyncDTO(BaseModel):
     nama_lengkap: str = Field(..., description="Student full name")
     nisn: str | None = Field(None, description="Student NISN")
     kelas_jurusan: str | None = Field(None, description="Class and major")
-    card_no: str | None = Field(None, description="RFID card number assigned via web admin")
+    rfid_number: str | None = Field(None, description="RFID card number assigned via web admin")
     no_telephone_wali: str | None = Field(None, description="Guardian WhatsApp phone number")
     user_type: str = Field(..., description="Functional user type from user table")
 
@@ -35,4 +35,4 @@ class PingResponseDTO(BaseModel):
 
 
 class CardReplaceResponseDTO(BaseModel):
-    old_card_no: str | None = Field(None, description="Previous card number, for Hikvision revocation")
+    old_rfid_number: str | None = Field(None, description="Previous card number, for Hikvision revocation")

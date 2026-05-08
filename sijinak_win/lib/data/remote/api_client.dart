@@ -10,7 +10,7 @@ abstract class BackendApiPort {
   Future<List<Map<String, dynamic>>> syncAttendance(
     List<Map<String, dynamic>> events,
   );
-  Future<void> assignStudentCard(String userId, String cardNo);
+  Future<void> assignStudentCard(String userId, String rfidNumber);
   Future<String?> replaceStudentCard(String userId, String newCardNo);
   Future<String?> removeStudentCard(String userId);
 }
@@ -141,7 +141,7 @@ class ApiClient implements BackendApiPort {
       }
 
       final decoded = jsonDecode(body) as Map<String, dynamic>;
-      return decoded['old_card_no'] as String?;
+      return decoded['old_rfid_number'] as String?;
     } finally {
       client.close();
     }
@@ -157,7 +157,7 @@ class ApiClient implements BackendApiPort {
       final request = await client.postUrl(Uri.parse(url));
       request.headers.set('X-API-Key', apiKey);
       request.headers.set('Content-Type', 'application/json');
-      request.add(utf8.encode(jsonEncode({'card_no': newCardNo})));
+      request.add(utf8.encode(jsonEncode({'rfid_number': newCardNo})));
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
 
@@ -176,14 +176,14 @@ class ApiClient implements BackendApiPort {
       }
 
       final decoded = jsonDecode(body) as Map<String, dynamic>;
-      return decoded['old_card_no'] as String?;
+      return decoded['old_rfid_number'] as String?;
     } finally {
       client.close();
     }
   }
 
   @override
-  Future<void> assignStudentCard(String userId, String cardNo) async {
+  Future<void> assignStudentCard(String userId, String rfidNumber) async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
     final url = '$baseUrl/api/desktop/students/$userId/card-assign';
@@ -192,7 +192,7 @@ class ApiClient implements BackendApiPort {
       final request = await client.postUrl(Uri.parse(url));
       request.headers.set('X-API-Key', apiKey);
       request.headers.set('Content-Type', 'application/json');
-      request.add(utf8.encode(jsonEncode({'card_no': cardNo})));
+      request.add(utf8.encode(jsonEncode({'rfid_number': rfidNumber})));
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
 

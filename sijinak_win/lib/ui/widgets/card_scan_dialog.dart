@@ -42,11 +42,11 @@ class _CardScanDialogState extends ConsumerState<CardScanDialog> {
 
     _sub = service.events.listen((event) {
       if (!mounted || _manualMode) return;
-      if (event.cardNo.isEmpty) return;
+      if (event.rfidNumber.isEmpty) return;
       if (!event.dateTime.isAfter(_cutoff)) return;
 
-      debugPrint('[CardScan] GOT CARD: ${event.cardNo} time=${event.dateTime}');
-      Navigator.of(context).pop(event.cardNo);
+      debugPrint('[CardScan] GOT CARD: ${event.rfidNumber} time=${event.dateTime}');
+      Navigator.of(context).pop(event.rfidNumber);
     });
   }
 

@@ -12,7 +12,7 @@ part 'database.g.dart';
 abstract class StudentStorePort {
   Future<List<Student>> getAllStudents();
   Future<int> getStudentCount();
-  Future<Student?> getStudentByCard(String cardNo);
+  Future<Student?> getStudentByCard(String rfidNumber);
   Future<Student?> getStudentByUserId(String userId);
   Future<Student?> getStudentByNis(String nis);
   Future<void> upsertStudents(List<StudentsCompanion> rows);
@@ -23,28 +23,28 @@ abstract class StudentStorePort {
   });
   Future<List<Student>> getUnregisteredStudents();
   Future<void> markHikRegistered(String userId);
-  Future<void> assignCardToStudent(String userId, String cardNo);
+  Future<void> assignCardToStudent(String userId, String rfidNumber);
   Future<void> removeCardFromStudent(String userId);
 }
 
 abstract class AttendanceStorePort {
   Future<Student?> getStudentByUserId(String userId);
-  Future<Student?> getStudentByCard(String cardNo);
+  Future<Student?> getStudentByCard(String rfidNumber);
   Future<List<TapRecord>> getTodayRecordsForStudent(String userId);
-  Future<List<TapRecord>> getTodayRecordsForCard(String cardNo);
+  Future<List<TapRecord>> getTodayRecordsForCard(String rfidNumber);
 }
 
 abstract class SyncStorePort {
   Future<List<TapRecord>> getUnpublishedRecords();
   Future<Student?> getStudentByUserId(String userId);
-  Future<Student?> getStudentByCard(String cardNo);
+  Future<Student?> getStudentByCard(String rfidNumber);
   Future<void> markPublished(String recordId, int publishedAt);
 }
 
 class StudentSnapshotSyncResult {
   final List<String> removedUserIds;
   final List<String> removedCardNos;
-  // Cards that were cleared from existing students (card_no set to null on server)
+  // Cards that were cleared from existing students (rfid_number set to null on server)
   final List<String> revokedCardNos;
 
   const StudentSnapshotSyncResult({
@@ -96,8 +96,8 @@ class AppDatabase extends _$AppDatabase
   }
 
   @override
-  Future<Student?> getStudentByCard(String cardNo) => (select(students)
-        ..where((s) => s.cardNo.equals(cardNo)))
+  Future<Student?> getStudentByCard(String rfidNumber) => (select(students)
+        ..where((s) => s.rfidNumber.equals(rfidNumber)))
       .getSingleOrNull();
 
   @override
@@ -122,8 +122,8 @@ class AppDatabase extends _$AppDatabase
               nama: row.nama,
               nis: row.nis,
               kelas: row.kelas,
-              // card_no is now server-authoritative
-              cardNo: row.cardNo,
+              // rfid_number is now server-authoritative
+              rfidNumber: row.rfidNumber,
               noTelpWali: row.noTelpWali,
               syncedAt: row.syncedAt,
             ),
@@ -135,7 +135,7 @@ class AppDatabase extends _$AppDatabase
   }
 
   /// Mirror students table to match server snapshot exactly.
-  /// card_no is now server-authoritative: synced from server, resets hikRegistered on change.
+  /// rfid_number is now server-authoritative: synced from server, resets hikRegistered on change.
   @override
   Future<StudentSnapshotSyncResult> syncStudentsSnapshot({
     required List<StudentsCompanion> rows,
@@ -152,13 +152,13 @@ class AppDatabase extends _$AppDatabase
     final revokedCardNos = <String>[];
     for (final row in rows) {
       final userId = row.userId.value;
-      final newCard = row.cardNo.present ? row.cardNo.value : null;
+      final newCard = row.rfidNumber.present ? row.rfidNumber.value : null;
       final old = beforeByUserId[userId];
-      if (old != null && old.cardNo != newCard) {
+      if (old != null && old.rfidNumber != newCard) {
         cardChangedUserIds.add(userId);
         // Old card removed or replaced — revoke from Hikvision
-        if (old.cardNo != null && old.cardNo!.isNotEmpty) {
-          revokedCardNos.add(old.cardNo!);
+        if (old.rfidNumber != null && old.rfidNumber!.isNotEmpty) {
+          revokedCardNos.add(old.rfidNumber!);
         }
       }
     }
@@ -189,7 +189,7 @@ class AppDatabase extends _$AppDatabase
 
       final activeStudents = await getAllStudents();
       final activeCards = activeStudents
-          .map((s) => s.cardNo)
+          .map((s) => s.rfidNumber)
           .whereType<String>()
           .where((c) => c.isNotEmpty)
           .toSet()
@@ -199,7 +199,7 @@ class AppDatabase extends _$AppDatabase
         await delete(tapRecords).go();
       } else {
         await (delete(tapRecords)
-              ..where((r) => r.cardNo.isNotIn(activeCards)))
+              ..where((r) => r.rfidNumber.isNotIn(activeCards)))
             .go();
       }
     });
@@ -208,7 +208,7 @@ class AppDatabase extends _$AppDatabase
         .where((id) => !serverUserIds.contains(id) && !protectedUserIds.contains(id))
         .toList();
     final removedCardNos = removedUserIds
-        .map((id) => beforeByUserId[id]?.cardNo)
+        .map((id) => beforeByUserId[id]?.rfidNumber)
         .whereType<String>()
         .where((c) => c.isNotEmpty)
         .toSet()
@@ -232,15 +232,15 @@ class AppDatabase extends _$AppDatabase
       );
 
   @override
-  Future<void> assignCardToStudent(String userId, String cardNo) =>
+  Future<void> assignCardToStudent(String userId, String rfidNumber) =>
       (update(students)..where((s) => s.userId.equals(userId))).write(
-        StudentsCompanion(cardNo: Value(cardNo)),
+        StudentsCompanion(rfidNumber: Value(rfidNumber)),
       );
 
   @override
   Future<void> removeCardFromStudent(String userId) =>
       (update(students)..where((s) => s.userId.equals(userId))).write(
-        const StudentsCompanion(cardNo: Value(null)),
+        const StudentsCompanion(rfidNumber: Value(null)),
       );
 
   // ── Tap Records ───────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ class AppDatabase extends _$AppDatabase
   }
 
   @override
-  Future<List<TapRecord>> getTodayRecordsForCard(String cardNo) {
+  Future<List<TapRecord>> getTodayRecordsForCard(String rfidNumber) {
     final now = DateTime.now();
     final startOfDay =
         DateTime(now.year, now.month, now.day).millisecondsSinceEpoch ~/ 1000;
@@ -273,7 +273,7 @@ class AppDatabase extends _$AppDatabase
     return (select(tapRecords)
           ..where(
             (r) =>
-                r.cardNo.equals(cardNo) &
+                r.rfidNumber.equals(rfidNumber) &
                 r.deviceTime.isBiggerOrEqualValue(startOfDay) &
                 r.deviceTime.isSmallerThanValue(endOfDay),
           )

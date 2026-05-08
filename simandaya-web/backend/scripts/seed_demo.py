@@ -25,22 +25,22 @@ from app.models.structural_role_ref import StructuralRoleRef  # noqa: F401
 from app.models.user import User
 
 STUDENTS = [
-    # (nama_lengkap, nis, kelas, jenis_kelamin, card_no)
-    ("Ahmad Fauzi Ramadhan",    "2425001", "XII IPA 1", JenisKelamin.laki_laki,   "A1B2C3D4"),
-    ("Siti Nurhaliza",          "2425002", "XII IPA 1", JenisKelamin.perempuan,    "E5F6G7H8"),
-    ("Budi Santoso",            "2425003", "XII IPA 2", JenisKelamin.laki_laki,   "I9J0K1L2"),
-    ("Dewi Rahayu",             "2425004", "XII IPA 2", JenisKelamin.perempuan,    None),
-    ("Rizky Pratama",           "2425005", "XII IPS 1", JenisKelamin.laki_laki,   "M3N4O5P6"),
-    ("Putri Aulia",             "2425006", "XII IPS 1", JenisKelamin.perempuan,    None),
-    ("Muhammad Ilham",          "2425007", "XI IPA 1", JenisKelamin.laki_laki,   "Q7R8S9T0"),
-    ("Anisa Fitriana",          "2425008", "XI IPA 1", JenisKelamin.perempuan,    "U1V2W3X4"),
-    ("Yoga Aditya",             "2425009", "XI IPA 2", JenisKelamin.laki_laki,   None),
-    ("Nadia Kusuma",            "2425010", "XI IPS 1", JenisKelamin.perempuan,    "Y5Z6A7B8"),
-    ("Fajar Nugroho",           "2425011", "X IPA 1",  JenisKelamin.laki_laki,   None),
-    ("Rini Marlina",            "2425012", "X IPA 1",  JenisKelamin.perempuan,    "C9D0E1F2"),
-    ("Dani Setiawan",           "2425013", "X IPS 1",  JenisKelamin.laki_laki,   None),
-    ("Laila Nurjannah",         "2425014", "X IPS 1",  JenisKelamin.perempuan,    None),
-    ("Hendra Wijaya",           "2324099", "XII IPA 1", JenisKelamin.laki_laki,   None),  # alumni
+    # (nama_lengkap, nis, kelas, jenis_kelamin, rfid_number, no_telephone_wali)
+    ("Ahmad Fauzi Ramadhan",    "2425001", "XII IPA 1", JenisKelamin.laki_laki,   "A1B2C3D4",  "+6281234000001"),
+    ("Siti Nurhaliza",          "2425002", "XII IPA 1", JenisKelamin.perempuan,    "E5F6G7H8",  "+6281234000002"),
+    ("Budi Santoso",            "2425003", "XII IPA 2", JenisKelamin.laki_laki,   "I9J0K1L2",  "+6281234000003"),
+    ("Dewi Rahayu",             "2425004", "XII IPA 2", JenisKelamin.perempuan,    None,         "+6281234000004"),
+    ("Rizky Pratama",           "2425005", "XII IPS 1", JenisKelamin.laki_laki,   "M3N4O5P6",  "+6281234000005"),
+    ("Putri Aulia",             "2425006", "XII IPS 1", JenisKelamin.perempuan,    None,         None),
+    ("Muhammad Ilham",          "2425007", "XI IPA 1",  JenisKelamin.laki_laki,   "Q7R8S9T0",  "+6281234000007"),
+    ("Anisa Fitriana",          "2425008", "XI IPA 1",  JenisKelamin.perempuan,    "U1V2W3X4",  "+6281234000008"),
+    ("Yoga Aditya",             "2425009", "XI IPA 2",  JenisKelamin.laki_laki,   None,         None),
+    ("Nadia Kusuma",            "2425010", "XI IPS 1",  JenisKelamin.perempuan,    "Y5Z6A7B8",  "+6281234000010"),
+    ("Fajar Nugroho",           "2425011", "X IPA 1",   JenisKelamin.laki_laki,   None,         None),
+    ("Rini Marlina",            "2425012", "X IPA 1",   JenisKelamin.perempuan,    "C9D0E1F2",  "+6281234000012"),
+    ("Dani Setiawan",           "2425013", "X IPS 1",   JenisKelamin.laki_laki,   None,         None),
+    ("Laila Nurjannah",         "2425014", "X IPS 1",   JenisKelamin.perempuan,    None,         "+6281234000014"),
+    ("Hendra Wijaya",           "2324099", "XII IPA 1", JenisKelamin.laki_laki,   None,         None),  # alumni
 ]
 
 ALUMNI_NIS = {"2324099"}
@@ -50,7 +50,7 @@ async def seed() -> None:
     async with async_session_maker() as session:
         # ── Students ─────────────────────────────────────────────────────────
         created = 0
-        for nama, nis, kelas, jenis_kelamin, card_no in STUDENTS:
+        for nama, nis, kelas, jenis_kelamin, rfid_number, no_telephone_wali in STUDENTS:
             existing = await session.execute(select(SiswaProfile).where(SiswaProfile.nis == nis))
             if existing.scalar_one_or_none():
                 print(f"  SKIP student (exists): {nis} {nama}")
@@ -72,10 +72,10 @@ async def seed() -> None:
                 kelas_jurusan=kelas,
                 jenis_kelamin=jenis_kelamin,
                 status_siswa=status,
-                card_no=card_no,
+                rfid_number=rfid_number,
                 tahun_masuk=2024 if nis.startswith("24") else 2023,
                 kewarganegaraan="Indonesia",
-                no_telephone_wali="+6287887617782",
+                no_telephone_wali=no_telephone_wali,
             )
             session.add(profile)
             print(f"  CREATE student: {nis} {nama} [{status.value}]")

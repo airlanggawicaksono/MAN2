@@ -29,9 +29,10 @@ export const studentsApi = createApi({
     }),
 
     listStudents: builder.query<PaginatedStudentsResponse, ListStudentsParams>({
-      query: ({ skip, limit, search }) => {
+      query: ({ skip, limit, search, status_siswa }) => {
         let url = `?skip=${skip}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (status_siswa) url += `&status_siswa=${encodeURIComponent(status_siswa)}`;
         return url;
       },
       providesTags: (result) =>

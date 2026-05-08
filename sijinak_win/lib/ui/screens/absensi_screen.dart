@@ -64,11 +64,11 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen> {
                       final userIdFromRecord = _extractUserIdFromRecordId(row.id);
                       final student = userIdFromRecord != null
                           ? students.where((s) => s.userId == userIdFromRecord).firstOrNull
-                          : students.where((s) => s.cardNo == row.cardNo).firstOrNull;
+                          : students.where((s) => s.rfidNumber == row.rfidNumber).firstOrNull;
                       final displayName = student?.nama ?? 'Unknown';
                       return ListTile(
                         leading: const Icon(Icons.badge_outlined),
-                        title: Text('$displayName - ${row.cardNo}'),
+                        title: Text('$displayName - ${row.rfidNumber}'),
                         subtitle: Text(_formatRecordSubtitle(row.eventType, dt, row.reason)),
                         trailing: row.publishedAt == null
                             ? const Icon(Icons.cloud_off, color: Colors.orange)

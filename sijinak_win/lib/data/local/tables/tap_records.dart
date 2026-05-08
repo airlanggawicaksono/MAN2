@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 class TapRecords extends Table {
   TextColumn get id => text()();
-  TextColumn get cardNo => text()();
+  TextColumn get rfidNumber => text()();
   TextColumn get eventType => text()(); // absen_masuk, absen_keluar, izin
   IntColumn get deviceTime => integer()();
   TextColumn get reason => text().nullable()();
@@ -15,6 +15,6 @@ class TapRecords extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        {cardNo, deviceTime},
+        {rfidNumber, deviceTime},
       ];
 }

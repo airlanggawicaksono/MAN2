@@ -6,31 +6,31 @@ import 'package:path_provider/path_provider.dart';
 
 class PendingCardAssignment {
   final String nis;
-  final String cardNo;
+  final String rfidNumber;
   final int updatedAt;
 
   const PendingCardAssignment({
     required this.nis,
-    required this.cardNo,
+    required this.rfidNumber,
     required this.updatedAt,
   });
 
   Map<String, dynamic> toJson() => {
         'nis': nis,
-        'card_no': cardNo,
+        'rfid_number': rfidNumber,
         'updated_at': updatedAt,
       };
 
   static PendingCardAssignment? fromJson(Map<String, dynamic> json) {
     final nis = (json['nis'] as String?)?.trim();
-    final cardNo = (json['card_no'] as String?)?.trim();
+    final rfidNumber = (json['rfid_number'] as String?)?.trim();
     final updatedAt = json['updated_at'] as int?;
-    if (nis == null || nis.isEmpty || cardNo == null || cardNo.isEmpty) {
+    if (nis == null || nis.isEmpty || rfidNumber == null || rfidNumber.isEmpty) {
       return null;
     }
     return PendingCardAssignment(
       nis: nis,
-      cardNo: cardNo,
+      rfidNumber: rfidNumber,
       updatedAt: updatedAt ?? 0,
     );
   }
@@ -38,7 +38,7 @@ class PendingCardAssignment {
 
 abstract class PendingCardCachePort {
   Future<List<PendingCardAssignment>> listAll();
-  Future<void> upsert(String nis, String cardNo);
+  Future<void> upsert(String nis, String rfidNumber);
   Future<void> remove(String nis);
 }
 
@@ -80,9 +80,9 @@ class PendingCardCacheService implements PendingCardCachePort {
   Future<List<PendingCardAssignment>> listAll() => _readRaw();
 
   @override
-  Future<void> upsert(String nis, String cardNo) async {
+  Future<void> upsert(String nis, String rfidNumber) async {
     final cleanNis = nis.trim();
-    final cleanCard = cardNo.trim();
+    final cleanCard = rfidNumber.trim();
     if (cleanNis.isEmpty || cleanCard.isEmpty) return;
 
     final rows = List<PendingCardAssignment>.from(await _readRaw());
@@ -90,7 +90,7 @@ class PendingCardCacheService implements PendingCardCachePort {
     final idx = rows.indexWhere((e) => e.nis == cleanNis);
     final item = PendingCardAssignment(
       nis: cleanNis,
-      cardNo: cleanCard,
+      rfidNumber: cleanCard,
       updatedAt: now,
     );
     if (idx >= 0) {

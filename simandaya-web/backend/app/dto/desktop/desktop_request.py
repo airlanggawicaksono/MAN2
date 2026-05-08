@@ -26,8 +26,8 @@ class BulkAttendanceSyncDTO(BaseModel):
 
 
 class CardAssignRequestDTO(BaseModel):
-    card_no: str = Field(..., min_length=1, max_length=50)
+    rfid_number: str = Field(..., min_length=1, max_length=50)
 
 
 class CardReplaceRequestDTO(BaseModel):
-    card_no: str = Field(..., min_length=1, max_length=50)
+    rfid_number: str = Field(..., min_length=1, max_length=50)

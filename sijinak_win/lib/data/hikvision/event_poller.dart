@@ -37,8 +37,8 @@ class EventPoller {
     final events = <HikEvent>[];
     for (final info in infoList) {
       final map = info as Map<String, dynamic>;
-      final cardNo = map['cardNo'] as String?;
-      if (cardNo == null || cardNo.isEmpty) continue;
+      final rfidNumber = map['cardNo'] as String?;
+      if (rfidNumber == null || rfidNumber.isEmpty) continue;
 
       DateTime dateTime;
       try {
@@ -48,7 +48,7 @@ class EventPoller {
       }
 
       events.add(HikEvent(
-        cardNo: cardNo,
+        rfidNumber: rfidNumber,
         employeeNo: map['employeeNoString'] as String?,
         dateTime: dateTime,
         serialNo: map['serialNo'] as int? ?? 0,

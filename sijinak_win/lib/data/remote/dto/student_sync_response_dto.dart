@@ -3,7 +3,7 @@ class StudentSyncResponseDTO {
   final String nama;
   final String? nis;
   final String? kelas;
-  final String? cardNo;
+  final String? rfidNumber;
   final String? noTelpWali;
   final String userType;
 
@@ -12,7 +12,7 @@ class StudentSyncResponseDTO {
     required this.nama,
     required this.nis,
     required this.kelas,
-    required this.cardNo,
+    required this.rfidNumber,
     required this.noTelpWali,
     required this.userType,
   });
@@ -23,7 +23,7 @@ class StudentSyncResponseDTO {
       nama: json['nama_lengkap'] as String,
       nis: json['nisn'] as String?,
       kelas: json['kelas_jurusan'] as String?,
-      cardNo: json['card_no'] as String?,
+      rfidNumber: json['rfid_number'] as String?,
       noTelpWali: json['no_telephone_wali'] as String?,
       userType: (json['user_type'] as String?) ?? 'siswa',
     );

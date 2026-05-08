@@ -27,7 +27,7 @@ class SyncService {
       final userIdFromRecordId = _extractUserIdFromRecordId(record.id);
       String? resolvedUserId = userIdFromRecordId;
       if (resolvedUserId == null) {
-        final student = await db.getStudentByCard(record.cardNo);
+        final student = await db.getStudentByCard(record.rfidNumber);
         resolvedUserId = student?.userId;
       }
       if (resolvedUserId == null || resolvedUserId.isEmpty) continue;

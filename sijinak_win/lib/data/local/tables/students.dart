@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 class Students extends Table {
   TextColumn get userId => text()();
-  TextColumn get cardNo => text().nullable()();
+  TextColumn get rfidNumber => text().nullable()();
   TextColumn get nama => text()();
   TextColumn get nis => text().nullable()();
   TextColumn get kelas => text().nullable()();

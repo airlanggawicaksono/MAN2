@@ -15,10 +15,10 @@ abstract class HikvisionDevicePort {
     required String name,
   });
   Future<void> upsertCard({
-    required String cardNo,
+    required String rfidNumber,
     required String employeeNo,
   });
-  Future<void> deleteCard({required String cardNo});
+  Future<void> deleteCard({required String rfidNumber});
   Future<void> deletePerson({required String employeeNo});
   Future<List<HikvisionUserInfo>> listUsers({int pageSize = 200});
   Future<List<HikvisionCardInfo>> listCards({int pageSize = 200});
@@ -240,13 +240,13 @@ class IsapiClient implements HikvisionDevicePort {
   /// If card already exists (from old system), delete it first then re-add.
   @override
   Future<void> upsertCard({
-    required String cardNo,
+    required String rfidNumber,
     required String employeeNo,
   }) async {
     final hikId = employeeNo.replaceAll('-', '');
     final payload = {
       'CardInfo': {
-        'cardNo': cardNo,
+        'cardNo': rfidNumber,
         'cardType': 'normalCard',
         'employeeNo': hikId,
       },
@@ -259,7 +259,7 @@ class IsapiClient implements HikvisionDevicePort {
         // Card belongs to another person — delete first, then re-add
         await putJson('/ISAPI/AccessControl/CardInfo/Delete?format=json', {
           'CardInfoDelCond': {
-            'CardNoList': [{'cardNo': cardNo}],
+            'CardNoList': [{'cardNo': rfidNumber}],
           },
         });
         await postJson('/ISAPI/AccessControl/CardInfo/Record?format=json', payload);
@@ -271,11 +271,11 @@ class IsapiClient implements HikvisionDevicePort {
 
   /// Delete a card from the device.
   @override
-  Future<void> deleteCard({required String cardNo}) async {
+  Future<void> deleteCard({required String rfidNumber}) async {
     await putJson('/ISAPI/AccessControl/CardInfo/Delete?format=json', {
       'CardInfoDelCond': {
         'cardNoList': [
-          {'cardNo': cardNo},
+          {'cardNo': rfidNumber},
         ],
       },
     });
@@ -363,11 +363,11 @@ class IsapiClient implements HikvisionDevicePort {
       final matches = cardInfoSearch['CardInfo'] as List<dynamic>? ?? const [];
       for (final raw in matches) {
         if (raw is! Map<String, dynamic>) continue;
-        final cardNo = (raw['cardNo'] as String?)?.trim();
-        if (cardNo == null || cardNo.isEmpty) continue;
+        final rfidNumber = (raw['cardNo'] as String?)?.trim();
+        if (rfidNumber == null || rfidNumber.isEmpty) continue;
         cards.add(
           HikvisionCardInfo(
-            cardNo: cardNo,
+            rfidNumber: rfidNumber,
             employeeNo: (raw['employeeNo'] as String?)?.trim(),
             cardType: (raw['cardType'] as String?)?.trim(),
           ),
@@ -428,12 +428,12 @@ class HikvisionUserInfo {
 }
 
 class HikvisionCardInfo {
-  final String cardNo;
+  final String rfidNumber;
   final String? employeeNo;
   final String? cardType;
 
   const HikvisionCardInfo({
-    required this.cardNo,
+    required this.rfidNumber,
     this.employeeNo,
     this.cardType,
   });

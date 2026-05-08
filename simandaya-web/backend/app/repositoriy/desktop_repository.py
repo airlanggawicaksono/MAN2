@@ -24,7 +24,7 @@ class DesktopRepository:
                 SiswaProfile.nama_lengkap,
                 SiswaProfile.nis,
                 SiswaProfile.kelas_jurusan,
-                SiswaProfile.card_no,
+                SiswaProfile.rfid_number,
                 SiswaProfile.no_telephone_wali,
             )
             .join(SiswaProfile, User.user_id == SiswaProfile.user_id)
@@ -115,9 +115,9 @@ class DesktopRepository:
         )
         return result.scalar_one_or_none()
 
-    async def find_student_profile_by_card_no(self, card_no: str) -> SiswaProfile | None:
+    async def find_student_profile_by_rfid_number(self, rfid_number: str) -> SiswaProfile | None:
         result = await self.db.execute(
-            select(SiswaProfile).where(SiswaProfile.card_no == card_no)
+            select(SiswaProfile).where(SiswaProfile.rfid_number == rfid_number)
         )
         return result.scalar_one_or_none()
 

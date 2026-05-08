@@ -1,5 +1,5 @@
 class HikEvent {
-  final String cardNo;
+  final String rfidNumber;
   final String? employeeNo;
   final DateTime dateTime;
   final int serialNo;
@@ -7,7 +7,7 @@ class HikEvent {
   final String? attendanceStatus;
 
   HikEvent({
-    required this.cardNo,
+    required this.rfidNumber,
     this.employeeNo,
     required this.dateTime,
     required this.serialNo,
@@ -21,7 +21,7 @@ class HikEvent {
 
   @override
   String toString() =>
-      'HikEvent(card=$cardNo, serial=$serialNo, time=$dateTime, status=$attendanceStatus)';
+      'HikEvent(rfid=$rfidNumber, serial=$serialNo, time=$dateTime, status=$attendanceStatus)';
 }
 
 class DeviceInfo {

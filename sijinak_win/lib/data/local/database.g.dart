@@ -17,10 +17,10 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _cardNoMeta = const VerificationMeta('cardNo');
+  static const VerificationMeta _rfidNumberMeta = const VerificationMeta('rfidNumber');
   @override
-  late final GeneratedColumn<String> cardNo = GeneratedColumn<String>(
-    'card_no',
+  late final GeneratedColumn<String> rfidNumber = GeneratedColumn<String>(
+    'rfid_number',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -93,7 +93,7 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
   @override
   List<GeneratedColumn> get $columns => [
     userId,
-    cardNo,
+    rfidNumber,
     nama,
     nis,
     kelas,
@@ -121,10 +121,10 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
     } else if (isInserting) {
       context.missing(_userIdMeta);
     }
-    if (data.containsKey('card_no')) {
+    if (data.containsKey('rfid_number')) {
       context.handle(
-        _cardNoMeta,
-        cardNo.isAcceptableOrUnknown(data['card_no']!, _cardNoMeta),
+        _rfidNumberMeta,
+        rfidNumber.isAcceptableOrUnknown(data['rfid_number']!, _rfidNumberMeta),
       );
     }
     if (data.containsKey('nama')) {
@@ -184,9 +184,9 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
         DriftSqlType.string,
         data['${effectivePrefix}user_id'],
       )!,
-      cardNo: attachedDatabase.typeMapping.read(
+      rfidNumber: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}card_no'],
+        data['${effectivePrefix}rfid_number'],
       ),
       nama: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -223,7 +223,7 @@ class $StudentsTable extends Students with TableInfo<$StudentsTable, Student> {
 
 class Student extends DataClass implements Insertable<Student> {
   final String userId;
-  final String? cardNo;
+  final String? rfidNumber;
   final String nama;
   final String? nis;
   final String? kelas;
@@ -232,7 +232,7 @@ class Student extends DataClass implements Insertable<Student> {
   final bool hikRegistered;
   const Student({
     required this.userId,
-    this.cardNo,
+    this.rfidNumber,
     required this.nama,
     this.nis,
     this.kelas,
@@ -244,8 +244,8 @@ class Student extends DataClass implements Insertable<Student> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['user_id'] = Variable<String>(userId);
-    if (!nullToAbsent || cardNo != null) {
-      map['card_no'] = Variable<String>(cardNo);
+    if (!nullToAbsent || rfidNumber != null) {
+      map['rfid_number'] = Variable<String>(rfidNumber);
     }
     map['nama'] = Variable<String>(nama);
     if (!nullToAbsent || nis != null) {
@@ -267,9 +267,9 @@ class Student extends DataClass implements Insertable<Student> {
   StudentsCompanion toCompanion(bool nullToAbsent) {
     return StudentsCompanion(
       userId: Value(userId),
-      cardNo: cardNo == null && nullToAbsent
+      rfidNumber: rfidNumber == null && nullToAbsent
           ? const Value.absent()
-          : Value(cardNo),
+          : Value(rfidNumber),
       nama: Value(nama),
       nis: nis == null && nullToAbsent ? const Value.absent() : Value(nis),
       kelas: kelas == null && nullToAbsent
@@ -292,7 +292,7 @@ class Student extends DataClass implements Insertable<Student> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Student(
       userId: serializer.fromJson<String>(json['userId']),
-      cardNo: serializer.fromJson<String?>(json['cardNo']),
+      rfidNumber: serializer.fromJson<String?>(json['rfidNumber']),
       nama: serializer.fromJson<String>(json['nama']),
       nis: serializer.fromJson<String?>(json['nis']),
       kelas: serializer.fromJson<String?>(json['kelas']),
@@ -306,7 +306,7 @@ class Student extends DataClass implements Insertable<Student> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'userId': serializer.toJson<String>(userId),
-      'cardNo': serializer.toJson<String?>(cardNo),
+      'rfidNumber': serializer.toJson<String?>(rfidNumber),
       'nama': serializer.toJson<String>(nama),
       'nis': serializer.toJson<String?>(nis),
       'kelas': serializer.toJson<String?>(kelas),
@@ -318,7 +318,7 @@ class Student extends DataClass implements Insertable<Student> {
 
   Student copyWith({
     String? userId,
-    Value<String?> cardNo = const Value.absent(),
+    Value<String?> rfidNumber = const Value.absent(),
     String? nama,
     Value<String?> nis = const Value.absent(),
     Value<String?> kelas = const Value.absent(),
@@ -327,7 +327,7 @@ class Student extends DataClass implements Insertable<Student> {
     bool? hikRegistered,
   }) => Student(
     userId: userId ?? this.userId,
-    cardNo: cardNo.present ? cardNo.value : this.cardNo,
+    rfidNumber: rfidNumber.present ? rfidNumber.value : this.rfidNumber,
     nama: nama ?? this.nama,
     nis: nis.present ? nis.value : this.nis,
     kelas: kelas.present ? kelas.value : this.kelas,
@@ -338,7 +338,7 @@ class Student extends DataClass implements Insertable<Student> {
   Student copyWithCompanion(StudentsCompanion data) {
     return Student(
       userId: data.userId.present ? data.userId.value : this.userId,
-      cardNo: data.cardNo.present ? data.cardNo.value : this.cardNo,
+      rfidNumber: data.rfidNumber.present ? data.rfidNumber.value : this.rfidNumber,
       nama: data.nama.present ? data.nama.value : this.nama,
       nis: data.nis.present ? data.nis.value : this.nis,
       kelas: data.kelas.present ? data.kelas.value : this.kelas,
@@ -356,7 +356,7 @@ class Student extends DataClass implements Insertable<Student> {
   String toString() {
     return (StringBuffer('Student(')
           ..write('userId: $userId, ')
-          ..write('cardNo: $cardNo, ')
+          ..write('rfidNumber: $rfidNumber, ')
           ..write('nama: $nama, ')
           ..write('nis: $nis, ')
           ..write('kelas: $kelas, ')
@@ -370,7 +370,7 @@ class Student extends DataClass implements Insertable<Student> {
   @override
   int get hashCode => Object.hash(
     userId,
-    cardNo,
+    rfidNumber,
     nama,
     nis,
     kelas,
@@ -383,7 +383,7 @@ class Student extends DataClass implements Insertable<Student> {
       identical(this, other) ||
       (other is Student &&
           other.userId == this.userId &&
-          other.cardNo == this.cardNo &&
+          other.rfidNumber == this.rfidNumber &&
           other.nama == this.nama &&
           other.nis == this.nis &&
           other.kelas == this.kelas &&
@@ -394,7 +394,7 @@ class Student extends DataClass implements Insertable<Student> {
 
 class StudentsCompanion extends UpdateCompanion<Student> {
   final Value<String> userId;
-  final Value<String?> cardNo;
+  final Value<String?> rfidNumber;
   final Value<String> nama;
   final Value<String?> nis;
   final Value<String?> kelas;
@@ -404,7 +404,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   final Value<int> rowid;
   const StudentsCompanion({
     this.userId = const Value.absent(),
-    this.cardNo = const Value.absent(),
+    this.rfidNumber = const Value.absent(),
     this.nama = const Value.absent(),
     this.nis = const Value.absent(),
     this.kelas = const Value.absent(),
@@ -415,7 +415,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   });
   StudentsCompanion.insert({
     required String userId,
-    this.cardNo = const Value.absent(),
+    this.rfidNumber = const Value.absent(),
     required String nama,
     this.nis = const Value.absent(),
     this.kelas = const Value.absent(),
@@ -427,7 +427,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
        nama = Value(nama);
   static Insertable<Student> custom({
     Expression<String>? userId,
-    Expression<String>? cardNo,
+    Expression<String>? rfidNumber,
     Expression<String>? nama,
     Expression<String>? nis,
     Expression<String>? kelas,
@@ -438,7 +438,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   }) {
     return RawValuesInsertable({
       if (userId != null) 'user_id': userId,
-      if (cardNo != null) 'card_no': cardNo,
+      if (rfidNumber != null) 'rfid_number': rfidNumber,
       if (nama != null) 'nama': nama,
       if (nis != null) 'nis': nis,
       if (kelas != null) 'kelas': kelas,
@@ -451,7 +451,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
 
   StudentsCompanion copyWith({
     Value<String>? userId,
-    Value<String?>? cardNo,
+    Value<String?>? rfidNumber,
     Value<String>? nama,
     Value<String?>? nis,
     Value<String?>? kelas,
@@ -462,7 +462,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   }) {
     return StudentsCompanion(
       userId: userId ?? this.userId,
-      cardNo: cardNo ?? this.cardNo,
+      rfidNumber: rfidNumber ?? this.rfidNumber,
       nama: nama ?? this.nama,
       nis: nis ?? this.nis,
       kelas: kelas ?? this.kelas,
@@ -479,8 +479,8 @@ class StudentsCompanion extends UpdateCompanion<Student> {
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
     }
-    if (cardNo.present) {
-      map['card_no'] = Variable<String>(cardNo.value);
+    if (rfidNumber.present) {
+      map['rfid_number'] = Variable<String>(rfidNumber.value);
     }
     if (nama.present) {
       map['nama'] = Variable<String>(nama.value);
@@ -510,7 +510,7 @@ class StudentsCompanion extends UpdateCompanion<Student> {
   String toString() {
     return (StringBuffer('StudentsCompanion(')
           ..write('userId: $userId, ')
-          ..write('cardNo: $cardNo, ')
+          ..write('rfidNumber: $rfidNumber, ')
           ..write('nama: $nama, ')
           ..write('nis: $nis, ')
           ..write('kelas: $kelas, ')
@@ -538,10 +538,10 @@ class $TapRecordsTable extends TapRecords
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _cardNoMeta = const VerificationMeta('cardNo');
+  static const VerificationMeta _rfidNumberMeta = const VerificationMeta('rfidNumber');
   @override
-  late final GeneratedColumn<String> cardNo = GeneratedColumn<String>(
-    'card_no',
+  late final GeneratedColumn<String> rfidNumber = GeneratedColumn<String>(
+    'rfid_number',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -614,7 +614,7 @@ class $TapRecordsTable extends TapRecords
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    cardNo,
+    rfidNumber,
     eventType,
     deviceTime,
     reason,
@@ -639,13 +639,13 @@ class $TapRecordsTable extends TapRecords
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('card_no')) {
+    if (data.containsKey('rfid_number')) {
       context.handle(
-        _cardNoMeta,
-        cardNo.isAcceptableOrUnknown(data['card_no']!, _cardNoMeta),
+        _rfidNumberMeta,
+        rfidNumber.isAcceptableOrUnknown(data['rfid_number']!, _rfidNumberMeta),
       );
     } else if (isInserting) {
-      context.missing(_cardNoMeta);
+      context.missing(_rfidNumberMeta);
     }
     if (data.containsKey('event_type')) {
       context.handle(
@@ -702,7 +702,7 @@ class $TapRecordsTable extends TapRecords
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
   List<Set<GeneratedColumn>> get uniqueKeys => [
-    {cardNo, deviceTime},
+    {rfidNumber, deviceTime},
   ];
   @override
   TapRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
@@ -712,9 +712,9 @@ class $TapRecordsTable extends TapRecords
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      cardNo: attachedDatabase.typeMapping.read(
+      rfidNumber: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}card_no'],
+        data['${effectivePrefix}rfid_number'],
       )!,
       eventType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -751,7 +751,7 @@ class $TapRecordsTable extends TapRecords
 
 class TapRecord extends DataClass implements Insertable<TapRecord> {
   final String id;
-  final String cardNo;
+  final String rfidNumber;
   final String eventType;
   final int deviceTime;
   final String? reason;
@@ -760,7 +760,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   final int? publishedAt;
   const TapRecord({
     required this.id,
-    required this.cardNo,
+    required this.rfidNumber,
     required this.eventType,
     required this.deviceTime,
     this.reason,
@@ -772,7 +772,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['card_no'] = Variable<String>(cardNo);
+    map['rfid_number'] = Variable<String>(rfidNumber);
     map['event_type'] = Variable<String>(eventType);
     map['device_time'] = Variable<int>(deviceTime);
     if (!nullToAbsent || reason != null) {
@@ -791,7 +791,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   TapRecordsCompanion toCompanion(bool nullToAbsent) {
     return TapRecordsCompanion(
       id: Value(id),
-      cardNo: Value(cardNo),
+      rfidNumber: Value(rfidNumber),
       eventType: Value(eventType),
       deviceTime: Value(deviceTime),
       reason: reason == null && nullToAbsent
@@ -814,7 +814,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return TapRecord(
       id: serializer.fromJson<String>(json['id']),
-      cardNo: serializer.fromJson<String>(json['cardNo']),
+      rfidNumber: serializer.fromJson<String>(json['rfidNumber']),
       eventType: serializer.fromJson<String>(json['eventType']),
       deviceTime: serializer.fromJson<int>(json['deviceTime']),
       reason: serializer.fromJson<String?>(json['reason']),
@@ -828,7 +828,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'cardNo': serializer.toJson<String>(cardNo),
+      'rfidNumber': serializer.toJson<String>(rfidNumber),
       'eventType': serializer.toJson<String>(eventType),
       'deviceTime': serializer.toJson<int>(deviceTime),
       'reason': serializer.toJson<String?>(reason),
@@ -840,7 +840,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
 
   TapRecord copyWith({
     String? id,
-    String? cardNo,
+    String? rfidNumber,
     String? eventType,
     int? deviceTime,
     Value<String?> reason = const Value.absent(),
@@ -849,7 +849,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
     Value<int?> publishedAt = const Value.absent(),
   }) => TapRecord(
     id: id ?? this.id,
-    cardNo: cardNo ?? this.cardNo,
+    rfidNumber: rfidNumber ?? this.rfidNumber,
     eventType: eventType ?? this.eventType,
     deviceTime: deviceTime ?? this.deviceTime,
     reason: reason.present ? reason.value : this.reason,
@@ -860,7 +860,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   TapRecord copyWithCompanion(TapRecordsCompanion data) {
     return TapRecord(
       id: data.id.present ? data.id.value : this.id,
-      cardNo: data.cardNo.present ? data.cardNo.value : this.cardNo,
+      rfidNumber: data.rfidNumber.present ? data.rfidNumber.value : this.rfidNumber,
       eventType: data.eventType.present ? data.eventType.value : this.eventType,
       deviceTime: data.deviceTime.present
           ? data.deviceTime.value
@@ -880,7 +880,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   String toString() {
     return (StringBuffer('TapRecord(')
           ..write('id: $id, ')
-          ..write('cardNo: $cardNo, ')
+          ..write('rfidNumber: $rfidNumber, ')
           ..write('eventType: $eventType, ')
           ..write('deviceTime: $deviceTime, ')
           ..write('reason: $reason, ')
@@ -894,7 +894,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
   @override
   int get hashCode => Object.hash(
     id,
-    cardNo,
+    rfidNumber,
     eventType,
     deviceTime,
     reason,
@@ -907,7 +907,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
       identical(this, other) ||
       (other is TapRecord &&
           other.id == this.id &&
-          other.cardNo == this.cardNo &&
+          other.rfidNumber == this.rfidNumber &&
           other.eventType == this.eventType &&
           other.deviceTime == this.deviceTime &&
           other.reason == this.reason &&
@@ -918,7 +918,7 @@ class TapRecord extends DataClass implements Insertable<TapRecord> {
 
 class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   final Value<String> id;
-  final Value<String> cardNo;
+  final Value<String> rfidNumber;
   final Value<String> eventType;
   final Value<int> deviceTime;
   final Value<String?> reason;
@@ -928,7 +928,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   final Value<int> rowid;
   const TapRecordsCompanion({
     this.id = const Value.absent(),
-    this.cardNo = const Value.absent(),
+    this.rfidNumber = const Value.absent(),
     this.eventType = const Value.absent(),
     this.deviceTime = const Value.absent(),
     this.reason = const Value.absent(),
@@ -939,7 +939,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   });
   TapRecordsCompanion.insert({
     required String id,
-    required String cardNo,
+    required String rfidNumber,
     required String eventType,
     required int deviceTime,
     this.reason = const Value.absent(),
@@ -948,13 +948,13 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
     this.publishedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       cardNo = Value(cardNo),
+       rfidNumber = Value(rfidNumber),
        eventType = Value(eventType),
        deviceTime = Value(deviceTime),
        createdAt = Value(createdAt);
   static Insertable<TapRecord> custom({
     Expression<String>? id,
-    Expression<String>? cardNo,
+    Expression<String>? rfidNumber,
     Expression<String>? eventType,
     Expression<int>? deviceTime,
     Expression<String>? reason,
@@ -965,7 +965,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (cardNo != null) 'card_no': cardNo,
+      if (rfidNumber != null) 'rfid_number': rfidNumber,
       if (eventType != null) 'event_type': eventType,
       if (deviceTime != null) 'device_time': deviceTime,
       if (reason != null) 'reason': reason,
@@ -978,7 +978,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
 
   TapRecordsCompanion copyWith({
     Value<String>? id,
-    Value<String>? cardNo,
+    Value<String>? rfidNumber,
     Value<String>? eventType,
     Value<int>? deviceTime,
     Value<String?>? reason,
@@ -989,7 +989,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   }) {
     return TapRecordsCompanion(
       id: id ?? this.id,
-      cardNo: cardNo ?? this.cardNo,
+      rfidNumber: rfidNumber ?? this.rfidNumber,
       eventType: eventType ?? this.eventType,
       deviceTime: deviceTime ?? this.deviceTime,
       reason: reason ?? this.reason,
@@ -1006,8 +1006,8 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (cardNo.present) {
-      map['card_no'] = Variable<String>(cardNo.value);
+    if (rfidNumber.present) {
+      map['rfid_number'] = Variable<String>(rfidNumber.value);
     }
     if (eventType.present) {
       map['event_type'] = Variable<String>(eventType.value);
@@ -1037,7 +1037,7 @@ class TapRecordsCompanion extends UpdateCompanion<TapRecord> {
   String toString() {
     return (StringBuffer('TapRecordsCompanion(')
           ..write('id: $id, ')
-          ..write('cardNo: $cardNo, ')
+          ..write('rfidNumber: $rfidNumber, ')
           ..write('eventType: $eventType, ')
           ..write('deviceTime: $deviceTime, ')
           ..write('reason: $reason, ')
@@ -1065,7 +1065,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 typedef $$StudentsTableCreateCompanionBuilder =
     StudentsCompanion Function({
       required String userId,
-      Value<String?> cardNo,
+      Value<String?> rfidNumber,
       required String nama,
       Value<String?> nis,
       Value<String?> kelas,
@@ -1077,7 +1077,7 @@ typedef $$StudentsTableCreateCompanionBuilder =
 typedef $$StudentsTableUpdateCompanionBuilder =
     StudentsCompanion Function({
       Value<String> userId,
-      Value<String?> cardNo,
+      Value<String?> rfidNumber,
       Value<String> nama,
       Value<String?> nis,
       Value<String?> kelas,
@@ -1101,8 +1101,8 @@ class $$StudentsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get cardNo => $composableBuilder(
-    column: $table.cardNo,
+  ColumnFilters<String> get rfidNumber => $composableBuilder(
+    column: $table.rfidNumber,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1151,8 +1151,8 @@ class $$StudentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get cardNo => $composableBuilder(
-    column: $table.cardNo,
+  ColumnOrderings<String> get rfidNumber => $composableBuilder(
+    column: $table.rfidNumber,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1199,8 +1199,8 @@ class $$StudentsTableAnnotationComposer
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
 
-  GeneratedColumn<String> get cardNo =>
-      $composableBuilder(column: $table.cardNo, builder: (column) => column);
+  GeneratedColumn<String> get rfidNumber =>
+      $composableBuilder(column: $table.rfidNumber, builder: (column) => column);
 
   GeneratedColumn<String> get nama =>
       $composableBuilder(column: $table.nama, builder: (column) => column);
@@ -1254,7 +1254,7 @@ class $$StudentsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> userId = const Value.absent(),
-                Value<String?> cardNo = const Value.absent(),
+                Value<String?> rfidNumber = const Value.absent(),
                 Value<String> nama = const Value.absent(),
                 Value<String?> nis = const Value.absent(),
                 Value<String?> kelas = const Value.absent(),
@@ -1264,7 +1264,7 @@ class $$StudentsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => StudentsCompanion(
                 userId: userId,
-                cardNo: cardNo,
+                rfidNumber: rfidNumber,
                 nama: nama,
                 nis: nis,
                 kelas: kelas,
@@ -1276,7 +1276,7 @@ class $$StudentsTableTableManager
           createCompanionCallback:
               ({
                 required String userId,
-                Value<String?> cardNo = const Value.absent(),
+                Value<String?> rfidNumber = const Value.absent(),
                 required String nama,
                 Value<String?> nis = const Value.absent(),
                 Value<String?> kelas = const Value.absent(),
@@ -1286,7 +1286,7 @@ class $$StudentsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => StudentsCompanion.insert(
                 userId: userId,
-                cardNo: cardNo,
+                rfidNumber: rfidNumber,
                 nama: nama,
                 nis: nis,
                 kelas: kelas,
@@ -1320,7 +1320,7 @@ typedef $$StudentsTableProcessedTableManager =
 typedef $$TapRecordsTableCreateCompanionBuilder =
     TapRecordsCompanion Function({
       required String id,
-      required String cardNo,
+      required String rfidNumber,
       required String eventType,
       required int deviceTime,
       Value<String?> reason,
@@ -1332,7 +1332,7 @@ typedef $$TapRecordsTableCreateCompanionBuilder =
 typedef $$TapRecordsTableUpdateCompanionBuilder =
     TapRecordsCompanion Function({
       Value<String> id,
-      Value<String> cardNo,
+      Value<String> rfidNumber,
       Value<String> eventType,
       Value<int> deviceTime,
       Value<String?> reason,
@@ -1356,8 +1356,8 @@ class $$TapRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get cardNo => $composableBuilder(
-    column: $table.cardNo,
+  ColumnFilters<String> get rfidNumber => $composableBuilder(
+    column: $table.rfidNumber,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1406,8 +1406,8 @@ class $$TapRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get cardNo => $composableBuilder(
-    column: $table.cardNo,
+  ColumnOrderings<String> get rfidNumber => $composableBuilder(
+    column: $table.rfidNumber,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1454,8 +1454,8 @@ class $$TapRecordsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get cardNo =>
-      $composableBuilder(column: $table.cardNo, builder: (column) => column);
+  GeneratedColumn<String> get rfidNumber =>
+      $composableBuilder(column: $table.rfidNumber, builder: (column) => column);
 
   GeneratedColumn<String> get eventType =>
       $composableBuilder(column: $table.eventType, builder: (column) => column);
@@ -1514,7 +1514,7 @@ class $$TapRecordsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> cardNo = const Value.absent(),
+                Value<String> rfidNumber = const Value.absent(),
                 Value<String> eventType = const Value.absent(),
                 Value<int> deviceTime = const Value.absent(),
                 Value<String?> reason = const Value.absent(),
@@ -1524,7 +1524,7 @@ class $$TapRecordsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => TapRecordsCompanion(
                 id: id,
-                cardNo: cardNo,
+                rfidNumber: rfidNumber,
                 eventType: eventType,
                 deviceTime: deviceTime,
                 reason: reason,
@@ -1536,7 +1536,7 @@ class $$TapRecordsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                required String cardNo,
+                required String rfidNumber,
                 required String eventType,
                 required int deviceTime,
                 Value<String?> reason = const Value.absent(),
@@ -1546,7 +1546,7 @@ class $$TapRecordsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => TapRecordsCompanion.insert(
                 id: id,
-                cardNo: cardNo,
+                rfidNumber: rfidNumber,
                 eventType: eventType,
                 deviceTime: deviceTime,
                 reason: reason,

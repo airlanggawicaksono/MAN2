@@ -65,12 +65,12 @@ class HikvisionCleanupResult {
 }
 
 class CardAlreadyAssignedException implements Exception {
-  final String cardNo;
+  final String rfidNumber;
   final String ownerName;
-  CardAlreadyAssignedException(this.cardNo, this.ownerName);
+  CardAlreadyAssignedException(this.rfidNumber, this.ownerName);
 
   @override
-  String toString() => 'Kartu $cardNo sudah dipakai oleh $ownerName';
+  String toString() => 'Kartu $rfidNumber sudah dipakai oleh $ownerName';
 }
 
 class StudentService {
@@ -106,12 +106,12 @@ class StudentService {
         final student = await db.getStudentByNis(row.nis);
         if (student == null) continue;
 
-        if (student.cardNo == row.cardNo) {
+        if (student.rfidNumber == row.rfidNumber) {
           await _pendingCardCache.remove(row.nis);
           continue;
         }
 
-        final duplicate = await checkCardDuplicate(row.cardNo, student.userId);
+        final duplicate = await checkCardDuplicate(row.rfidNumber, student.userId);
         if (duplicate != null) {
           // Keep pending; admin can fix conflict later.
           continue;
@@ -126,10 +126,10 @@ class StudentService {
             );
             await db.markHikRegistered(student.userId);
           }
-          await client.upsertCard(cardNo: row.cardNo, employeeNo: student.userId);
+          await client.upsertCard(rfidNumber: row.rfidNumber, employeeNo: student.userId);
         }
 
-        await db.assignCardToStudent(student.userId, row.cardNo);
+        await db.assignCardToStudent(student.userId, row.rfidNumber);
         await _pendingCardCache.remove(row.nis);
         applied++;
       } catch (_) {
@@ -171,9 +171,9 @@ class StudentService {
 
     final client = _hikvisionClientFactory(config);
 
-    for (final cardNo in removedCardNos) {
+    for (final rfidNumber in removedCardNos) {
       try {
-        await client.deleteCard(cardNo: cardNo);
+        await client.deleteCard(rfidNumber: rfidNumber);
       } catch (_) {
         // Ignore per-card failures; continue best-effort reconciliation.
       }
@@ -202,7 +202,7 @@ class StudentService {
         .where((id) => id.isNotEmpty)
         .toSet();
     final localCardNos = localStudents
-        .map((s) => s.cardNo)
+        .map((s) => s.rfidNumber)
         .whereType<String>()
         .where((card) => card.isNotEmpty)
         .toSet();
@@ -241,20 +241,20 @@ class StudentService {
     int cardsDeleted = 0;
     final deletedCards = <String>[];
     for (final card in deviceCards) {
-      final cardNo = card.cardNo.trim();
-      if (cardNo.isEmpty) continue;
+      final rfidNumber = card.rfidNumber.trim();
+      if (rfidNumber.isEmpty) continue;
 
       final ownerEmployeeNo = (card.employeeNo ?? '').trim();
       if (ownerEmployeeNo.isNotEmpty && adminEmployeeNos.contains(ownerEmployeeNo)) {
         continue;
       }
 
-      if (localCardNos.contains(cardNo)) continue;
+      if (localCardNos.contains(rfidNumber)) continue;
 
       try {
-        await client.deleteCard(cardNo: cardNo);
+        await client.deleteCard(rfidNumber: rfidNumber);
         cardsDeleted++;
-        deletedCards.add(cardNo);
+        deletedCards.add(rfidNumber);
       } catch (_) {
         // Best-effort delete; continue with others.
       }
@@ -276,16 +276,16 @@ class StudentService {
       employeeNo: student.userId,
       name: student.nama,
     );
-    if (student.cardNo != null && student.cardNo!.isNotEmpty) {
-      await client.upsertCard(cardNo: student.cardNo!, employeeNo: student.userId);
+    if (student.rfidNumber != null && student.rfidNumber!.isNotEmpty) {
+      await client.upsertCard(rfidNumber: student.rfidNumber!, employeeNo: student.userId);
     }
     await db.markHikRegistered(student.userId);
   }
 
   /// Check if card is already assigned to another student.
   /// Returns the owner if duplicate, null if available.
-  Future<Student?> checkCardDuplicate(String cardNo, String excludeUserId) async {
-    final existing = await db.getStudentByCard(cardNo);
+  Future<Student?> checkCardDuplicate(String rfidNumber, String excludeUserId) async {
+    final existing = await db.getStudentByCard(rfidNumber);
     if (existing != null && existing.userId != excludeUserId) {
       return existing;
     }
@@ -294,16 +294,14 @@ class StudentService {
 
   /// Assign a card to a student on both Hikvision and local DB.
   /// Throws [CardAlreadyAssignedException] if card belongs to another student.
-  Future<void> assignCard(Student student, String cardNo, AppConfig config) async {
-    // Check for duplicate in local DB
-    final existing = await checkCardDuplicate(cardNo, student.userId);
+  Future<void> assignCard(Student student, String rfidNumber, AppConfig config) async {
+    final existing = await checkCardDuplicate(rfidNumber, student.userId);
     if (existing != null) {
-      throw CardAlreadyAssignedException(cardNo, existing.nama);
+      throw CardAlreadyAssignedException(rfidNumber, existing.nama);
     }
 
     final client = _hikvisionClientFactory(config);
 
-    // Only register person if not already on device
     if (!student.hikRegistered) {
       debugPrint('[assignCard] registering person ${student.userId}');
       await client.upsertPerson(
@@ -316,24 +314,24 @@ class StudentService {
       debugPrint('[assignCard] person already registered, skipping');
     }
 
-    debugPrint('[assignCard] assigning card $cardNo to ${student.userId}');
+    debugPrint('[assignCard] assigning card $rfidNumber to ${student.userId}');
     await client.upsertCard(
-      cardNo: cardNo,
+      rfidNumber: rfidNumber,
       employeeNo: student.userId,
     );
     debugPrint('[assignCard] card assigned on device');
-    await db.assignCardToStudent(student.userId, cardNo);
+    await db.assignCardToStudent(student.userId, rfidNumber);
     debugPrint('[assignCard] card saved to DB');
   }
 
   /// Remove card from student (local DB + Hikvision).
   Future<void> removeCard(Student student, AppConfig config) async {
-    if (student.cardNo == null) return;
+    if (student.rfidNumber == null) return;
 
     if (config.isHikvisionConfigured) {
       try {
         final client = _hikvisionClientFactory(config);
-        await client.deleteCard(cardNo: student.cardNo!);
+        await client.deleteCard(rfidNumber: student.rfidNumber!);
       } catch (_) {
         // Card might not exist on device, continue anyway
       }
@@ -342,7 +340,7 @@ class StudentService {
     await db.removeCardFromStudent(student.userId);
   }
 
-  /// Bulk assign cards from CSV data (list of {nis, cardNo} maps).
+  /// Bulk assign cards from CSV data (list of {nis, rfidNumber} maps).
   /// Yields progress per row.
   Stream<BulkCardAssignProgress> bulkAssignCards(
     List<Map<String, String>> rows,
@@ -359,7 +357,7 @@ class StudentService {
 
     for (int i = 0; i < rows.length; i++) {
       final nis = rows[i]['nis']!;
-      final cardNo = rows[i]['cardNo']!;
+      final rfidNumber = rows[i]['rfidNumber']!;
 
       yield BulkCardAssignProgress(
         current: i + 1,
@@ -375,25 +373,23 @@ class StudentService {
         final student = await db.getStudentByNis(nis);
         if (student == null) {
           skipped++;
-          await _pendingCardCache.upsert(nis, cardNo);
+          await _pendingCardCache.upsert(nis, rfidNumber);
           errors.add('NIS $nis: siswa belum ada di local DB, disimpan ke cache');
           continue;
         }
 
-        if (student.cardNo == cardNo) {
+        if (student.rfidNumber == rfidNumber) {
           skipped++;
           continue;
         }
 
-        // Check duplicate
-        final existing = await checkCardDuplicate(cardNo, student.userId);
+        final existing = await checkCardDuplicate(rfidNumber, student.userId);
         if (existing != null) {
           failed++;
-          errors.add('NIS $nis: kartu $cardNo sudah dipakai ${existing.nama}');
+          errors.add('NIS $nis: kartu $rfidNumber sudah dipakai ${existing.nama}');
           continue;
         }
 
-        // Push to Hikvision
         if (client != null) {
           if (!student.hikRegistered) {
             await client.upsertPerson(
@@ -402,10 +398,10 @@ class StudentService {
             );
             await db.markHikRegistered(student.userId);
           }
-          await client.upsertCard(cardNo: cardNo, employeeNo: student.userId);
+          await client.upsertCard(rfidNumber: rfidNumber, employeeNo: student.userId);
         }
 
-        await db.assignCardToStudent(student.userId, cardNo);
+        await db.assignCardToStudent(student.userId, rfidNumber);
         success++;
       } catch (e) {
         failed++;
@@ -426,7 +422,7 @@ class StudentService {
   }
 
   /// Bulk assign cards from CSV data, going through backend API first.
-  /// Only assigns to students where cardNo == null on server.
+  /// Only assigns to students where rfidNumber == null on server.
   Stream<BulkCardAssignProgress> bulkAssignCardsViaBackend(
     List<Map<String, String>> rows,
     AppConfig config,
@@ -443,7 +439,7 @@ class StudentService {
 
     for (int i = 0; i < rows.length; i++) {
       final nis = rows[i]['nis'] ?? '';
-      final cardNo = rows[i]['cardNo'] ?? '';
+      final rfidNumber = rows[i]['rfidNumber'] ?? '';
 
       yield BulkCardAssignProgress(
         current: i + 1,
@@ -455,7 +451,7 @@ class StudentService {
         done: false,
       );
 
-      if (nis.isEmpty || cardNo.isEmpty) {
+      if (nis.isEmpty || rfidNumber.isEmpty) {
         skipped++;
         continue;
       }
@@ -468,13 +464,13 @@ class StudentService {
           continue;
         }
 
-        if (student.cardNo != null) {
+        if (student.rfidNumber != null) {
           skipped++;
-          errors.add('NIS $nis: sudah punya kartu (${student.cardNo})');
+          errors.add('NIS $nis: sudah punya kartu (${student.rfidNumber})');
           continue;
         }
 
-        await api.assignStudentCard(student.userId, cardNo);
+        await api.assignStudentCard(student.userId, rfidNumber);
 
         if (hikClient != null) {
           if (!student.hikRegistered) {
@@ -484,10 +480,10 @@ class StudentService {
             );
             await db.markHikRegistered(student.userId);
           }
-          await hikClient.upsertCard(cardNo: cardNo, employeeNo: student.userId);
+          await hikClient.upsertCard(rfidNumber: rfidNumber, employeeNo: student.userId);
         }
 
-        await db.assignCardToStudent(student.userId, cardNo);
+        await db.assignCardToStudent(student.userId, rfidNumber);
         success++;
       } on ApiException catch (e) {
         failed++;

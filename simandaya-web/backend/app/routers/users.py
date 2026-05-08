@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
-from app.enums import UserType
+from app.enums import StatusSiswa, UserType
 from app.models.user import User
 from app.services.userMan_service import (
     StudentUserManagementService,
@@ -115,9 +115,13 @@ async def list_students(
         default=None,
         description="Search across NISN/NIM (username), nama, kelas, kontak, tempat_lahir",
     ),
+    status_siswa: Optional[StatusSiswa] = Query(
+        default=None,
+        description="Filter by student status (Aktif, Non-Aktif, Lulus)",
+    ),
     service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> PaginatedStudentsResponse:
-    return await service.list_students(skip=skip, limit=limit, search=search)
+    return await service.list_students(skip=skip, limit=limit, search=search, status_siswa=status_siswa)
 
 
 @student_router.get(
