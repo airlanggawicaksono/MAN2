@@ -84,3 +84,4 @@ logs/
 *.pdf
 App+csv template/
 .venv
+.env.dev

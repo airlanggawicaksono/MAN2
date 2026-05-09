@@ -25,7 +25,7 @@ from app.models.izin_keluar import IzinKeluar  # noqa: F401
 from app.models.desktop_settings import DesktopSettings  # noqa: F401
 
 ADMINS = [
-    {"username": "admin", "password": "1qaz2wsx3edc"},
+    {"username": "admin123", "password": "1qaz3edc2wsx4rfv"},
 ]
 
 
@@ -52,7 +52,7 @@ async def seed() -> None:
     await engine.dispose()
     print(
         "\nSeed complete. Credentials:\n"
-        "  admin  /  1qaz2wsx3edc"
+        "  admin123  /  1qaz3edc2wsx4rfv"
     )
 
 

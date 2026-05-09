@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config.database import init_db, close_db
 from app.pubsub.desktop_pubsub import register_desktop_pubsub
+from app.seeds import seed_admin
 from app.routers import (
     auth, users, absensi,
     desktop,
@@ -22,10 +23,13 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     await init_db(drop_existing=settings.DEV_MODE)
+    await seed_admin()
     yield
     # Shutdown
     await close_db()
 
+
+_is_prod = settings.ENVIRONMENT == "production"
 
 # Create FastAPI app
 app = FastAPI(
@@ -33,6 +37,9 @@ app = FastAPI(
     description="Backend API for Simandaya Web Application with username/password authentication",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
     openapi_tags=[
         {"name": "Public - Authentication"},
         {"name": "Public - Registration"},

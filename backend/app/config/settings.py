@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     Priority: Environment variables > backend/.env > root .env
     """
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
+        env_file=str(Path(__file__).parent.parent.parent / ".env.dev"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"
@@ -53,6 +53,10 @@ class Settings(BaseSettings):
 
     # Password Hashing Configuration
     BCRYPT_ROUNDS: int = 12
+
+    # Admin Seed Credentials
+    ADMIN_USERNAME: str = "admin123"
+    ADMIN_PASSWORD: str = "1qaz3edc2wsx4rfv"
 
     # Desktop App Configuration
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"

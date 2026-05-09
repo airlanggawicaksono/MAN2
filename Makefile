@@ -5,10 +5,10 @@
         seed-admins import-students \
         logs status clean
 
-include .env
+include .env.dev
 export
 
-DEV  = docker compose --env-file .env
+DEV  = docker compose --env-file .env.dev
 PROD = docker compose --env-file .env.prod
 
 # ── Help ─────────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ help:
 	@echo "Simandaya Web"
 	@echo "============="
 	@echo ""
-	@echo "Dev  (.env):"
+	@echo "Dev  (.env.dev):"
 	@echo "  make dev-up         Start all services in background"
 	@echo "  make dev-down       Stop all services"
 	@echo "  make dev-reset-seed Reset PostgreSQL volume only, restart services, and seed admins"
@@ -50,14 +50,14 @@ help:
 	@echo "  make setup          Create .env files from examples"
 	@echo ""
 	@echo "Ports:"
-	@echo "  Frontend:  http://localhost:${FRONTEND_EXTERNAL_PORT}"
-	@echo "  Backend:   http://localhost:${BACKEND_EXTERNAL_PORT}/docs"
+	@echo "  Frontend:  http://localhost:${FRONTEND_EXTERNAL_PORT}  (or port 80 via nginx in prod)"
+	@echo "  Backend:   http://localhost:${BACKEND_EXTERNAL_PORT}"
 	@echo "  Database:  localhost:${POSTGRES_EXTERNAL_PORT}"
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 
 setup:
-	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env"; else echo ".env already exists"; fi
+	@if [ ! -f .env.dev ]; then cp .env.dev.example .env.dev && echo "Created .env.dev"; else echo ".env.dev already exists"; fi
 	@if [ ! -f .env.prod ]; then cp .env.prod.example .env.prod && echo "Created .env.prod"; else echo ".env.prod already exists"; fi
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
@@ -102,6 +102,11 @@ prod-build:
 
 prod-up:
 	$(PROD) up -d
+	@echo "Configuring nginx..."
+	@sudo cp simandaya.conf /etc/nginx/sites-available/simandaya.conf
+	@sudo ln -sf /etc/nginx/sites-available/simandaya.conf /etc/nginx/sites-enabled/simandaya.conf
+	@sudo nginx -t && sudo systemctl reload nginx
+	@echo "Nginx configured and reloaded"
 
 prod-down:
 	$(PROD) stop

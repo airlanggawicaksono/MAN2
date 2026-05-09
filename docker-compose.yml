@@ -48,6 +48,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
       DESKTOP_API_KEY: ${DESKTOP_API_KEY:-your-desktop-api-key-change-this}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-1qaz3edc2wsx4rfv}
     ports:
       - "${BACKEND_EXTERNAL_PORT:-2385}:${APP_PORT:-2385}"
     depends_on:
@@ -57,13 +59,13 @@ services:
       - simandaya-network
     volumes:
       - ./backend:/app
-    # APP_RELOAD controls --reload (dev) vs --workers 4 (prod)
+    # APP_RELOAD controls --reload (dev) vs --workers 2 (prod)
     command: >
       sh -c "
         if [ \"$$APP_RELOAD\" = \"true\" ]; then
-          uvicorn app.main:app --host 0.0.0.0 --port $$APP_PORT --reload
+          uvicorn app.main:app --host $$APP_HOST --port $$APP_PORT --reload
         else
-          uvicorn app.main:app --host 0.0.0.0 --port $$APP_PORT --workers 4
+          uvicorn app.main:app --host $$APP_HOST --port $$APP_PORT --workers 2
         fi
       "
 
