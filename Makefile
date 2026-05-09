@@ -1,6 +1,6 @@
 .PHONY: help setup \
         dev-up dev-down dev-reset-seed dev-nuke-seed dev-backend dev-frontend \
-        prod-build prod-up prod-down \
+        prod-up prod-down clean-prod \
         db-up db-down db-shell db-reset db-reset-hard \
         seed-admins import-students \
         logs status clean
@@ -27,9 +27,9 @@ help:
 	@echo "  make dev-frontend   Start frontend only (background)"
 	@echo ""
 	@echo "Prod  (.env.prod):"
-	@echo "  make prod-build     Build frontend (lint + type check + compile)"
-	@echo "  make prod-up        Start all services in background"
+	@echo "  make prod-up        Build frontend + start all services in background"
 	@echo "  make prod-down      Stop all services"
+	@echo "  make clean-prod     Down + remove all prod volumes"
 	@echo ""
 	@echo "Database:"
 	@echo "  make db-up          Start only the database"
@@ -97,20 +97,18 @@ dev-frontend:
 
 # ── Prod ──────────────────────────────────────────────────────────────────────
 
-prod-build:
-	@echo "Building frontend (runs lint + type check)..."
-	$(PROD) run --rm frontend sh -c "pnpm install && pnpm build"
-
 prod-up:
+	@echo "Building frontend..."
+	$(PROD) run --rm frontend sh -c "pnpm install && pnpm build"
 	$(PROD) up -d
-	@echo "Configuring nginx..."
-	@sudo cp simandaya.conf /etc/nginx/sites-available/simandaya.conf
-	@sudo ln -sf /etc/nginx/sites-available/simandaya.conf /etc/nginx/sites-enabled/simandaya.conf
-	@sudo nginx -t && sudo systemctl reload nginx
-	@echo "Nginx configured and reloaded"
 
 prod-down:
 	$(PROD) stop
+
+clean-prod:
+	@echo "Nuking prod containers + volumes..."
+	$(PROD) down -v --remove-orphans
+	@echo "Prod cleaned"
 
 # ── Database ─────────────────────────────────────────────────────────────────
 

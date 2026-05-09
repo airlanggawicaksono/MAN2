@@ -95,12 +95,14 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    # NODE_ENV controls pnpm dev (dev) vs pnpm start (prod)
-    # For prod: run `make prod-build` first to compile the Next.js app
+    # NODE_ENV controls pnpm dev (dev) vs standalone server.js (prod)
+    # For prod: `make prod-up` builds first → produces .next/standalone/server.js
     command: >
       sh -c "
         if [ \"$$NODE_ENV\" = \"production\" ]; then
-          exec pnpm start
+          cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
+          cp -r public .next/standalone/ 2>/dev/null || true
+          cd .next/standalone && exec node server.js
         else
           pnpm install --no-frozen-lockfile && exec pnpm dev
         fi

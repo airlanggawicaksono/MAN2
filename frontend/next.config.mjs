@@ -3,6 +3,7 @@ const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://backend:2385";
 
 const nextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   images: {
     remotePatterns: [
       {
@@ -30,6 +31,10 @@ const nextConfig = {
       {
         source: "/api/v1/:path*",
         destination: `${backendUrl}/api/v1/:path*`,
+      },
+      {
+        source: "/api/desktop/:path*",
+        destination: `${backendUrl}/api/desktop/:path*`,
       },
     ];
   },
