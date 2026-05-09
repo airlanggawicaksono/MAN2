@@ -92,8 +92,7 @@ services:
       - backend
     networks:
       - simandaya-network
-    # Public mounted from host → CMS uploads + data.json edits persist live.
-    # Logo, layanan images, etc. are also served from host (editable on disk).
+    # Whole public mounted live from host. CMS uploads + static assets all editable on disk.
     volumes:
       - ./frontend/public:/app/public
 

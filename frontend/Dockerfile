@@ -10,7 +10,7 @@ FROM deps AS builder
 COPY . .
 RUN pnpm build
 
-# Standalone runner — server + .next baked in. Public mounted from host (live editable CMS).
+# Standalone runner — server + .next baked in. Public mounted live from host.
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
