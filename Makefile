@@ -1,6 +1,7 @@
 .PHONY: help setup \
         dev-up dev-down dev-reset-seed dev-nuke-seed dev-backend dev-frontend \
         prod-up prod-down clean-prod \
+        lint lint-be lint-fe \
         db-up db-down db-shell db-reset db-reset-hard \
         seed-admins import-students \
         logs status clean
@@ -43,6 +44,11 @@ help:
 	@echo "  make seed-demo                Seed demo students + desktop settings"
 	@echo "  make seed-all                 Seed admins + demo students"
 	@echo "  make import-students FILE=x   Import students from xlsx"
+	@echo ""
+	@echo "Lint:"
+	@echo "  make lint           Run backend ruff + frontend tsc --noEmit"
+	@echo "  make lint-be        Backend ruff check (auto-installs ruff if missing)"
+	@echo "  make lint-fe        Frontend tsc --noEmit"
 	@echo ""
 	@echo "Other:"
 	@echo "  make logs           Stream logs for all running services"
@@ -109,6 +115,18 @@ clean-prod:
 	@echo "Nuking prod containers + volumes..."
 	$(PROD) down -v --remove-orphans
 	@echo "Prod cleaned"
+
+# ── Lint ─────────────────────────────────────────────────────────────────────
+
+lint: lint-be lint-fe
+
+lint-be:
+	@echo "Backend ruff check..."
+	$(DEV) exec backend sh -c "command -v ruff >/dev/null 2>&1 || pip install --quiet ruff; ruff check ."
+
+lint-fe:
+	@echo "Frontend tsc --noEmit..."
+	$(DEV) exec frontend sh -c "pnpm tsc --noEmit"
 
 # ── Database ─────────────────────────────────────────────────────────────────
 
