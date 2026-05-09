@@ -56,7 +56,6 @@ async def import_students(xlsx_path: str):
     # Collect rows
     rows = []
     for row in ws.iter_rows(min_row=data_start, values_only=True):
-        person_id = row[0]
         organization = row[1]
         person_name = row[2]
         gender = row[3]

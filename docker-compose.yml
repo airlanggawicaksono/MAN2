@@ -100,8 +100,8 @@ services:
     command: >
       sh -c "
         if [ \"$$NODE_ENV\" = \"production\" ]; then
-          cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
-          cp -r public .next/standalone/ 2>/dev/null || true
+          ln -sfn /app/.next/static /app/.next/standalone/.next/static
+          ln -sfn /app/public /app/.next/standalone/public
           cd .next/standalone && exec node server.js
         else
           pnpm install --no-frozen-lockfile && exec pnpm dev

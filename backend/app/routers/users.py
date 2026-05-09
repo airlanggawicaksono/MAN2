@@ -1,12 +1,11 @@
 from __future__ import annotations
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import require_role
 from app.enums import StatusSiswa, UserType
-from app.models.user import User
 from app.services.userMan_service import (
     StudentUserManagementService,
     TeacherUserManagementService,

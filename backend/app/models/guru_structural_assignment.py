@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, ForeignKey, UUID as SQLAlchemyUUID, Column
+from sqlalchemy import Boolean, Date, ForeignKey, UUID as SQLAlchemyUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config.database import Base

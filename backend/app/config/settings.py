@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
-import os
 from pathlib import Path
+
 
 
 class Settings(BaseSettings):
@@ -11,11 +11,12 @@ class Settings(BaseSettings):
     Reads from .env file automatically
     Priority: Environment variables > backend/.env > root .env
     """
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent.parent / ".env.dev"),
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
     )
 
     DEV_MODE: bool = False
@@ -78,6 +79,7 @@ class Settings(BaseSettings):
         if not raw:
             return []
         return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+
 
 # Singleton instance
 settings = Settings()

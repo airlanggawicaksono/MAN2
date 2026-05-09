@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.siswa_profile import SiswaProfile
+    from app.models.guru_profile import GuruProfile
 from sqlalchemy import String, Boolean, DateTime, Enum as SQLAlchemyEnum, UUID as SQLAlchemyUUID, func
 import bcrypt as bcrypt_lib
 from app.config.database import Base

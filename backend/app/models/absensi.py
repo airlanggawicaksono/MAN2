@@ -1,7 +1,10 @@
 from uuid import UUID, uuid4
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.user import User
 from sqlalchemy import (
     Date, DateTime, Enum as SQLAlchemyEnum,
     UUID as SQLAlchemyUUID, ForeignKey, UniqueConstraint
