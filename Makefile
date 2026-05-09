@@ -5,7 +5,8 @@
         seed-admins import-students \
         logs status clean
 
-include .env.dev
+-include .env.dev
+-include .env.prod
 export
 
 DEV  = docker compose --env-file .env.dev
