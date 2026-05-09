@@ -92,22 +92,10 @@ services:
       - backend
     networks:
       - simandaya-network
+    # Public mounted from host → CMS uploads + data.json edits persist live.
+    # Logo, layanan images, etc. are also served from host (editable on disk).
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    # NODE_ENV controls pnpm dev (dev) vs standalone server.js (prod)
-    # For prod: `make prod-up` builds first → produces .next/standalone/server.js
-    command: >
-      sh -c "
-        if [ \"$$NODE_ENV\" = \"production\" ]; then
-          rm -rf /app/.next/standalone/public /app/.next/standalone/.next/static
-          ln -sfn /app/public /app/.next/standalone/public
-          ln -sfn /app/.next/static /app/.next/standalone/.next/static
-          cd .next/standalone && exec node server.js
-        else
-          pnpm install --no-frozen-lockfile && exec pnpm dev
-        fi
-      "
+      - ./frontend/public:/app/public
 
 networks:
   simandaya-network:

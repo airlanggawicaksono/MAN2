@@ -11,7 +11,7 @@
 export
 
 DEV  = docker compose --env-file .env.dev
-PROD = docker compose --env-file .env.prod
+PROD = docker compose --env-file .env.prod -f docker-compose.yml
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -104,9 +104,7 @@ dev-frontend:
 # ── Prod ──────────────────────────────────────────────────────────────────────
 
 prod-up:
-	@echo "Building frontend..."
-	$(PROD) run --rm frontend sh -c "pnpm install && pnpm build"
-	$(PROD) up -d
+	$(PROD) up -d --build
 
 prod-down:
 	$(PROD) stop
