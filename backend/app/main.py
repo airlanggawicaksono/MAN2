@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config.logging import setup_logging, get_logger
-setup_logging()
 from app.config.database import init_db, close_db
 from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.seeds import seed_admin
@@ -13,6 +12,7 @@ from app.routers import (
 from app.config.settings import settings
 from app.middleware.request_log import RequestLogMiddleware
 
+setup_logging()
 log = get_logger("simandaya.main")
 
 
