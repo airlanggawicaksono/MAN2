@@ -145,7 +145,6 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   const [isDragOverPicker, setIsDragOverPicker] = useState(false);
   const [isDraggingFocus, setIsDraggingFocus] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [previewNonce, setPreviewNonce] = useState<number>(() => Date.now());
   const [previewError, setPreviewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -184,7 +183,6 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
 
   useEffect(() => {
     if (!imageUrl) return;
-    setPreviewNonce(Date.now());
     setPreviewError(null);
     previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [imageUrl]);
@@ -293,7 +291,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
 
   function renderInteractivePreview(previewAlt: string) {
     if (!imageUrl || !isImageType) return null;
-    const previewSrc = `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}v=${previewNonce}`;
+    const previewSrc = imageUrl;
     return (
       <div className="space-y-2">
         <div
