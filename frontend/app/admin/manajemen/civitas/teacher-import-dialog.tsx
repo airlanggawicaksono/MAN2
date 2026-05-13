@@ -11,41 +11,41 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useQueueImportStudentsMutation } from "@/api/admin/jobs";
-import { studentsApi } from "@/api/admin/students";
+import { useQueueImportTeachersMutation } from "@/api/admin/jobs";
+import { teachersApi } from "@/api/admin/teachers";
 import { trackJob } from "@/store/slices/jobs";
 import { useJobPolling } from "@/hooks/useJobPolling";
 import { notifySuccess, notifyError } from "@/lib/app-notify";
-import type { CreateStudentRequest, BulkImportResult } from "@/types/students";
+import type { CreateGuruRequest, BulkImportGuruResult } from "@/types/teachers";
 import { useSpreadsheetParser } from "@/hooks/useSpreadsheetParser";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 
-interface StudentImportDialogProps {
+interface TeacherImportDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
 const REQUIRED_HEADERS = ["nama_lengkap"] as const;
 
-export function StudentImportDialog({ open, onClose }: StudentImportDialogProps) {
+export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps) {
   const dispatch = useDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [parsed, setParsed] = useState<CreateStudentRequest[]>([]);
+  const [parsed, setParsed] = useState<CreateGuruRequest[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
-  const [result, setResult] = useState<BulkImportResult | null>(null);
+  const [result, setResult] = useState<BulkImportGuruResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [queueImport, { isLoading, error }] = useQueueImportStudentsMutation();
+  const [queueImport, { isLoading, error }] = useQueueImportTeachersMutation();
 
   const { job } = useJobPolling({
     jobId: activeJobId,
     onSucceeded: (j) => {
-      setResult(j.result as unknown as BulkImportResult);
+      setResult(j.result as unknown as BulkImportGuruResult);
       setParsed([]);
       setActiveJobId(null);
-      dispatch(studentsApi.util.invalidateTags([{ type: "Student", id: "LIST" }]));
-      notifySuccess("Import siswa selesai.");
+      dispatch(teachersApi.util.invalidateTags([{ type: "Teacher", id: "LIST" }]));
+      notifySuccess("Import civitas selesai.");
     },
     onFailed: (j) => {
       setActiveJobId(null);
@@ -53,29 +53,25 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
     },
   });
 
-  const { validateFileType, parseFile } = useSpreadsheetParser<CreateStudentRequest>({
+  const { validateFileType, parseFile } = useSpreadsheetParser<CreateGuruRequest>({
     requiredHeaders: REQUIRED_HEADERS,
     mapRow: (_, helpers) => {
       const nama = helpers.get("nama_lengkap");
       if (!nama) return { skip: true };
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw) : undefined;
-      const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
-      const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
       return {
         row: {
           nama_lengkap: nama,
-          nisn: helpers.get("nisn") || helpers.get("nis") || undefined,
-          kelas_jurusan: helpers.get("kelas_jurusan") || undefined,
+          nip: helpers.get("nip") || undefined,
+          nik: helpers.get("nik") || undefined,
+          mata_pelajaran: helpers.get("mata_pelajaran") || helpers.get("mapel") || undefined,
+          pendidikan_terakhir: helpers.get("pendidikan_terakhir") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
-          nama_wali: helpers.get("nama_wali") || undefined,
-          no_telephone_wali: helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || undefined,
           alamat: helpers.get("alamat") || undefined,
           tahun_masuk: !isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
-          rfid_number: helpers.get("rfid_number") || helpers.get("card_number") || undefined,
-          status_siswa: isAlumni ? "Lulus" : undefined,
         },
       };
     },
@@ -127,34 +123,27 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import Siswa via CSV / XLSX</DialogTitle>
+          <DialogTitle>Import Civitas via CSV / XLSX</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Format info */}
           <div className="rounded-lg bg-muted/40 border border-border/70 p-3 text-xs text-muted-foreground space-y-2">
             <p className="font-semibold text-foreground">Format header kolom:</p>
             <p className="leading-relaxed">
               <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
               <span className="text-destructive font-medium">(wajib)</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">nisn</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">kelas_jurusan</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">nip</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">nik</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">mata_pelajaran</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">pendidikan_terakhir</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tahun_masuk</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kontak</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">nama_wali</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">no_telephone_wali</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">alamat</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">rfid_number</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">is_alumni</span>
+              <span className="font-mono bg-background border rounded px-1">alamat</span>
             </p>
-            <p>
-              Kolom <span className="font-mono bg-background border rounded px-1">is_alumni</span>{" "}
-              diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> / <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
-            </p>
+            <p>Civitas tidak menggunakan RFID — kolom rfid akan diabaikan.</p>
           </div>
 
-          {/* File picker */}
           {!result && (
             <div className="flex items-center gap-3">
               <input
@@ -181,7 +170,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </div>
           )}
 
-          {/* Parse errors */}
           {parseErrors.length > 0 && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
               {parseErrors.map((e, i) => (
@@ -190,11 +178,10 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </div>
           )}
 
-          {/* Preview */}
           {parsed.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">
-                {parsed.length} siswa siap diimport:
+                {parsed.length} civitas siap diimport:
               </p>
               <div className="max-h-52 overflow-y-auto rounded border border-border/70 divide-y divide-border/60">
                 {parsed.slice(0, 50).map((s, i) => (
@@ -202,25 +189,22 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-muted-foreground/70 text-xs">
                       {[
-                        s.nisn && `NISN: ${s.nisn}`,
-                        s.kelas_jurusan,
-                        s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`,
-                        s.rfid_number && `RFID: ${s.rfid_number}`,
-                        s.status_siswa === "Lulus" && "Alumni",
+                        s.nip && `NIP: ${s.nip}`,
+                        s.mata_pelajaran,
+                        s.pendidikan_terakhir,
                       ].filter(Boolean).join(" · ")}
                     </span>
                   </div>
                 ))}
                 {parsed.length > 50 && (
                   <p className="text-xs text-muted-foreground/70 px-3 py-2">
-                    ...dan {parsed.length - 50} siswa lainnya
+                    ...dan {parsed.length - 50} civitas lainnya
                   </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Import result */}
           {result && (
             <div className="space-y-3">
               <div className="flex gap-3">
@@ -286,7 +270,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
               disabled={parsed.length === 0 || isProcessing}
               onClick={handleImport}
             >
-              {isProcessing ? "Mengimport..." : `Import ${parsed.length} Siswa`}
+              {isProcessing ? "Mengimport..." : `Import ${parsed.length} Civitas`}
             </Button>
           )}
         </DialogFooter>

@@ -7,10 +7,9 @@
         logs status clean
 
 -include .env.dev
--include .env.prod
 export
 
-DEV  = docker compose --env-file .env.dev
+DEV  = docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml
 PROD = docker compose --env-file .env.prod -f docker-compose.yml
 
 # ── Help ─────────────────────────────────────────────────────────────────────
@@ -120,11 +119,12 @@ lint: lint-be lint-fe
 
 lint-be:
 	@echo "Backend ruff check..."
-	$(DEV) exec backend sh -c "command -v ruff >/dev/null 2>&1 || pip install --quiet ruff; ruff check ."
+	@command -v ruff >/dev/null 2>&1 || pip install --quiet ruff
+	ruff check backend
 
 lint-fe:
 	@echo "Frontend tsc --noEmit..."
-	$(DEV) exec frontend sh -c "pnpm tsc --noEmit"
+	cd frontend && pnpm tsc --noEmit
 
 # ── Database ─────────────────────────────────────────────────────────────────
 

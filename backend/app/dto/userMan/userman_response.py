@@ -99,3 +99,18 @@ class BulkImportStudentResultDTO(BaseModel):
     skipped: int
     errors: int
     items: list[BulkImportStudentResultItem]
+
+
+class BulkImportGuruResultItem(BaseModel):
+    row: int
+    nama_lengkap: str
+    nip: Optional[str] = None
+    status: Literal["created", "skipped", "error"]
+    detail: Optional[str] = None
+
+
+class BulkImportGuruResultDTO(BaseModel):
+    created: int
+    skipped: int
+    errors: int
+    items: list[BulkImportGuruResultItem]

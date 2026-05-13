@@ -141,3 +141,20 @@ class JenisTugas(Enum):
     uas = "UAS"
     ujian_praktik = "Ujian Praktik"
     proyek = "Proyek"
+
+
+# ── Async Job Enums ──────────────────────────────────────────────────────────
+
+
+class JobStatus(Enum):
+    pending = "pending"
+    running = "running"
+    succeeded = "succeeded"
+    failed = "failed"
+
+
+class JobType(Enum):
+    import_students = "import_students"
+    import_teachers = "import_teachers"
+    export_students = "export_students"
+    export_teachers = "export_teachers"

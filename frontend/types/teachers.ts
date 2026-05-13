@@ -71,3 +71,34 @@ export interface ListTeachersParams {
   limit: number;
   search?: string;
 }
+
+export interface CreateGuruRequest {
+  nip?: string;
+  nama_lengkap: string;
+  dob?: string;
+  tempat_lahir?: string;
+  jenis_kelamin?: JenisKelamin;
+  alamat?: string;
+  nik?: string;
+  tahun_masuk?: number;
+  status_guru?: StatusGuru;
+  kontak?: string;
+  kewarganegaraan?: string;
+  mata_pelajaran?: string | null;
+  pendidikan_terakhir?: string | null;
+}
+
+export interface BulkImportGuruResultItem {
+  row: number;
+  nama_lengkap: string;
+  nip?: string;
+  status: "created" | "skipped" | "error";
+  detail?: string;
+}
+
+export interface BulkImportGuruResult {
+  created: number;
+  skipped: number;
+  errors: number;
+  items: BulkImportGuruResultItem[];
+}

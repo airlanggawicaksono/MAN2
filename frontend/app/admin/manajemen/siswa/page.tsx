@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, GraduationCap, Upload, UserPlus, Trash } from "lucide-react";
+import { Pencil, Trash2, GraduationCap, Upload, UserPlus, Trash, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useListStudentsQuery, useUpdateStudentMutation, useDeleteStudentMutation } from "@/api/admin/students";
+import {
+  useListStudentsQuery,
+  useUpdateStudentMutation,
+  useDeleteStudentMutation,
+  useLazyListStudentsQuery,
+} from "@/api/admin/students";
 import type { StudentProfile } from "@/types/students";
 import { useStudentPrecache } from "@/hooks/useStudentPrecache";
 import { useCrudListPage } from "@/hooks/useCrudListPage";
@@ -22,9 +27,29 @@ import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import { BulkActionBar } from "@/app/components/admin/bulk-action-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { EntityExportDialog } from "@/app/components/admin/entity-export-dialog";
+import { ExportActionButtons } from "@/app/components/admin/export-action-buttons";
 import { TableSkeleton } from "@/app/components/admin/table-skeleton";
+import { useEntityExport } from "@/hooks/useEntityExport";
+import type { ExportColumn } from "@/lib/exportSheet";
 
 type TabValue = "aktif" | "alumni";
+
+const STUDENT_EXPORT_COLUMNS: ExportColumn<StudentProfile>[] = [
+  { header: "nisn", accessor: (r) => r.nisn },
+  { header: "nama_lengkap", accessor: (r) => r.nama_lengkap },
+  { header: "jenis_kelamin", accessor: (r) => r.jenis_kelamin },
+  { header: "tempat_lahir", accessor: (r) => r.tempat_lahir },
+  { header: "dob", accessor: (r) => r.dob },
+  { header: "alamat", accessor: (r) => r.alamat },
+  { header: "kelas_jurusan", accessor: (r) => r.kelas_jurusan },
+  { header: "tahun_masuk", accessor: (r) => r.tahun_masuk },
+  { header: "status_siswa", accessor: (r) => r.status_siswa },
+  { header: "nama_wali", accessor: (r) => r.nama_wali },
+  { header: "no_telephone_wali", accessor: (r) => r.no_telephone_wali },
+  { header: "kontak", accessor: (r) => r.kontak },
+  { header: "rfid_number", accessor: (r) => r.rfid_number },
+];
 
 function StudentRowActions({
   student,
@@ -39,10 +64,16 @@ function StudentRowActions({
 }) {
   const [updateStudent, { isLoading }] = useUpdateStudentMutation();
   const [confirmAlumni, setConfirmAlumni] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
 
   const handleAlumni = async () => {
     await updateStudent({ siswaId: student.siswa_id, body: { status_siswa: "Lulus" } });
     setConfirmAlumni(false);
+  };
+
+  const handleRevert = async () => {
+    await updateStudent({ siswaId: student.siswa_id, body: { status_siswa: "Aktif" } });
+    setConfirmRevert(false);
   };
 
   return (
@@ -71,13 +102,39 @@ function StudentRowActions({
             description={
               <>
                 Status <b>{student.nama_lengkap}</b> akan diubah menjadi <b>Lulus</b>.
-                Tindakan ini tidak dapat dibatalkan dari halaman ini.
               </>
             }
             confirmLabel={isLoading ? "Memproses..." : "Ya, Tandai Alumni"}
             confirmVariant="destructive"
             confirmDisabled={isLoading}
             onConfirm={handleAlumni}
+          />
+        </>
+      )}
+      {isAlumniTab && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Kembalikan ke Siswa Aktif"
+            disabled={isLoading}
+            onClick={() => setConfirmRevert(true)}
+          >
+            <Undo2 className="h-4 w-4 text-primary" />
+          </Button>
+          <ConfirmDialog
+            open={confirmRevert}
+            onOpenChange={setConfirmRevert}
+            title="Kembalikan ke Siswa Aktif"
+            description={
+              <>
+                Status <b>{student.nama_lengkap}</b> akan dikembalikan menjadi <b>Aktif</b>.
+              </>
+            }
+            confirmLabel={isLoading ? "Memproses..." : "Ya, Kembalikan"}
+            confirmVariant="default"
+            confirmDisabled={isLoading}
+            onConfirm={handleRevert}
           />
         </>
       )}
@@ -194,9 +251,11 @@ export default function DataSiswaPage() {
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false);
   const [bulkConfirmAlumni, setBulkConfirmAlumni] = useState(false);
+  const [bulkConfirmRevert, setBulkConfirmRevert] = useState(false);
 
   const [deleteStudent, { isLoading: deletingBulk }] = useDeleteStudentMutation();
   const [updateStudent, { isLoading: updatingBulk }] = useUpdateStudentMutation();
+  const [fetchStudents] = useLazyListStudentsQuery();
 
   const crud = activeTab === "aktif" ? crudAktif : crudAlumni;
 
@@ -250,6 +309,31 @@ export default function DataSiswaPage() {
     setBulkConfirmAlumni(false);
   }
 
+  async function handleBulkRevert() {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      await updateStudent({ siswaId: id, body: { status_siswa: "Aktif" } });
+    }
+    setSelectedIds(new Set());
+    setBulkConfirmRevert(false);
+  }
+
+  const exporter = useEntityExport<StudentProfile>({
+    fetchFiltered: () =>
+      fetchStudents({
+        skip: 0,
+        limit: 10000,
+        search: crud.debouncedSearch,
+        status_siswa: activeTab === "aktif" ? "Aktif" : "Lulus",
+      }).unwrap(),
+    fetchAll: () => fetchStudents({ skip: 0, limit: 10000 }).unwrap(),
+    columns: STUDENT_EXPORT_COLUMNS,
+    filenames: {
+      filtered: `siswa-${activeTab}-tampilan`,
+      all: "siswa-semua",
+    },
+  });
+
   const bulkActions = activeTab === "aktif"
     ? [
         {
@@ -268,6 +352,13 @@ export default function DataSiswaPage() {
         },
       ]
     : [
+        {
+          label: "Kembalikan ke Aktif",
+          icon: <Undo2 className="h-4 w-4" />,
+          variant: "outline" as const,
+          disabled: updatingBulk,
+          onClick: () => setBulkConfirmRevert(true),
+        },
         {
           label: "Hapus",
           icon: <Trash className="h-4 w-4" />,
@@ -290,6 +381,7 @@ export default function DataSiswaPage() {
       description="Kelola profil siswa MAN 2 Yogyakarta — tambah, ubah, dan tandai alumni."
       actions={
         <>
+          <ExportActionButtons onTrigger={exporter.open} disabled={exporter.exporting} />
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Impor CSV
@@ -384,11 +476,31 @@ export default function DataSiswaPage() {
         open={bulkConfirmAlumni}
         onOpenChange={setBulkConfirmAlumni}
         title="Tandai sebagai Alumni"
-        description={`${selectedIds.size} siswa akan ditandai sebagai Alumni (Lulus). Tindakan ini tidak dapat dibatalkan dari halaman ini.`}
+        description={`${selectedIds.size} siswa akan ditandai sebagai Alumni (Lulus).`}
         confirmLabel={updatingBulk ? "Memproses..." : `Tandai ${selectedIds.size} Siswa`}
         confirmVariant="destructive"
         confirmDisabled={updatingBulk}
         onConfirm={handleBulkAlumni}
+      />
+
+      <ConfirmDialog
+        open={bulkConfirmRevert}
+        onOpenChange={setBulkConfirmRevert}
+        title="Kembalikan ke Siswa Aktif"
+        description={`${selectedIds.size} alumni akan dikembalikan menjadi Siswa Aktif.`}
+        confirmLabel={updatingBulk ? "Memproses..." : `Kembalikan ${selectedIds.size} Siswa`}
+        confirmVariant="default"
+        confirmDisabled={updatingBulk}
+        onConfirm={handleBulkRevert}
+      />
+
+      <EntityExportDialog
+        scope={exporter.scope}
+        onClose={exporter.close}
+        entityLabel="Siswa"
+        filteredHint={`Mengekspor data ${activeTab === "aktif" ? "siswa aktif" : "alumni"} sesuai pencarian aktif.`}
+        isLoading={exporter.exporting}
+        onExport={exporter.handleExport}
       />
     </AdminPageShell>
   );

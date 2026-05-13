@@ -81,6 +81,7 @@ export const {
   useCreateStudentMutation,
   useBulkImportStudentsMutation,
   useListStudentsQuery,
+  useLazyListStudentsQuery,
   useGetStudentQuery,
   useUpdateStudentMutation,
   useDeleteStudentMutation,

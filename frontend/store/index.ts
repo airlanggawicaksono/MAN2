@@ -3,12 +3,17 @@ import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/auth";
 import cmsReducer from "./slices/cms";
 import absensiReducer from "./slices/absensi";
+import preferencesReducer from "./slices/preferences";
+import globalFiltersReducer from "./slices/globalFilters";
+import activeEntityReducer from "./slices/activeEntity";
+import jobsReducer from "./slices/jobs";
 import { authApi } from "@/api/public/auth";
 import { studentsApi } from "@/api/admin/students";
 import { teachersApi } from "@/api/admin/teachers";
 import { cmsApi } from "@/api/admin/setContentManagement";
 import { absensiApi } from "@/api/public/absensi";
 import { usermanApi } from "@/api/admin/userman";
+import { jobsApi } from "@/api/admin/jobs";
 
 const rootReducer = combineSlices(
   authApi,
@@ -17,7 +22,16 @@ const rootReducer = combineSlices(
   cmsApi,
   absensiApi,
   usermanApi,
-  { auth: authReducer, cms: cmsReducer, absensi: absensiReducer }
+  jobsApi,
+  {
+    auth: authReducer,
+    cms: cmsReducer,
+    absensi: absensiReducer,
+    preferences: preferencesReducer,
+    globalFilters: globalFiltersReducer,
+    activeEntity: activeEntityReducer,
+    jobs: jobsReducer,
+  }
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -33,6 +47,7 @@ export const makeStore = () => {
         cmsApi.middleware,
         absensiApi.middleware,
         usermanApi.middleware,
+        jobsApi.middleware,
       ),
   });
 };

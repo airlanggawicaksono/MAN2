@@ -7,20 +7,28 @@ from app.models.user import User
 
 
 async def seed_admin() -> None:
-    async with async_session_maker() as session:
-        result = await session.execute(
-            select(User).where(User.username == settings.ADMIN_USERNAME)
-        )
-        if result.scalar_one_or_none():
-            return
+    admins = [
+        {"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD},
+        {"username": settings.ADMIN2_USERNAME, "password": settings.ADMIN2_PASSWORD},
+        {"username": settings.ADMIN3_USERNAME, "password": settings.ADMIN3_PASSWORD},
+    ]
 
-        user = User(
-            username=settings.ADMIN_USERNAME,
-            user_type=UserType.admin,
-            registration_status=RegistrationStatus.completed,
-            is_active=True,
-        )
-        user.set_password(settings.ADMIN_PASSWORD)
-        session.add(user)
+    async with async_session_maker() as session:
+        for admin in admins:
+            result = await session.execute(
+                select(User).where(User.username == admin["username"])
+            )
+            if result.scalar_one_or_none():
+                continue
+
+            user = User(
+                username=admin["username"],
+                user_type=UserType.admin,
+                registration_status=RegistrationStatus.completed,
+                is_active=True,
+            )
+            user.set_password(admin["password"])
+            session.add(user)
+            print(f"[seed] admin created: {admin['username']}")
+
         await session.commit()
-        print(f"[seed] admin created: {settings.ADMIN_USERNAME}")

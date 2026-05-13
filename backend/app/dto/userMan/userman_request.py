@@ -61,6 +61,24 @@ class UpdateStudentRequestDTO(BaseModel):
 # ── Guru ─────────────────────────────────────────────────────────────────────
 
 
+class CreateGuruRequestDTO(BaseModel):
+    """Request DTO for creating a new teacher with user account (Admin only)"""
+
+    nip: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    nama_lengkap: str = Field(min_length=2, max_length=225)
+    dob: Optional[str] = Field(default=None, max_length=50)
+    tempat_lahir: Optional[str] = Field(default=None, max_length=100)
+    jenis_kelamin: Optional[JenisKelamin] = None
+    alamat: Optional[str] = Field(default=None, max_length=500)
+    nik: Optional[str] = Field(default=None, max_length=20)
+    tahun_masuk: Optional[int] = Field(default=None, ge=1900, le=2100)
+    status_guru: StatusGuru = Field(default=StatusGuru.aktif)
+    kontak: Optional[str] = Field(default=None, max_length=100)
+    kewarganegaraan: str = Field(default="Indonesia", max_length=50)
+    mata_pelajaran: Optional[str] = Field(default=None, max_length=100)
+    pendidikan_terakhir: Optional[str] = Field(default=None, max_length=100)
+
+
 class UpdateGuruRequestDTO(BaseModel):
     """Request DTO for partial update of a teacher profile (Admin only)"""
 

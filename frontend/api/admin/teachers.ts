@@ -2,7 +2,9 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { createBaseQuery } from "@/api/shared/base";
 import type {
   GuruProfile,
+  CreateGuruRequest,
   UpdateGuruRequest,
+  BulkImportGuruResult,
   PaginatedTeachersResponse,
   ListTeachersParams,
 } from "@/types/teachers";
@@ -16,6 +18,16 @@ export const teachersApi = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: false,
   endpoints: (builder) => ({
+    createTeacher: builder.mutation<GuruProfile, CreateGuruRequest>({
+      query: (body) => ({ url: "", method: "POST", body }),
+      invalidatesTags: [{ type: "Teacher", id: "LIST" }],
+    }),
+
+    bulkImportTeachers: builder.mutation<BulkImportGuruResult, CreateGuruRequest[]>({
+      query: (body) => ({ url: "/import", method: "POST", body }),
+      invalidatesTags: [{ type: "Teacher", id: "LIST" }],
+    }),
+
     listTeachers: builder.query<PaginatedTeachersResponse, ListTeachersParams>({
       query: ({ skip, limit, search }) => {
         let url = `?skip=${skip}&limit=${limit}`;
@@ -65,7 +77,10 @@ export const teachersApi = createApi({
 });
 
 export const {
+  useCreateTeacherMutation,
+  useBulkImportTeachersMutation,
   useListTeachersQuery,
+  useLazyListTeachersQuery,
   useGetTeacherQuery,
   useUpdateTeacherMutation,
   useDeleteTeacherMutation,

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Trash } from "lucide-react";
-import { useListTeachersQuery, useDeleteTeacherMutation } from "@/api/admin/teachers";
+import { Trash, Upload, UserPlus } from "lucide-react";
+import {
+  useListTeachersQuery,
+  useDeleteTeacherMutation,
+  useLazyListTeachersQuery,
+} from "@/api/admin/teachers";
 import type { GuruProfile } from "@/types/teachers";
 import { useTeacherPrecache } from "@/hooks/useTeacherPrecache";
 import { useCrudListPage } from "@/hooks/useCrudListPage";
@@ -11,22 +15,55 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { teacherColumns } from "./teacher-columns";
 import { TeacherEditDialog } from "./teacher-edit-dialog";
 import { TeacherDeleteDialog } from "./teacher-delete-dialog";
+import { TeacherImportDialog } from "./teacher-import-dialog";
+import { TeacherCreateDialog } from "./teacher-create-dialog";
 import { EntitySearchInput } from "@/app/components/admin/entity-search-input";
 import { EntityTablePagination } from "@/app/components/admin/entity-table-pagination";
 import { RowEditDeleteActions } from "@/app/components/admin/row-edit-delete-actions";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import { BulkActionBar } from "@/app/components/admin/bulk-action-bar";
 import { ConfirmDialog } from "@/app/components/confirm-dialog";
+import { EntityExportDialog } from "@/app/components/admin/entity-export-dialog";
+import { ExportActionButtons } from "@/app/components/admin/export-action-buttons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TableSkeleton } from "@/app/components/admin/table-skeleton";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useEntityExport } from "@/hooks/useEntityExport";
+import type { ExportColumn } from "@/lib/exportSheet";
+
+const TEACHER_EXPORT_COLUMNS: ExportColumn<GuruProfile>[] = [
+  { header: "nip", accessor: (r) => r.nip },
+  { header: "nama_lengkap", accessor: (r) => r.nama_lengkap },
+  { header: "nik", accessor: (r) => r.nik },
+  { header: "jenis_kelamin", accessor: (r) => r.jenis_kelamin },
+  { header: "tempat_lahir", accessor: (r) => r.tempat_lahir },
+  { header: "dob", accessor: (r) => r.dob },
+  { header: "alamat", accessor: (r) => r.alamat },
+  { header: "mata_pelajaran", accessor: (r) => r.mata_pelajaran },
+  { header: "pendidikan_terakhir", accessor: (r) => r.pendidikan_terakhir },
+  { header: "tahun_masuk", accessor: (r) => r.tahun_masuk },
+  { header: "status_guru", accessor: (r) => r.status_guru },
+  { header: "kontak", accessor: (r) => r.kontak },
+  {
+    header: "jabatan_struktural",
+    accessor: (r) =>
+      r.structural_assignments
+        .filter((a) => a.is_active)
+        .map((a) => a.role_name ?? "")
+        .filter(Boolean)
+        .join("; "),
+  },
+];
 
 export default function CivitasAkademikPage() {
   const crud = useCrudListPage<GuruProfile>();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [fetchTeachers] = useLazyListTeachersQuery();
 
   const { data, isLoading, error, refetch } = useListTeachersQuery({
     skip: crud.skip,
@@ -85,6 +122,14 @@ export default function CivitasAkademikPage() {
     setBulkConfirmDelete(false);
   }
 
+  const exporter = useEntityExport<GuruProfile>({
+    fetchFiltered: () =>
+      fetchTeachers({ skip: 0, limit: 10000, search: crud.debouncedSearch }).unwrap(),
+    fetchAll: () => fetchTeachers({ skip: 0, limit: 10000 }).unwrap(),
+    columns: TEACHER_EXPORT_COLUMNS,
+    filenames: { filtered: "civitas-tampilan", all: "civitas-semua" },
+  });
+
   const checkboxCol: ColumnDef<GuruProfile, unknown> = {
     id: "select",
     header: () => (
@@ -124,6 +169,19 @@ export default function CivitasAkademikPage() {
       eyebrow="Manajemen Data"
       title="Civitas Akademik"
       description="Kelola data guru dan tenaga kependidikan MAN 2 Yogyakarta."
+      actions={
+        <>
+          <ExportActionButtons onTrigger={exporter.open} disabled={exporter.exporting} />
+          <Button variant="outline" onClick={() => setShowImport(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Impor CSV
+          </Button>
+          <Button onClick={() => setShowCreate(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Tambah Civitas
+          </Button>
+        </>
+      }
     >
       <Card className="border-border/70">
         <CardHeader className="pb-4">
@@ -194,6 +252,24 @@ export default function CivitasAkademikPage() {
         teacher={crud.deleteTarget}
         open={!!crud.deleteTarget}
         onClose={() => crud.setDeleteTarget(null)}
+      />
+
+      <TeacherImportDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+      />
+
+      <TeacherCreateDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+      />
+
+      <EntityExportDialog
+        scope={exporter.scope}
+        onClose={exporter.close}
+        entityLabel="Civitas"
+        isLoading={exporter.exporting}
+        onExport={exporter.handleExport}
       />
     </AdminPageShell>
   );

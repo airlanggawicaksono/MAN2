@@ -231,6 +231,9 @@ class UserManagementRepository:
     async def add_student_profile(self, profile: SiswaProfile) -> None:
         self.db.add(profile)
 
+    async def add_teacher_profile(self, profile: GuruProfile) -> None:
+        self.db.add(profile)
+
     async def delete_user(self, user: User) -> None:
         await self.db.delete(user)
 

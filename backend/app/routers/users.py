@@ -12,11 +12,13 @@ from app.services.userMan_service import (
     UserManagementService,
 )
 from app.dto.userMan.userman_request import (
+    CreateGuruRequestDTO,
     CreateStudentRequestDTO,
     UpdateStudentRequestDTO,
     UpdateGuruRequestDTO,
 )
 from app.dto.userMan.userman_response import (
+    BulkImportGuruResultDTO,
     BulkImportStudentResultDTO,
     StudentProfileResponseDTO,
     GuruProfileResponseDTO,
@@ -109,7 +111,7 @@ async def bulk_import_students(
 )
 async def list_students(
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
-    limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
+    limit: int = Query(default=30, ge=1, le=10000, description="Max records to return (1-10000)"),
     search: Optional[str] = Query(
         default=None,
         description="Search across NISN/NIM (username), nama, kelas, kontak, tempat_lahir",
@@ -169,6 +171,35 @@ async def delete_student(
 # ── Teacher Endpoints ────────────────────────────────────────────────────────
 
 
+@teacher_router.post(
+    "",
+    response_model=GuruProfileResponseDTO,
+    status_code=201,
+    summary="Create Teacher",
+    description="Create a new teacher with a pending user account (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def create_teacher(
+    request: CreateGuruRequestDTO,
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> GuruProfileResponseDTO:
+    return await service.create_teacher(request)
+
+
+@teacher_router.post(
+    "/import",
+    response_model=BulkImportGuruResultDTO,
+    summary="Bulk Import Teachers",
+    description="Bulk import teachers from a JSON list (Admin only).",
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def bulk_import_teachers(
+    teachers: list[CreateGuruRequestDTO],
+    service: TeacherUserManagementService = Depends(get_teacher_user_service),
+) -> BulkImportGuruResultDTO:
+    return await service.bulk_create_teachers(teachers)
+
+
 @teacher_router.get(
     "",
     response_model=PaginatedTeachersResponse,
@@ -178,7 +209,7 @@ async def delete_student(
 )
 async def list_teachers(
     skip: int = Query(default=0, ge=0, description="Number of records to skip"),
-    limit: int = Query(default=30, ge=1, le=100, description="Max records to return (1-100)"),
+    limit: int = Query(default=30, ge=1, le=10000, description="Max records to return (1-10000)"),
     search: Optional[str] = Query(
         default=None, description="Search across nip, nama, nik, kontak, mapel, tempat_lahir"
     ),

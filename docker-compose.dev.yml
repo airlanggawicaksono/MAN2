@@ -1,0 +1,12 @@
+services:
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        if [ ! -d node_modules/next ]; then
+          pnpm install --prefer-offline --no-frozen-lockfile;
+        fi;
+        exec pnpm dev
+      "

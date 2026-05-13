@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Source_Sans_3 } from "next/font/google";
 import { StoreProvider } from "./StoreProvider";
@@ -7,6 +8,19 @@ import Footer from "./components/footer";
 import AuthGuard from "./components/auth-guard";
 import RouteChangeOverlay from "./components/route-change-overlay";
 import AppNotifications from "./components/app-notifications";
+
+export const metadata: Metadata = {
+  title: {
+    default: "SIMANDAYA — MAN 2 Yogyakarta",
+    template: "%s | SIMANDAYA",
+  },
+  description:
+    "Sistem Manajemen dan Layanan MAN 2 Yogyakarta — absensi, akademik, dan layanan siswa.",
+  applicationName: "SIMANDAYA",
+  authors: [{ name: "PT Sheen Studio Indonesia" }],
+  keywords: ["simandaya", "MAN 2 Yogyakarta", "absensi", "akademik"],
+  robots: { index: false, follow: false },
+};
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],

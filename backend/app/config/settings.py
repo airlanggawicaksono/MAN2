@@ -55,9 +55,13 @@ class Settings(BaseSettings):
     # Password Hashing Configuration
     BCRYPT_ROUNDS: int = 12
 
-    # Admin Seed Credentials
+    # Admin Seed Credentials (up to 3 accounts)
     ADMIN_USERNAME: str = "admin123"
     ADMIN_PASSWORD: str = "1qaz3edc2wsx4rfv"
+    ADMIN2_USERNAME: str = "admin456"
+    ADMIN2_PASSWORD: str = "1qaz3edc2wsx4rfv"
+    ADMIN3_USERNAME: str = "admin789"
+    ADMIN3_PASSWORD: str = "1qaz3edc2wsx4rfv"
 
     # Desktop App Configuration
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"

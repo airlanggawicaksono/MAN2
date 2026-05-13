@@ -26,6 +26,8 @@ from app.models.desktop_settings import DesktopSettings  # noqa: F401
 
 ADMINS = [
     {"username": "admin123", "password": "1qaz3edc2wsx4rfv"},
+    {"username": "admin456", "password": "1qaz3edc2wsx4rfv"},
+    {"username": "admin789", "password": "1qaz3edc2wsx4rfv"},
 ]
 
 
@@ -52,7 +54,9 @@ async def seed() -> None:
     await engine.dispose()
     print(
         "\nSeed complete. Credentials:\n"
-        "  admin123  /  1qaz3edc2wsx4rfv"
+        "  admin123  /  1qaz3edc2wsx4rfv\n"
+        "  admin456  /  1qaz3edc2wsx4rfv\n"
+        "  admin789  /  1qaz3edc2wsx4rfv"
     )
 
 

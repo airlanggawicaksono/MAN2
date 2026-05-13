@@ -1,6 +1,6 @@
 # Claude
 .claude
-
+.ruff_cache
 # Environment files (contain secrets — never commit these)
 .env
 .env.prod

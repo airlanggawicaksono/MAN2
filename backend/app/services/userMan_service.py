@@ -11,8 +11,15 @@ from app.dto.struktural.assignment_dto import (
     GuruStructuralAssignmentDTO,
     StructuralRoleRefDTO,
 )
-from app.dto.userMan.userman_request import CreateStudentRequestDTO, UpdateGuruRequestDTO, UpdateStudentRequestDTO
+from app.dto.userMan.userman_request import (
+    CreateGuruRequestDTO,
+    CreateStudentRequestDTO,
+    UpdateGuruRequestDTO,
+    UpdateStudentRequestDTO,
+)
 from app.dto.userMan.userman_response import (
+    BulkImportGuruResultDTO,
+    BulkImportGuruResultItem,
     BulkImportStudentResultDTO,
     BulkImportStudentResultItem,
     GuruProfileResponseDTO,
@@ -284,6 +291,70 @@ class TeacherUserManagementService:
         profile = await self.repo.find_teacher_by_user_id_with_user(user_id)
         self.policy.ensure_teacher_exists(profile, detail="Teacher profile not found")
         return await self._to_teacher_dto(profile)
+
+    async def create_teacher(self, request: CreateGuruRequestDTO) -> GuruProfileResponseDTO:
+        if request.nip:
+            existing = await self.repo.find_teacher_by_nip(request.nip)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"NIP '{request.nip}' sudah terdaftar.",
+                )
+        user = User(
+            user_type=UserType.guru,
+            registration_status=RegistrationStatus.pending,
+            is_active=True,
+        )
+        profile = GuruProfile(user_id=user.user_id, **request.model_dump())
+        await self.repo.add_user(user)
+        await self.repo.add_teacher_profile(profile)
+        await self.repo.commit()
+        await self.repo.refresh(profile)
+        profile_with_user = await self.repo.find_teacher_by_id_with_user(profile.guru_id)
+        self.policy.ensure_teacher_exists(profile_with_user, detail="Teacher not found after create")
+        return await self._to_teacher_dto(profile_with_user)
+
+    async def bulk_create_teachers(
+        self, requests: list[CreateGuruRequestDTO]
+    ) -> BulkImportGuruResultDTO:
+        created = 0
+        skipped = 0
+        errors = 0
+        items: list[BulkImportGuruResultItem] = []
+
+        for i, req in enumerate(requests):
+            row = i + 2
+            try:
+                if req.nip:
+                    existing = await self.repo.find_teacher_by_nip(req.nip)
+                    if existing:
+                        skipped += 1
+                        items.append(BulkImportGuruResultItem(
+                            row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
+                            status="skipped", detail=f"NIP '{req.nip}' sudah ada",
+                        ))
+                        continue
+                user = User(
+                    user_type=UserType.guru,
+                    registration_status=RegistrationStatus.pending,
+                    is_active=True,
+                )
+                profile = GuruProfile(user_id=user.user_id, **req.model_dump())
+                await self.repo.add_user(user)
+                await self.repo.add_teacher_profile(profile)
+                created += 1
+                items.append(BulkImportGuruResultItem(
+                    row=row, nama_lengkap=req.nama_lengkap, nip=req.nip, status="created",
+                ))
+            except Exception as e:
+                errors += 1
+                items.append(BulkImportGuruResultItem(
+                    row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
+                    status="error", detail=str(e),
+                ))
+
+        await self.repo.commit()
+        return BulkImportGuruResultDTO(created=created, skipped=skipped, errors=errors, items=items)
 
     async def update_teacher(
         self, guru_id: UUID, request: UpdateGuruRequestDTO
