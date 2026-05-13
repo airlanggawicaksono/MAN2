@@ -59,9 +59,14 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
 
   const { validateFileType, parseFile } = useSpreadsheetParser<CreateStudentRequest>({
     requiredHeaders: REQUIRED_HEADERS,
-    mapRow: (_, helpers) => {
+    mapRow: (rawRow, helpers) => {
+      const isEmptyRow = Object.values(rawRow).every((value) => String(value ?? "").trim() === "");
+      if (isEmptyRow) return { skip: true };
+
       const nama = helpers.get("nama_lengkap");
-      if (!nama) return { skip: true };
+      if (!nama) {
+        return { skip: true, warnings: ['kolom "nama_lengkap" wajib diisi.'] };
+      }
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
       const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
@@ -184,6 +189,13 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
               diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> /{" "}
               <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
             </p>
+            <a
+              href="/samples/sample_siswa_import.csv"
+              download
+              className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+            >
+              Download sample CSV siswa
+            </a>
           </div>
 
           {!result && (

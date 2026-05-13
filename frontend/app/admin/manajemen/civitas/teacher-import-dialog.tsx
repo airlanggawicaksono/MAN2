@@ -28,7 +28,7 @@ interface TeacherImportDialogProps {
   onClose: () => void;
 }
 
-const REQUIRED_HEADERS = ["nama_lengkap"] as const;
+const REQUIRED_HEADERS = ["nama_lengkap", "nip"] as const;
 
 export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps) {
   const dispatch = useDispatch();
@@ -59,12 +59,21 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
 
   const { validateFileType, parseFile } = useSpreadsheetParser<CreateGuruRequest>({
     requiredHeaders: REQUIRED_HEADERS,
-    mapRow: (_, helpers) => {
+    mapRow: (rawRow, helpers) => {
+      const isEmptyRow = Object.values(rawRow).every((value) => String(value ?? "").trim() === "");
+      if (isEmptyRow) return { skip: true };
+
       const nama = helpers.get("nama_lengkap");
-      if (!nama) return { skip: true };
+      const nipRaw = (helpers.get("nip") || "").trim();
+      const requiredWarnings: string[] = [];
+      if (!nama) requiredWarnings.push('kolom "nama_lengkap" wajib diisi.');
+      if (!nipRaw) requiredWarnings.push('kolom "nip" wajib diisi.');
+      if (requiredWarnings.length > 0) {
+        return { skip: true, warnings: requiredWarnings };
+      }
+
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
-      const nipRaw = (helpers.get("nip") || "").trim();
       const nikRaw = (helpers.get("nik") || "").trim();
       const nip = nipRaw && /^\d+$/.test(nipRaw) ? nipRaw : undefined;
       const nik = nikRaw && /^\d+$/.test(nikRaw) ? nikRaw : undefined;
@@ -77,7 +86,11 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
           nama_lengkap: nama,
           nip,
           nik,
-          mata_pelajaran: helpers.get("mata_pelajaran") || helpers.get("mapel") || undefined,
+          mata_pelajaran:
+            helpers.get("jabatan_fungsional") ||
+            helpers.get("mata_pelajaran") ||
+            helpers.get("mapel") ||
+            undefined,
           pendidikan_terakhir: helpers.get("pendidikan_terakhir") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
@@ -164,16 +177,29 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             <p className="leading-relaxed">
               <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
               <span className="text-destructive font-medium">(wajib)</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">nip</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">nip</span>{" "}
+              <span className="text-destructive font-medium">(wajib)</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">jabatan_fungsional</span>{" "}
+              <span className="text-muted-foreground/80">(= mata_pelajaran)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">nik</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">mata_pelajaran</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">jabatan_struktural</span>{" "}
+              <span className="text-muted-foreground/80">(opsional, diabaikan)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">pendidikan_terakhir</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tahun_masuk</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kontak</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">alamat</span>
             </p>
+            <p>Nama boleh termasuk gelar (contoh: "Ahmad Fauzi, S.Pd.").</p>
             <p>Civitas tidak menggunakan RFID - kolom rfid akan diabaikan.</p>
+            <a
+              href="/samples/sample_civitas_import.csv"
+              download
+              className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+            >
+              Download sample CSV civitas
+            </a>
           </div>
 
           {!result && (
