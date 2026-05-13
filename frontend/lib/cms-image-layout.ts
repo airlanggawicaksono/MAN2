@@ -9,7 +9,7 @@ export const CMS_DEFAULT_IMAGE_FIT_BY_TYPE: Record<ContentType, ImageFitMode> = 
 };
 
 export const CMS_IMAGE_FRAME_CLASS_BY_TYPE: Record<"carousel" | "flyer" | "media", string> = {
-  carousel: "aspect-[21/4]",
+  carousel: "aspect-[128/21]",
   flyer: "aspect-square",
   media: "aspect-square",
 };
@@ -19,8 +19,8 @@ export const CMS_SIZE_GUIDE: Record<
   { ratio: string; recommended: string; note: string }
 > = {
   carousel: {
-    ratio: "21:4",
-    recommended: "2100 x 400 px",
+    ratio: "1280:210",
+    recommended: "1280 x 210 px",
     note: "Hero panjang dan tipis (landscape).",
   },
   flyer: {
