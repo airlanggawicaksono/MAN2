@@ -15,7 +15,7 @@ import { Minus, Plus, UploadCloud } from "lucide-react";
 import type { CarouselSlide, CreateSlideRequest, ContentType, ImageFitMode } from "@/types/cms";
 import { useUploadImageMutation } from "@/api/admin/setContentManagement";
 import { validateWithAlert } from "@/lib/io-guards";
-import { imageUploadValidationRules, slideLinkValidationRules } from "@/lib/form-validators";
+import { slideLinkValidationRules } from "@/lib/form-validators";
 import {
   CMS_DEFAULT_IMAGE_FIT_BY_TYPE,
   CMS_IMAGE_FRAME_CLASS_BY_TYPE,
@@ -226,8 +226,12 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   }, []);
 
   async function handleFileSelected(file: File | undefined) {
-    if (!file) return;
-    if (!validateWithAlert(imageUploadValidationRules(file))) {
+    if (!file) {
+      setPreviewError("File belum dipilih.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setPreviewError(`File type tidak valid: ${file.type || "unknown"}`);
       return;
     }
     setSelectedFileName(file.name);
@@ -240,7 +244,6 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       if ("error" in result) {
         const message = toRawErrorText(result.error);
         setPreviewError(message);
-        window.alert(message);
         return;
       }
       const nextUrl = result.data.url;
@@ -260,7 +263,6 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     } catch (error) {
       const message = toRawErrorText(error);
       setPreviewError(message);
-      window.alert(message);
     } finally {
       setIsPreviewLoading(false);
     }
@@ -447,6 +449,9 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
           </p>
         </div>
         {imageUrl && <p className="text-xs text-muted-foreground truncate">Tersimpan: {imageUrl}</p>}
+        {previewError && !imageUrl && (
+          <p className="text-xs text-destructive">{previewError}</p>
+        )}
       </div>
     );
   }

@@ -22,6 +22,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { validateWithAlert } from "@/lib/io-guards";
 import { buildTeacherImportIssue, teacherImportValidationRules } from "@/lib/form-validators";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
+import { ImportColumnWarnings } from "@/app/components/admin/import-column-warnings";
 
 interface TeacherImportDialogProps {
   open: boolean;
@@ -249,14 +250,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             </div>
           )}
 
-          {parseWarnings.length > 0 && (
-            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
-              <p className="text-xs font-semibold text-destructive">Format kolom tidak valid (import diblokir):</p>
-              {parseWarnings.map((w, i) => (
-                <p key={i} className="text-xs text-destructive">{w}</p>
-              ))}
-            </div>
-          )}
+          <ImportColumnWarnings warnings={parseWarnings} />
 
           {parsed.length > 0 && (
             <div className="space-y-2">
