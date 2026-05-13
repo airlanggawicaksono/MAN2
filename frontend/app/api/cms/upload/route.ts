@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/svg+xml": ".svg",
+  "image/avif": ".avif",
+};
+
 function resolveUploadPathFromUrl(url: string): string | null {
   if (!url.startsWith("/uploads/")) return null;
   const filename = path.basename(url);
@@ -22,7 +32,12 @@ export async function POST(request: Request) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  const ext = path.extname(file.name);
+  const extFromName = path.extname(file.name).toLowerCase();
+  const extFromMime = MIME_TO_EXT[file.type] ?? "";
+  const ext = extFromName || extFromMime;
+  if (!ext) {
+    return NextResponse.json({ error: "Unsupported image file type" }, { status: 400 });
+  }
   const filename = `${Date.now()}${ext}`;
   const filepath = path.join(uploadDir, filename);
 

@@ -13,6 +13,10 @@ export
 
 DEV  = docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml
 PROD = docker compose --env-file .env.prod -f docker-compose.yml
+POSTGRES_CONTAINER ?= simandaya-postgres
+BACKEND_CONTAINER  ?= simandaya-backend
+FRONTEND_CONTAINER ?= simandaya-frontend
+LOG_TAIL ?= 200
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +62,7 @@ help:
 	@echo "  make log-prod-backend    Tail prod backend"
 	@echo "  make log-prod-db         Tail prod postgres"
 	@echo "  make log-prod-frontend   Tail prod frontend"
+	@echo "  (optional) LOG_TAIL=500  Change default tail size"
 	@echo ""
 	@echo "Other:"
 	@echo "  make status         Show container status"
@@ -184,34 +189,22 @@ import-students:
 # ── Other ────────────────────────────────────────────────────────────────────
 
 log-dev-backend:
-	@cid="$$( $(DEV) ps -q backend )"; \
-	if [ -z "$$cid" ]; then echo "Service 'backend' is not running (dev)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(BACKEND_CONTAINER)
 
 log-dev-db:
-	@cid="$$( $(DEV) ps -q postgres-db )"; \
-	if [ -z "$$cid" ]; then echo "Service 'postgres-db' is not running (dev)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(POSTGRES_CONTAINER)
 
 log-dev-frontend:
-	@cid="$$( $(DEV) ps -q frontend )"; \
-	if [ -z "$$cid" ]; then echo "Service 'frontend' is not running (dev)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(FRONTEND_CONTAINER)
 
 log-prod-backend:
-	@cid="$$( $(PROD) ps -q backend )"; \
-	if [ -z "$$cid" ]; then echo "Service 'backend' is not running (prod)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(BACKEND_CONTAINER)
 
 log-prod-db:
-	@cid="$$( $(PROD) ps -q postgres-db )"; \
-	if [ -z "$$cid" ]; then echo "Service 'postgres-db' is not running (prod)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(POSTGRES_CONTAINER)
 
 log-prod-frontend:
-	@cid="$$( $(PROD) ps -q frontend )"; \
-	if [ -z "$$cid" ]; then echo "Service 'frontend' is not running (prod)."; exit 1; fi; \
-	docker logs -f --tail=200 $$cid
+	@docker logs -f --tail=$(LOG_TAIL) $(FRONTEND_CONTAINER)
 
 status:
 	$(DEV) ps
