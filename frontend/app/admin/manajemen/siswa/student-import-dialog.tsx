@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, DragEvent } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   const [fileName, setFileName] = useState<string>("");
   const [result, setResult] = useState<BulkImportResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [queueImport, { isLoading, error }] = useQueueImportStudentsMutation();
 
   const { job } = useJobPolling({
@@ -81,10 +82,8 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
     },
   });
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const processFile = useCallback(
+    async (file: File) => {
       const typeError = validateFileType(file);
       if (typeError) {
         setParseErrors([typeError]);
@@ -97,6 +96,24 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       setParseErrors(errors);
     },
     [validateFileType, parseFile]
+  );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) processFile(file);
+    },
+    [processFile]
+  );
+
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file) processFile(file);
+    },
+    [processFile]
   );
 
   const handleImport = async () => {
@@ -156,7 +173,17 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
 
           {/* File picker */}
           {!result && (
-            <div className="flex items-center gap-3">
+            <div
+              className={`rounded-lg border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
+                isDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <input
                 ref={fileInputRef}
                 type="file"
@@ -164,19 +191,18 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                 className="hidden"
                 onChange={handleFileChange}
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Pilih File
-              </Button>
-              {fileName && (
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {fileName}
-                </span>
+              {fileName ? (
+                <div className="flex flex-col items-center gap-2">
+                  <FileSpreadsheet className="h-8 w-8 text-primary" />
+                  <p className="text-sm font-medium text-foreground">{fileName}</p>
+                  <p className="text-xs text-muted-foreground">Klik untuk ganti file</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-sm font-medium text-foreground">Seret file ke sini atau klik untuk memilih</p>
+                  <p className="text-xs text-muted-foreground">CSV, XLSX, atau XLS</p>
+                </div>
               )}
             </div>
           )}
