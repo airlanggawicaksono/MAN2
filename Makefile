@@ -188,22 +188,22 @@ logs:
 	$(DEV) logs -f
 
 log-dev-backend:
-	$(DEV) logs -f --tail=200 backend
+	$(DEV) logs -f --tail=0 backend
 
 log-dev-db:
-	$(DEV) logs -f --tail=200 postgres-db
+	$(DEV) logs -f --tail=0 postgres-db
 
 log-dev-frontend:
-	$(DEV) logs -f --tail=200 frontend
+	$(DEV) logs -f --tail=0 frontend
 
 log-prod-backend:
-	$(PROD) logs -f --tail=200 backend
+	$(PROD) logs -f --tail=0 backend
 
 log-prod-db:
-	$(PROD) logs -f --tail=200 postgres-db
+	$(PROD) logs -f --tail=0 postgres-db
 
 log-prod-frontend:
-	$(PROD) logs -f --tail=200 frontend
+	$(PROD) logs -f --tail=0 frontend
 
 status:
 	$(DEV) ps
