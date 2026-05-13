@@ -16,7 +16,6 @@ import type { CarouselSlide, CreateSlideRequest, ContentType, ImageFitMode } fro
 import { useUploadImageMutation } from "@/api/admin/setContentManagement";
 import { validateWithAlert } from "@/lib/io-guards";
 import { imageUploadValidationRules, slideLinkValidationRules } from "@/lib/form-validators";
-import { getApiErrorMessage } from "@/lib/api-error";
 import {
   CMS_DEFAULT_IMAGE_FIT_BY_TYPE,
   CMS_IMAGE_FRAME_CLASS_BY_TYPE,
@@ -87,6 +86,49 @@ function imagePreviewMaxWidth(): string {
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toRawErrorText(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message || String(error);
+
+  if (error && typeof error === "object") {
+    const maybe = error as {
+      data?: unknown;
+      error?: unknown;
+      message?: unknown;
+      status?: unknown;
+    };
+
+    if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message;
+    if (typeof maybe.error === "string" && maybe.error.trim()) return maybe.error;
+
+    const data = maybe.data;
+    if (typeof data === "string" && data.trim()) return data;
+    if (data && typeof data === "object") {
+      const dataObj = data as {
+        message?: unknown;
+        detail?: unknown;
+        error?: unknown;
+      };
+      if (typeof dataObj.message === "string" && dataObj.message.trim()) return dataObj.message;
+      if (typeof dataObj.detail === "string" && dataObj.detail.trim()) return dataObj.detail;
+      if (typeof dataObj.error === "string" && dataObj.error.trim()) return dataObj.error;
+      try {
+        return JSON.stringify(dataObj);
+      } catch {
+        return String(dataObj);
+      }
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+
+  return String(error);
 }
 
 async function preloadImage(url: string, retries = 6, delayMs = 180): Promise<void> {
@@ -196,7 +238,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       fd.append("file", file);
       const result = await uploadImage(fd);
       if ("error" in result) {
-        const message = getApiErrorMessage(result.error) || "Upload gambar gagal. Periksa format file lalu coba lagi.";
+        const message = toRawErrorText(result.error);
         setPreviewError(message);
         window.alert(message);
         return;
@@ -215,8 +257,8 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       sessionUploadUrlsRef.current.add(nextUrl);
       await preloadImage(nextUrl);
       setImageUrl(nextUrl);
-    } catch {
-      const message = "Upload gambar gagal. Periksa format file lalu coba lagi.";
+    } catch (error) {
+      const message = toRawErrorText(error);
       setPreviewError(message);
       window.alert(message);
     } finally {
@@ -295,7 +337,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
             }}
             onError={() => {
               setIsPreviewLoading(false);
-              setPreviewError("Preview gagal dimuat. Coba upload ulang atau klik Simpan lalu buka lagi.");
+              setPreviewError(`Preview gagal dimuat: ${previewSrc}`);
             }}
             className={`h-full w-full transition-opacity duration-200 ${fitModeToClass(imageFit)} ${isPreviewLoading ? "opacity-0" : "opacity-100"}`}
             style={{
