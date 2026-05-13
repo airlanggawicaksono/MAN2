@@ -4,7 +4,7 @@
         lint lint-be lint-fe \
         db-up db-down db-shell db-reset db-reset-hard \
         seed-admins import-students \
-        logs log-dev-backend log-dev-db log-dev-frontend \
+        log-dev-backend log-dev-db log-dev-frontend \
         log-prod-backend log-prod-db log-prod-frontend \
         status clean
 
@@ -51,8 +51,7 @@ help:
 	@echo "  make lint-be        Backend ruff check (auto-installs ruff if missing)"
 	@echo "  make lint-fe        Frontend tsc --noEmit"
 	@echo ""
-	@echo "Logs (follow stdout via docker compose):"
-	@echo "  make logs                Tail all dev services"
+	@echo "Logs (single container via docker logs):"
 	@echo "  make log-dev-backend     Tail dev backend"
 	@echo "  make log-dev-db          Tail dev postgres"
 	@echo "  make log-dev-frontend    Tail dev frontend"
@@ -184,26 +183,35 @@ import-students:
 
 # ── Other ────────────────────────────────────────────────────────────────────
 
-logs:
-	$(DEV) logs -f
-
 log-dev-backend:
-	$(DEV) logs -f --tail=0 backend
+	@cid="$$( $(DEV) ps -q backend )"; \
+	if [ -z "$$cid" ]; then echo "Service 'backend' is not running (dev)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 log-dev-db:
-	$(DEV) logs -f --tail=0 postgres-db
+	@cid="$$( $(DEV) ps -q postgres-db )"; \
+	if [ -z "$$cid" ]; then echo "Service 'postgres-db' is not running (dev)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 log-dev-frontend:
-	$(DEV) logs -f --tail=0 frontend
+	@cid="$$( $(DEV) ps -q frontend )"; \
+	if [ -z "$$cid" ]; then echo "Service 'frontend' is not running (dev)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 log-prod-backend:
-	$(PROD) logs -f --tail=0 backend
+	@cid="$$( $(PROD) ps -q backend )"; \
+	if [ -z "$$cid" ]; then echo "Service 'backend' is not running (prod)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 log-prod-db:
-	$(PROD) logs -f --tail=0 postgres-db
+	@cid="$$( $(PROD) ps -q postgres-db )"; \
+	if [ -z "$$cid" ]; then echo "Service 'postgres-db' is not running (prod)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 log-prod-frontend:
-	$(PROD) logs -f --tail=0 frontend
+	@cid="$$( $(PROD) ps -q frontend )"; \
+	if [ -z "$$cid" ]; then echo "Service 'frontend' is not running (prod)."; exit 1; fi; \
+	docker logs -f --tail=200 $$cid
 
 status:
 	$(DEV) ps
