@@ -12,6 +12,7 @@ type ParseRowResult<T> = {
   row?: T;
   error?: string;
   skip?: boolean;
+  warnings?: string[];
 };
 
 type SpreadsheetParserOptions<T, C> = {
@@ -46,12 +47,12 @@ export function useSpreadsheetParser<T, C = undefined>({
   }, []);
 
   const parseFile = useCallback(
-    async (file: File): Promise<{ rows: T[]; errors: string[] }> => {
+    async (file: File): Promise<{ rows: T[]; errors: string[]; warnings: string[] }> => {
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
 
       if (!firstSheetName) {
-        return { rows: [], errors: ["File tidak memiliki sheet."] };
+        return { rows: [], errors: ["File tidak memiliki sheet."], warnings: [] };
       }
 
       const firstSheet = workbook.Sheets[firstSheetName];
@@ -61,7 +62,7 @@ export function useSpreadsheetParser<T, C = undefined>({
       const errors: string[] = [];
 
       if (rawRows.length === 0) {
-        return { rows: [], errors: ["File kosong. Pastikan ada header dan data."] };
+        return { rows: [], errors: ["File kosong. Pastikan ada header dan data."], warnings: [] };
       }
 
       const headerLookup = new Map<string, string>();
@@ -75,10 +76,11 @@ export function useSpreadsheetParser<T, C = undefined>({
         }
       }
       if (errors.length > 0) {
-        return { rows: [], errors };
+        return { rows: [], errors, warnings: [] };
       }
 
       const rows: T[] = [];
+      const warnings: string[] = [];
       const context = createContext ? createContext() : (undefined as C);
 
       rawRows.forEach((rawRow, index) => {
@@ -98,12 +100,15 @@ export function useSpreadsheetParser<T, C = undefined>({
           errors.push(result.error);
           return;
         }
+        if (result.warnings?.length) {
+          result.warnings.forEach((w) => warnings.push(`Baris ${line}: ${w}`));
+        }
         if (result.row) {
           rows.push(result.row);
         }
       });
 
-      return { rows, errors };
+      return { rows, errors, warnings };
     },
     [createContext, mapRow, requiredHeaders]
   );

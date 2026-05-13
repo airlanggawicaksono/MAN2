@@ -37,6 +37,8 @@ import { DateInputId } from "@/components/ui/date-input-id";
 import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notifyError, notifySuccess } from "@/lib/app-notify";
+import { normalizeDigits, validateWithAlert } from "@/lib/io-guards";
+import { teacherEditValidationRules } from "@/lib/form-validators";
 
 interface TeacherEditDialogProps {
   teacher: GuruProfile | null;
@@ -185,12 +187,17 @@ export function TeacherEditDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacher) return;
+    const payload = { ...form };
+    const nipValue = payload.nip?.trim();
+    const nikValue = payload.nik?.trim();
+    if (!validateWithAlert(teacherEditValidationRules(payload))) return;
+    payload.nip = nipValue || undefined;
+    payload.nik = nikValue || undefined;
     reset();
     resetAssignError();
     resetDeactivateError();
     setRoleGuardError(null);
     setStatusNotice(null);
-    const payload = { ...form };
     if (payload.dob) payload.dob = formatDateForApi(payload.dob);
     if (!payload.tahun_masuk) delete payload.tahun_masuk;
 
@@ -322,7 +329,9 @@ export function TeacherEditDialog({
               <Label>NIP</Label>
               <Input
                 value={form.nip || ""}
-                onChange={(e) => handleChange("nip", e.target.value)}
+                inputMode="numeric"
+                placeholder="Hanya angka"
+                onChange={(e) => handleChange("nip", normalizeDigits(e.target.value))}
               />
             </div>
             <div className="grid gap-2">
@@ -336,7 +345,9 @@ export function TeacherEditDialog({
               <Label>NIK</Label>
               <Input
                 value={form.nik || ""}
-                onChange={(e) => handleChange("nik", e.target.value)}
+                inputMode="numeric"
+                placeholder="Hanya angka"
+                onChange={(e) => handleChange("nik", normalizeDigits(e.target.value))}
               />
             </div>
             <div className="grid gap-2">

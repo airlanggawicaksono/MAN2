@@ -64,6 +64,12 @@ function extractYouTubeId(url: string): string | null {
   return match?.[1] ?? null;
 }
 
+function toObjectFitClass(mode?: "cover" | "contain" | "fill" | null) {
+  if (mode === "contain") return "object-contain";
+  if (mode === "fill") return "object-fill";
+  return "object-cover";
+}
+
 export default function IndexPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
@@ -97,11 +103,19 @@ export default function IndexPage() {
                 <Card className="overflow-hidden border-border/60">
                   <CardContent className="flex flex-col p-0">
                     {slide.image_url && (
-                      <img
-                        src={slide.image_url}
-                        alt={slide.title || ""}
-                        className="max-h-[460px] w-full object-contain bg-muted/25"
-                      />
+                      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-md border border-border/60 bg-muted/25 aspect-[16/4]">
+                        <img
+                          src={slide.image_url}
+                          alt={slide.title || ""}
+                          draggable={false}
+                          className={`h-full w-full ${toObjectFitClass(slide.image_fit ?? "contain")}`}
+                          style={{
+                            objectPosition: `${slide.image_position_x ?? 50}% ${slide.image_position_y ?? 50}%`,
+                            transform: `scale(${(slide.image_zoom ?? 100) / 100})`,
+                            transformOrigin: `${slide.image_position_x ?? 50}% ${slide.image_position_y ?? 50}%`,
+                          }}
+                        />
+                      </div>
                     )}
                     {(slide.title ||
                       slide.description ||
@@ -184,14 +198,22 @@ export default function IndexPage() {
 
       <section>
         <HomeSectionHeader icon={ImageIcon} title="Flyer MAN 2" />
-        <HomeImageCarousel items={flyerItems} imageClassName="max-h-[400px]" loading={loadingCms} />
+        <HomeImageCarousel
+          items={flyerItems}
+          itemClassName="basis-full sm:basis-1/2"
+          imageFrameClassName="aspect-[4/5]"
+          defaultImageFit="cover"
+          loading={loadingCms}
+        />
       </section>
 
       <section>
         <HomeSectionHeader icon={Play} title="Media Center" />
         <HomeImageCarousel
           items={mediaItems}
-          imageClassName="max-h-[260px]"
+          itemClassName="basis-full sm:basis-1/2"
+          imageFrameClassName="aspect-[4/3]"
+          defaultImageFit="cover"
           cardClassName="shadow-none"
           loading={loadingCms}
         />
@@ -202,37 +224,46 @@ export default function IndexPage() {
         {loadingCms && videoItems.length === 0 ? (
           <VideoGridSkeleton count={2} />
         ) : (
-        <div className="grid gap-6 md:grid-cols-2">
-          {videoItems.map((video) => {
-            if (!video.link_url) return null;
-            const videoId = extractYouTubeId(video.link_url);
-            if (!videoId) return null;
-            return (
-              <Card key={video.id} className="overflow-hidden border-border/70">
-                <CardContent className="p-0">
-                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                    <iframe
-                      className="absolute inset-0 h-full w-full"
-                      src={`https://www.youtube-nocookie.com/embed/${videoId}`}
-                      title={videoTitles[video.id] || "Video"}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
-                    />
-                  </div>
-                  {videoTitles[video.id] && (
-                    <div className="p-4">
-                      <p className="font-semibold">{videoTitles[video.id]}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-          {videoItems.length === 0 && (
-            <div className="col-span-2 flex h-48 items-center justify-center rounded-lg border border-border/70 bg-muted/35">
+        <div>
+          {videoItems.length === 0 ? (
+            <div className="flex h-48 items-center justify-center rounded-lg border border-border/70 bg-muted/35">
               <p className="text-muted-foreground">Belum ada video</p>
             </div>
+          ) : (
+            <Carousel opts={{ loop: videoItems.length > 2 }} className="w-full">
+              <CarouselContent>
+                {videoItems.map((video) => {
+                  if (!video.link_url) return null;
+                  const videoId = extractYouTubeId(video.link_url);
+                  if (!videoId) return null;
+                  return (
+                    <CarouselItem key={video.id} className="basis-full md:basis-1/2">
+                      <Card className="overflow-hidden border-border/70">
+                        <CardContent className="p-0">
+                          <div className="relative aspect-video w-full bg-muted/20">
+                            <iframe
+                              className="absolute inset-0 h-full w-full"
+                              src={`https://www.youtube-nocookie.com/embed/${videoId}`}
+                              title={videoTitles[video.id] || "Video"}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              loading="lazy"
+                            />
+                          </div>
+                          {videoTitles[video.id] && (
+                            <div className="p-4">
+                              <p className="font-semibold">{videoTitles[video.id]}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+              <CarouselPrevious className="left-2" />
+              <CarouselNext className="right-2" />
+            </Carousel>
           )}
         </div>
         )}

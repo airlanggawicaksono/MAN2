@@ -25,6 +25,8 @@ import type { JenisKelamin, StatusGuru } from "@/types/enums";
 import { formatIsoToApiDmy } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notifySuccess, notifyError } from "@/lib/app-notify";
+import { normalizeDigits, validateWithAlert } from "@/lib/io-guards";
+import { teacherCreateValidationRules } from "@/lib/form-validators";
 
 interface TeacherCreateDialogProps {
   open: boolean;
@@ -46,8 +48,13 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    reset();
     const payload: CreateGuruRequest = { ...form };
+    const nipValue = payload.nip?.trim();
+    const nikValue = payload.nik?.trim();
+    if (!validateWithAlert(teacherCreateValidationRules(payload))) return;
+    payload.nip = nipValue || undefined;
+    payload.nik = nikValue || undefined;
+    reset();
     if (payload.dob) payload.dob = formatIsoToApiDmy(payload.dob) ?? payload.dob;
     if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
       delete payload.tahun_masuk;
@@ -81,13 +88,16 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label>
-                NIP <span className="text-destructive">*</span>
-              </Label>
+              <Label>NIP</Label>
               <Input
-                required
                 value={form.nip || ""}
-                onChange={(e) => handleChange("nip", e.target.value)}
+                placeholder="Hanya angka (opsional)"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(e) => {
+                  const v = normalizeDigits(e.target.value);
+                  handleChange("nip", v);
+                }}
               />
             </div>
             <div className="grid gap-2">
@@ -104,7 +114,13 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
               <Label>NIK</Label>
               <Input
                 value={form.nik || ""}
-                onChange={(e) => handleChange("nik", e.target.value)}
+                placeholder="16 digit (opsional)"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(e) => {
+                  const v = normalizeDigits(e.target.value);
+                  handleChange("nik", v);
+                }}
               />
             </div>
             <div className="grid gap-2">

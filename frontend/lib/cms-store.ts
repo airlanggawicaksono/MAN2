@@ -15,6 +15,10 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
     bg: "bg-primary",
     fg: "text-primary-foreground",
     image_url: null,
+    image_fit: "contain",
+    image_position_x: 50,
+    image_position_y: 50,
+    image_zoom: 100,
     link_url: null,
     link_label: null,
     order_index: 0,
@@ -28,6 +32,10 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
     bg: "bg-secondary",
     fg: "text-secondary-foreground",
     image_url: null,
+    image_fit: "contain",
+    image_position_x: 50,
+    image_position_y: 50,
+    image_zoom: 100,
     link_url: null,
     link_label: null,
     order_index: 1,
@@ -41,6 +49,10 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
     bg: "bg-accent",
     fg: "text-accent-foreground",
     image_url: null,
+    image_fit: "contain",
+    image_position_x: 50,
+    image_position_y: 50,
+    image_zoom: 100,
     link_url: null,
     link_label: null,
     order_index: 2,
@@ -65,6 +77,10 @@ export function readSlides(): CarouselSlide[] {
     slidesCache = slides.map((s) => ({
       ...s,
       type: s.type ?? "carousel",
+      image_fit: s.image_fit ?? (s.type === "carousel" ? "contain" : "cover"),
+      image_position_x: s.image_position_x ?? 50,
+      image_position_y: s.image_position_y ?? 50,
+      image_zoom: s.image_zoom ?? 100,
     })) as CarouselSlide[];
     return slidesCache.map((s) => ({ ...s }));
   } catch {

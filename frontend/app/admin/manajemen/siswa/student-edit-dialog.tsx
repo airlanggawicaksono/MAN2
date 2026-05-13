@@ -24,6 +24,8 @@ import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { normalizeDigits, validateWithAlert } from "@/lib/io-guards";
+import { studentEditValidationRules } from "@/lib/form-validators";
 
 interface StudentEditDialogProps {
   student: StudentProfile | null;
@@ -68,9 +70,13 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!student) return;
-    reset();
     const payload = { ...form };
+    if (!validateWithAlert(studentEditValidationRules(payload))) return;
+    reset();
     if (payload.dob) payload.dob = formatDateForApi(payload.dob);
+    if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
+      delete payload.tahun_masuk;
+    }
     const result = await updateStudent({ siswaId: student.siswa_id, body: payload });
     if ("data" in result) onClose();
   };
@@ -95,7 +101,9 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Label>NISN</Label>
               <Input
                 value={form.nisn || ""}
-                onChange={(e) => handleChange("nisn", e.target.value)}
+                inputMode="numeric"
+                placeholder="Hanya angka"
+                onChange={(e) => handleChange("nisn", normalizeDigits(e.target.value))}
               />
             </div>
             <div className="grid gap-2">
@@ -160,8 +168,11 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Label>Tahun Masuk</Label>
               <Input
                 type="number"
-                value={form.tahun_masuk || ""}
-                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                value={form.tahun_masuk ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  handleChange("tahun_masuk", v === "" ? (undefined as unknown as number) : parseInt(v, 10));
+                }}
               />
             </div>
             <div className="grid gap-2">

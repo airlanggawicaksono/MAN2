@@ -173,18 +173,19 @@ class StudentUserManagementService:
                 profile = SiswaProfile(user_id=user.user_id, **data)
                 await self.repo.add_user(user)
                 await self.repo.add_student_profile(profile)
+                await self.repo.commit()
                 created += 1
                 items.append(BulkImportStudentResultItem(
                     row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn, status="created",
                 ))
             except Exception as e:
+                await self.repo.rollback()
                 errors += 1
                 items.append(BulkImportStudentResultItem(
                     row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
                     status="error", detail=str(e),
                 ))
 
-        await self.repo.commit()
         return BulkImportStudentResultDTO(created=created, skipped=skipped, errors=errors, items=items)
 
     async def update_student(
@@ -346,18 +347,19 @@ class TeacherUserManagementService:
                 profile = GuruProfile(user_id=user.user_id, **req.model_dump())
                 await self.repo.add_user(user)
                 await self.repo.add_teacher_profile(profile)
+                await self.repo.commit()
                 created += 1
                 items.append(BulkImportGuruResultItem(
                     row=row, nama_lengkap=req.nama_lengkap, nip=req.nip, status="created",
                 ))
             except Exception as e:
+                await self.repo.rollback()
                 errors += 1
                 items.append(BulkImportGuruResultItem(
                     row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
                     status="error", detail=str(e),
                 ))
 
-        await self.repo.commit()
         return BulkImportGuruResultDTO(created=created, skipped=skipped, errors=errors, items=items)
 
     async def update_teacher(

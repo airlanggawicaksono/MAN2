@@ -14,14 +14,25 @@ import type { CarouselSlide } from "@/types/cms";
 interface HomeImageCarouselProps {
   items: CarouselSlide[];
   cardClassName?: string;
-  imageClassName?: string;
+  itemClassName?: string;
+  imageFrameClassName?: string;
+  defaultImageFit?: "cover" | "contain" | "fill";
   loading?: boolean;
+}
+
+function toObjectFitClass(mode: CarouselSlide["image_fit"], fallback: "cover" | "contain" | "fill") {
+  const fit = mode ?? fallback;
+  if (fit === "contain") return "object-contain";
+  if (fit === "fill") return "object-fill";
+  return "object-cover";
 }
 
 export function HomeImageCarousel({
   items,
   cardClassName = "",
-  imageClassName = "max-h-[360px]",
+  itemClassName = "basis-full",
+  imageFrameClassName = "aspect-[4/3]",
+  defaultImageFit = "cover",
   loading = false,
 }: HomeImageCarouselProps) {
   if (loading && items.length === 0) {
@@ -58,12 +69,20 @@ export function HomeImageCarousel({
             <Card className={`overflow-hidden border-border/60 ${cardClassName}`}>
               <CardContent className="flex flex-col p-0">
                 {item.image_url && (
-                  <img
-                    src={item.image_url}
-                    alt={item.title || ""}
-                    loading="lazy"
-                    className={`w-full object-cover ${imageClassName}`}
-                  />
+                  <div className={`w-full bg-muted/25 ${imageFrameClassName}`}>
+                    <img
+                      src={item.image_url}
+                      alt={item.title || ""}
+                      loading="lazy"
+                      draggable={false}
+                      className={`h-full w-full ${toObjectFitClass(item.image_fit, defaultImageFit)}`}
+                      style={{
+                        objectPosition: `${item.image_position_x ?? 50}% ${item.image_position_y ?? 50}%`,
+                        transform: `scale(${(item.image_zoom ?? 100) / 100})`,
+                        transformOrigin: `${item.image_position_x ?? 50}% ${item.image_position_y ?? 50}%`,
+                      }}
+                    />
+                  </div>
                 )}
                 {item.title && (
                   <div className="p-4">
@@ -75,7 +94,7 @@ export function HomeImageCarousel({
           );
 
           return (
-            <CarouselItem key={item.id}>
+            <CarouselItem key={item.id} className={itemClassName}>
               {item.link_url ? (
                 <Link href={item.link_url} className="block">
                   {content}

@@ -19,6 +19,8 @@ import { notifySuccess, notifyError } from "@/lib/app-notify";
 import type { CreateGuruRequest, BulkImportGuruResult } from "@/types/teachers";
 import { useSpreadsheetParser } from "@/hooks/useSpreadsheetParser";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { validateWithAlert } from "@/lib/io-guards";
+import { buildTeacherImportIssue, teacherImportValidationRules } from "@/lib/form-validators";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 
 interface TeacherImportDialogProps {
@@ -33,6 +35,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<CreateGuruRequest[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [result, setResult] = useState<BulkImportGuruResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -60,20 +63,29 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       const nama = helpers.get("nama_lengkap");
       if (!nama) return { skip: true };
       const tahunRaw = helpers.get("tahun_masuk");
-      const tahun = tahunRaw ? parseInt(tahunRaw) : undefined;
+      const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
+      const nipRaw = (helpers.get("nip") || "").trim();
+      const nikRaw = (helpers.get("nik") || "").trim();
+      const nip = nipRaw && /^\d+$/.test(nipRaw) ? nipRaw : undefined;
+      const nik = nikRaw && /^\d+$/.test(nikRaw) ? nikRaw : undefined;
+      const warnings: string[] = [];
+      if (nipRaw && !nip) warnings.push(buildTeacherImportIssue(helpers.line, "nip", nipRaw));
+      if (nikRaw && !nik) warnings.push(buildTeacherImportIssue(helpers.line, "nik", nikRaw));
+      if (tahunRaw && Number.isNaN(tahun)) warnings.push(buildTeacherImportIssue(helpers.line, "tahun_masuk", tahunRaw));
       return {
         row: {
           nama_lengkap: nama,
-          nip: helpers.get("nip") || undefined,
-          nik: helpers.get("nik") || undefined,
+          nip,
+          nik,
           mata_pelajaran: helpers.get("mata_pelajaran") || helpers.get("mapel") || undefined,
           pendidikan_terakhir: helpers.get("pendidikan_terakhir") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
           alamat: helpers.get("alamat") || undefined,
-          tahun_masuk: !isNaN(tahun!) ? tahun : undefined,
+          tahun_masuk: !Number.isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
         },
+        warnings,
       };
     },
   });
@@ -83,15 +95,17 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       const typeError = validateFileType(file);
       if (typeError) {
         setParseErrors([typeError]);
+        window.alert(typeError);
         return;
       }
       setFileName(file.name);
       setResult(null);
-      const { rows, errors } = await parseFile(file);
+      const { rows, errors, warnings } = await parseFile(file);
       setParsed(rows);
       setParseErrors(errors);
+      setParseWarnings(warnings);
     },
-    [validateFileType, parseFile]
+    [validateFileType, parseFile],
   );
 
   const handleFileChange = useCallback(
@@ -99,7 +113,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       const file = e.target.files?.[0];
       if (file) processFile(file);
     },
-    [processFile]
+    [processFile],
   );
 
   const handleDrop = useCallback(
@@ -109,11 +123,11 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       const file = e.dataTransfer.files?.[0];
       if (file) processFile(file);
     },
-    [processFile]
+    [processFile],
   );
 
   const handleImport = async () => {
-    if (!parsed.length) return;
+    if (!validateWithAlert(teacherImportValidationRules(parsed.length > 0, parseErrors.length > 0, parseWarnings))) return;
     const idempotencyKey = crypto.randomUUID();
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
@@ -125,6 +139,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   const handleClose = () => {
     setParsed([]);
     setParseErrors([]);
+    setParseWarnings([]);
     setFileName("");
     setResult(null);
     setActiveJobId(null);
@@ -133,7 +148,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   };
 
   const isProcessing = isLoading || activeJobId !== null;
-
+  const canImport = parsed.length > 0 && parseErrors.length === 0 && parseWarnings.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
 
   return (
@@ -158,28 +173,23 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
               <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">alamat</span>
             </p>
-            <p>Civitas tidak menggunakan RFID — kolom rfid akan diabaikan.</p>
+            <p>Civitas tidak menggunakan RFID - kolom rfid akan diabaikan.</p>
           </div>
 
           {!result && (
             <div
               className={`rounded-lg border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
-                isDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
+                isDragging ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
               }`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
               {fileName ? (
                 <div className="flex flex-col items-center gap-2">
                   <FileSpreadsheet className="h-8 w-8 text-primary" />
@@ -204,21 +214,24 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             </div>
           )}
 
+          {parseWarnings.length > 0 && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
+              <p className="text-xs font-semibold text-destructive">Format kolom tidak valid (import diblokir):</p>
+              {parseWarnings.map((w, i) => (
+                <p key={i} className="text-xs text-destructive">{w}</p>
+              ))}
+            </div>
+          )}
+
           {parsed.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                {parsed.length} civitas siap diimport:
-              </p>
+              <p className="text-sm font-medium text-foreground">{parsed.length} civitas siap diimport:</p>
               <div className="max-h-52 overflow-y-auto rounded border border-border/70 divide-y divide-border/60">
                 {parsed.slice(0, 50).map((s, i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-muted-foreground/70 text-xs">
-                      {[
-                        s.nip && `NIP: ${s.nip}`,
-                        s.mata_pelajaran,
-                        s.pendidikan_terakhir,
-                      ].filter(Boolean).join(" · ")}
+                      {[s.nip && `NIP: ${s.nip}`, s.mata_pelajaran, s.pendidikan_terakhir].filter(Boolean).join(" - ")}
                     </span>
                   </div>
                 ))}
@@ -265,7 +278,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
                         </Badge>
                         <span className="text-foreground">
                           Baris {it.row}: {it.nama_lengkap}
-                          {it.detail && ` — ${it.detail}`}
+                          {it.detail && ` - ${it.detail}`}
                         </span>
                       </div>
                     ))}
@@ -291,11 +304,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             {result ? "Tutup" : "Batal"}
           </Button>
           {!result && (
-            <Button
-              type="button"
-              disabled={parsed.length === 0 || isProcessing}
-              onClick={handleImport}
-            >
+            <Button type="button" disabled={!canImport} onClick={handleImport}>
               {isProcessing ? "Mengimport..." : `Import ${parsed.length} Civitas`}
             </Button>
           )}

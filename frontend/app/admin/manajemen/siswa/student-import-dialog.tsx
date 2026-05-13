@@ -19,6 +19,8 @@ import { notifySuccess, notifyError } from "@/lib/app-notify";
 import type { CreateStudentRequest, BulkImportResult } from "@/types/students";
 import { useSpreadsheetParser } from "@/hooks/useSpreadsheetParser";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { validateWithAlert } from "@/lib/io-guards";
+import { buildStudentImportIssue, studentImportValidationRules } from "@/lib/form-validators";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 
 interface StudentImportDialogProps {
@@ -33,6 +35,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<CreateStudentRequest[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [result, setResult] = useState<BulkImportResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -60,24 +63,33 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const nama = helpers.get("nama_lengkap");
       if (!nama) return { skip: true };
       const tahunRaw = helpers.get("tahun_masuk");
-      const tahun = tahunRaw ? parseInt(tahunRaw) : undefined;
+      const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
       const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
       const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
+      const nisnRaw = (helpers.get("nisn") || helpers.get("nis") || "").trim();
+      const rfidRaw = (helpers.get("rfid_number") || helpers.get("card_number") || "").trim();
+      const nisn = nisnRaw && /^\d+$/.test(nisnRaw) ? nisnRaw : undefined;
+      const rfid = rfidRaw || undefined;
+      const warnings: string[] = [];
+      if (nisnRaw && !nisn) warnings.push(buildStudentImportIssue(helpers.line, "nisn", nisnRaw));
+      if (tahunRaw && Number.isNaN(tahun)) warnings.push(buildStudentImportIssue(helpers.line, "tahun_masuk", tahunRaw));
       return {
         row: {
           nama_lengkap: nama,
-          nisn: helpers.get("nisn") || helpers.get("nis") || undefined,
+          nisn,
           kelas_jurusan: helpers.get("kelas_jurusan") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
           kontak: helpers.get("kontak") || undefined,
           nama_wali: helpers.get("nama_wali") || undefined,
-          no_telephone_wali: helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || undefined,
+          no_telephone_wali:
+            helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || undefined,
           alamat: helpers.get("alamat") || undefined,
-          tahun_masuk: !isNaN(tahun!) ? tahun : undefined,
+          tahun_masuk: !Number.isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
-          rfid_number: helpers.get("rfid_number") || helpers.get("card_number") || undefined,
+          rfid_number: rfid,
           status_siswa: isAlumni ? "Lulus" : undefined,
         },
+        warnings,
       };
     },
   });
@@ -87,15 +99,17 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const typeError = validateFileType(file);
       if (typeError) {
         setParseErrors([typeError]);
+        window.alert(typeError);
         return;
       }
       setFileName(file.name);
       setResult(null);
-      const { rows, errors } = await parseFile(file);
+      const { rows, errors, warnings } = await parseFile(file);
       setParsed(rows);
       setParseErrors(errors);
+      setParseWarnings(warnings);
     },
-    [validateFileType, parseFile]
+    [validateFileType, parseFile],
   );
 
   const handleFileChange = useCallback(
@@ -103,7 +117,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const file = e.target.files?.[0];
       if (file) processFile(file);
     },
-    [processFile]
+    [processFile],
   );
 
   const handleDrop = useCallback(
@@ -113,11 +127,11 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const file = e.dataTransfer.files?.[0];
       if (file) processFile(file);
     },
-    [processFile]
+    [processFile],
   );
 
   const handleImport = async () => {
-    if (!parsed.length) return;
+    if (!validateWithAlert(studentImportValidationRules(parsed.length > 0, parseErrors.length > 0, parseWarnings))) return;
     const idempotencyKey = crypto.randomUUID();
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
@@ -129,6 +143,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   const handleClose = () => {
     setParsed([]);
     setParseErrors([]);
+    setParseWarnings([]);
     setFileName("");
     setResult(null);
     setActiveJobId(null);
@@ -137,7 +152,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   };
 
   const isProcessing = isLoading || activeJobId !== null;
-
+  const canImport = parsed.length > 0 && parseErrors.length === 0 && parseWarnings.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
 
   return (
@@ -148,7 +163,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Format info */}
           <div className="rounded-lg bg-muted/40 border border-border/70 p-3 text-xs text-muted-foreground space-y-2">
             <p className="font-semibold text-foreground">Format header kolom:</p>
             <p className="leading-relaxed">
@@ -167,30 +181,25 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </p>
             <p>
               Kolom <span className="font-mono bg-background border rounded px-1">is_alumni</span>{" "}
-              diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> / <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
+              diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> /{" "}
+              <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
             </p>
           </div>
 
-          {/* File picker */}
           {!result && (
             <div
               className={`rounded-lg border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
-                isDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
+                isDragging ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-muted/20"
               }`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
               {fileName ? (
                 <div className="flex flex-col items-center gap-2">
                   <FileSpreadsheet className="h-8 w-8 text-primary" />
@@ -207,7 +216,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </div>
           )}
 
-          {/* Parse errors */}
           {parseErrors.length > 0 && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
               {parseErrors.map((e, i) => (
@@ -216,24 +224,26 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </div>
           )}
 
-          {/* Preview */}
+          {parseWarnings.length > 0 && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
+              <p className="text-xs font-semibold text-destructive">Format kolom tidak valid (import diblokir):</p>
+              {parseWarnings.map((w, i) => (
+                <p key={i} className="text-xs text-destructive">{w}</p>
+              ))}
+            </div>
+          )}
+
           {parsed.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                {parsed.length} siswa siap diimport:
-              </p>
+              <p className="text-sm font-medium text-foreground">{parsed.length} siswa siap diimport:</p>
               <div className="max-h-52 overflow-y-auto rounded border border-border/70 divide-y divide-border/60">
                 {parsed.slice(0, 50).map((s, i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-muted-foreground/70 text-xs">
-                      {[
-                        s.nisn && `NISN: ${s.nisn}`,
-                        s.kelas_jurusan,
-                        s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`,
-                        s.rfid_number && `RFID: ${s.rfid_number}`,
-                        s.status_siswa === "Lulus" && "Alumni",
-                      ].filter(Boolean).join(" · ")}
+                      {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan, s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`, s.rfid_number && `RFID: ${s.rfid_number}`, s.status_siswa === "Lulus" && "Alumni"]
+                        .filter(Boolean)
+                        .join(" - ")}
                     </span>
                   </div>
                 ))}
@@ -246,7 +256,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </div>
           )}
 
-          {/* Import result */}
           {result && (
             <div className="space-y-3">
               <div className="flex gap-3">
@@ -281,7 +290,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                         </Badge>
                         <span className="text-foreground">
                           Baris {it.row}: {it.nama_lengkap}
-                          {it.detail && ` — ${it.detail}`}
+                          {it.detail && ` - ${it.detail}`}
                         </span>
                       </div>
                     ))}
@@ -307,11 +316,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             {result ? "Tutup" : "Batal"}
           </Button>
           {!result && (
-            <Button
-              type="button"
-              disabled={parsed.length === 0 || isProcessing}
-              onClick={handleImport}
-            >
+            <Button type="button" disabled={!canImport} onClick={handleImport}>
               {isProcessing ? "Mengimport..." : `Import ${parsed.length} Siswa`}
             </Button>
           )}

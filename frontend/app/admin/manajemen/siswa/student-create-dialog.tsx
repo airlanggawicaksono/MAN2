@@ -25,6 +25,8 @@ import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 import { formatIsoToApiDmy } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { notifySuccess, notifyError } from "@/lib/app-notify";
+import { normalizeDigits, validateWithAlert } from "@/lib/io-guards";
+import { studentCreateValidationRules } from "@/lib/form-validators";
 
 interface StudentCreateDialogProps {
   open: boolean;
@@ -46,8 +48,11 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    reset();
     const payload: CreateStudentRequest = { ...form };
+    const nisnValue = payload.nisn?.trim() ?? "";
+    if (!validateWithAlert(studentCreateValidationRules(payload))) return;
+    payload.nisn = nisnValue;
+    reset();
     if (payload.dob) payload.dob = formatIsoToApiDmy(payload.dob) ?? payload.dob;
     if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
       delete payload.tahun_masuk;
@@ -87,7 +92,9 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
               <Input
                 required
                 value={form.nisn || ""}
-                onChange={(e) => handleChange("nisn", e.target.value)}
+                inputMode="numeric"
+                placeholder="Hanya angka"
+                onChange={(e) => handleChange("nisn", normalizeDigits(e.target.value))}
               />
             </div>
             <div className="grid gap-2">
