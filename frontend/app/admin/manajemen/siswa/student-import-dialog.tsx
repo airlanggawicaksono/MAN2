@@ -189,13 +189,22 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
               diisi <span className="font-mono">true</span> / <span className="font-mono">ya</span> /{" "}
               <span className="font-mono">1</span> untuk menandai siswa sebagai alumni (Lulus).
             </p>
-            <a
-              href="/samples/sample_siswa_import.csv"
-              download
-              className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
-            >
-              Download sample CSV siswa
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href="/samples/sample_siswa_import.csv"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Download sample CSV siswa
+              </a>
+              <a
+                href="/samples/sample_siswa_import.xlsx"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Download sample XLSX siswa
+              </a>
+            </div>
           </div>
 
           {!result && (
@@ -329,7 +338,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
           </Button>
           {!result && (
             <Button type="button" disabled={!canImport} onClick={handleImport}>
-              {isProcessing ? "Mengimport..." : `Import ${parsed.length} Siswa`}
+              {isProcessing ? "Mengimpor..." : `Impor CSV/XLSX (${parsed.length})`}
             </Button>
           )}
         </DialogFooter>

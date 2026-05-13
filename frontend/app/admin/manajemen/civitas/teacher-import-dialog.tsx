@@ -193,13 +193,22 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             </p>
             <p>Nama boleh termasuk gelar (contoh: "Ahmad Fauzi, S.Pd.").</p>
             <p>Civitas tidak menggunakan RFID - kolom rfid akan diabaikan.</p>
-            <a
-              href="/samples/sample_civitas_import.csv"
-              download
-              className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
-            >
-              Download sample CSV civitas
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href="/samples/sample_civitas_import.csv"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Download sample CSV civitas
+              </a>
+              <a
+                href="/samples/sample_civitas_import.xlsx"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Download sample XLSX civitas
+              </a>
+            </div>
           </div>
 
           {!result && (
@@ -331,7 +340,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
           </Button>
           {!result && (
             <Button type="button" disabled={!canImport} onClick={handleImport}>
-              {isProcessing ? "Mengimport..." : `Import ${parsed.length} Civitas`}
+              {isProcessing ? "Mengimpor..." : `Impor CSV/XLSX (${parsed.length})`}
             </Button>
           )}
         </DialogFooter>

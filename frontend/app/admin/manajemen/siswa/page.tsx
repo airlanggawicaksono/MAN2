@@ -384,7 +384,7 @@ export default function DataSiswaPage() {
           <ExportActionButtons onTrigger={exporter.open} disabled={exporter.exporting} />
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Impor CSV
+            Impor CSV/XLSX
           </Button>
           <Button onClick={() => setShowCreate(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
