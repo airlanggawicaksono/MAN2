@@ -53,11 +53,11 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
       delete payload.tahun_masuk;
     }
     const result = await createStudent(payload);
-    if ("data" in result) {
+    if ("data" in result && result.data) {
       notifySuccess(`Siswa "${result.data.nama_lengkap}" berhasil ditambahkan.`);
       setForm(EMPTY_FORM);
       onClose();
-    } else {
+    } else if ("error" in result) {
       const msg = getApiErrorMessage(result.error) ?? "Gagal menambah siswa.";
       notifyError(msg);
     }

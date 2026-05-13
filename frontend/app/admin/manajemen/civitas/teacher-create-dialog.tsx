@@ -53,11 +53,11 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
       delete payload.tahun_masuk;
     }
     const result = await createTeacher(payload);
-    if ("data" in result) {
+    if ("data" in result && result.data) {
       notifySuccess(`Civitas "${result.data.nama_lengkap}" berhasil ditambahkan.`);
       setForm(EMPTY_FORM);
       onClose();
-    } else {
+    } else if ("error" in result) {
       const msg = getApiErrorMessage(result.error) ?? "Gagal menambah civitas.";
       notifyError(msg);
     }
