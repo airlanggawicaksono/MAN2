@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.config.database import async_session_maker
 from app.config.logging import get_logger
@@ -17,6 +17,8 @@ async def seed_admin() -> None:
     ]
 
     async with async_session_maker() as session:
+        # Serialize seed across workers — prevents duplicate-username race
+        await session.execute(text("SELECT pg_advisory_xact_lock(8675310)"))
         for admin in admins:
             result = await session.execute(
                 select(User).where(User.username == admin["username"])
@@ -32,6 +34,6 @@ async def seed_admin() -> None:
             )
             user.set_password(admin["password"])
             session.add(user)
-            log.info("seed_admin_created", extra={"username": admin["username"]})
+            log.info(f"seed_admin_created username={admin['username']}")
 
         await session.commit()

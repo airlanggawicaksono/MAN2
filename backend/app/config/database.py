@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -52,7 +53,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             # "hangs" if the yield never returns or if the route
             # already committed. The routers should handle their own commit.
         except Exception as e:
-            log.warning("db_session_rollback", extra={"err": str(e)})
+            log.warning(f"db_session_rollback err={e!r}")
             await session.rollback()
             raise
         finally:
@@ -79,6 +80,10 @@ async def init_db(drop_existing: bool = False):
     from app.models.job import Job  # noqa: F401
 
     async with engine.begin() as conn:
+        # Serialize schema init across workers — prevents duplicate CREATE TYPE
+        # race when uvicorn runs with --workers > 1. Lock released at txn end.
+        await conn.execute(text("SELECT pg_advisory_xact_lock(8675309)"))
+
         if drop_existing:
             log.warning("db_drop_all")
             await conn.run_sync(Base.metadata.drop_all)

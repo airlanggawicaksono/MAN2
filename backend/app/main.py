@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
         - Close database connections
     """
     # Startup
-    log.info("app_startup", extra={"env": settings.ENVIRONMENT, "dev_mode": settings.DEV_MODE})
+    log.info(f"app_startup env={settings.ENVIRONMENT} dev_mode={settings.DEV_MODE}")
     await init_db(drop_existing=settings.DEV_MODE)
     await seed_admin()
     log.info("app_ready")

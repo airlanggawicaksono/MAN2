@@ -19,36 +19,26 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+        method = request.method
+        path = request.url.path
+        client = _client(request)
         start = time.perf_counter()
         try:
             response = await call_next(request)
         except Exception:
             elapsed_ms = int((time.perf_counter() - start) * 1000)
             log.exception(
-                "request_unhandled_exception",
-                extra={
-                    "rid": rid,
-                    "method": request.method,
-                    "path": request.url.path,
-                    "elapsed_ms": elapsed_ms,
-                    "client": _client(request),
-                },
+                f"UNHANDLED {method} {path} elapsed={elapsed_ms}ms rid={rid} client={client}"
             )
             raise
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         response.headers["x-request-id"] = rid
-        level = log.warning if response.status_code >= 400 else log.info
-        level(
-            "request",
-            extra={
-                "rid": rid,
-                "method": request.method,
-                "path": request.url.path,
-                "status": response.status_code,
-                "elapsed_ms": elapsed_ms,
-                "client": _client(request),
-            },
-        )
+        status = response.status_code
+        msg = f"{method} {path} {status} elapsed={elapsed_ms}ms rid={rid} client={client}"
+        if status >= 400:
+            log.warning(msg)
+        else:
+            log.info(msg)
         return response
 
 
