@@ -26,13 +26,13 @@ export async function GET(
   }
 
   try {
-    const file = fs.readFileSync(filePath);
+    const buf = fs.readFileSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
-    return new NextResponse(file, {
+    return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "no-cache",
       },
     });
   } catch {

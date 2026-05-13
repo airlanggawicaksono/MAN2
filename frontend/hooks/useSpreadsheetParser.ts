@@ -95,13 +95,13 @@ export function useSpreadsheetParser<T, C = undefined>({
           context
         );
 
+        if (result.warnings?.length) {
+          result.warnings.forEach((w) => warnings.push(`Baris ${line}: ${w}`));
+        }
         if (result.skip) return;
         if (result.error) {
           errors.push(result.error);
           return;
-        }
-        if (result.warnings?.length) {
-          result.warnings.forEach((w) => warnings.push(`Baris ${line}: ${w}`));
         }
         if (result.row) {
           rows.push(result.row);
