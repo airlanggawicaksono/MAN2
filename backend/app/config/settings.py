@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     DESKTOP_API_KEY: str = "change-this-desktop-api-key"
     CORS_ORIGINS: str = ""
 
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
     @property
     def database_url(self) -> str:
         """

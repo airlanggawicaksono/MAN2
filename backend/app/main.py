@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from app.config.logging import setup_logging, get_logger
+setup_logging()
 from app.config.database import init_db, close_db
 from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.seeds import seed_admin
@@ -9,6 +11,9 @@ from app.routers import (
     desktop, jobs,
 )
 from app.config.settings import settings
+from app.middleware.request_log import RequestLogMiddleware
+
+log = get_logger("simandaya.main")
 
 
 @asynccontextmanager
@@ -22,10 +27,13 @@ async def lifespan(app: FastAPI):
         - Close database connections
     """
     # Startup
+    log.info("app_startup", extra={"env": settings.ENVIRONMENT, "dev_mode": settings.DEV_MODE})
     await init_db(drop_existing=settings.DEV_MODE)
     await seed_admin()
+    log.info("app_ready")
     yield
     # Shutdown
+    log.info("app_shutdown")
     await close_db()
 
 
@@ -53,6 +61,9 @@ app = FastAPI(
     ],
 )
 register_desktop_pubsub(app)
+
+# Request logging (added first so it wraps everything else)
+app.add_middleware(RequestLogMiddleware)
 
 # Configure CORS
 app.add_middleware(

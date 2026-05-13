@@ -85,3 +85,6 @@ logs/
 App+csv template/
 .venv
 .env.dev
+
+# Local-only sample data (CSV/XLSX you use to test imports — keep private)
+samples/

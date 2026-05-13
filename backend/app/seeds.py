@@ -1,9 +1,12 @@
 from sqlalchemy import select
 
 from app.config.database import async_session_maker
+from app.config.logging import get_logger
 from app.config.settings import settings
 from app.enums import RegistrationStatus, UserType
 from app.models.user import User
+
+log = get_logger("simandaya.seed")
 
 
 async def seed_admin() -> None:
@@ -29,6 +32,6 @@ async def seed_admin() -> None:
             )
             user.set_password(admin["password"])
             session.add(user)
-            print(f"[seed] admin created: {admin['username']}")
+            log.info("seed_admin_created", extra={"username": admin["username"]})
 
         await session.commit()

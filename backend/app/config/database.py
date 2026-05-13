@@ -3,6 +3,9 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from typing import AsyncGenerator
 from app.config.settings import settings
+from app.config.logging import get_logger
+
+log = get_logger("simandaya.db")
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -42,19 +45,17 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
     Creates a new session per request, handles commits/rollbacks automatically.
     """
-    print("[DB] Creating new session...")
     async with async_session_maker() as session:
         try:
             yield session
-            # Note: We don't auto-commit here anymore as it can cause 
-            # "hangs" if the yield never returns or if the route 
+            # Note: We don't auto-commit here anymore as it can cause
+            # "hangs" if the yield never returns or if the route
             # already committed. The routers should handle their own commit.
         except Exception as e:
-            print(f"[DB] Session error: {e}")
+            log.warning("db_session_rollback", extra={"err": str(e)})
             await session.rollback()
             raise
         finally:
-            print("[DB] Closing session...")
             await session.close()
 
 
@@ -79,12 +80,12 @@ async def init_db(drop_existing: bool = False):
 
     async with engine.begin() as conn:
         if drop_existing:
-            print("WARNING: Dropping all existing tables...")
+            log.warning("db_drop_all")
             await conn.run_sync(Base.metadata.drop_all)
 
-        print("Creating/updating database tables...")
+        log.info("db_create_all")
         await conn.run_sync(Base.metadata.create_all)
-        print("Database initialized successfully")
+        log.info("db_init_ok")
 
 
 async def close_db():

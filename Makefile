@@ -4,7 +4,9 @@
         lint lint-be lint-fe \
         db-up db-down db-shell db-reset db-reset-hard \
         seed-admins import-students \
-        logs status clean
+        logs log-dev-backend log-dev-db log-dev-frontend \
+        log-prod-backend log-prod-db log-prod-frontend \
+        status clean
 
 -include .env.dev
 export
@@ -49,8 +51,16 @@ help:
 	@echo "  make lint-be        Backend ruff check (auto-installs ruff if missing)"
 	@echo "  make lint-fe        Frontend tsc --noEmit"
 	@echo ""
+	@echo "Logs (follow stdout via docker compose):"
+	@echo "  make logs                Tail all dev services"
+	@echo "  make log-dev-backend     Tail dev backend"
+	@echo "  make log-dev-db          Tail dev postgres"
+	@echo "  make log-dev-frontend    Tail dev frontend"
+	@echo "  make log-prod-backend    Tail prod backend"
+	@echo "  make log-prod-db         Tail prod postgres"
+	@echo "  make log-prod-frontend   Tail prod frontend"
+	@echo ""
 	@echo "Other:"
-	@echo "  make logs           Stream logs for all running services"
 	@echo "  make status         Show container status"
 	@echo "  make clean          Remove containers and volumes"
 	@echo "  make setup          Create .env files from examples"
@@ -176,6 +186,24 @@ import-students:
 
 logs:
 	$(DEV) logs -f
+
+log-dev-backend:
+	$(DEV) logs -f --tail=200 backend
+
+log-dev-db:
+	$(DEV) logs -f --tail=200 postgres-db
+
+log-dev-frontend:
+	$(DEV) logs -f --tail=200 frontend
+
+log-prod-backend:
+	$(PROD) logs -f --tail=200 backend
+
+log-prod-db:
+	$(PROD) logs -f --tail=200 postgres-db
+
+log-prod-frontend:
+	$(PROD) logs -f --tail=200 frontend
 
 status:
 	$(DEV) ps

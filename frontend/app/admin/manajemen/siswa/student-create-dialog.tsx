@@ -24,6 +24,7 @@ import type { CreateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 import { formatIsoToApiDmy } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { notifySuccess, notifyError } from "@/lib/app-notify";
 
 interface StudentCreateDialogProps {
   open: boolean;
@@ -48,6 +49,9 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
     reset();
     const payload: CreateStudentRequest = { ...form };
     if (payload.dob) payload.dob = formatIsoToApiDmy(payload.dob) ?? payload.dob;
+    if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
+      delete payload.tahun_masuk;
+    }
     const result = await createStudent(payload);
     if ("data" in result) {
       setForm(EMPTY_FORM);
@@ -102,8 +106,11 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
               <Label>Tahun Masuk</Label>
               <Input
                 type="number"
-                value={form.tahun_masuk || ""}
-                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                value={form.tahun_masuk ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  handleChange("tahun_masuk", v === "" ? (undefined as unknown as number) : parseInt(v));
+                }}
                 placeholder={new Date().getFullYear().toString()}
               />
             </div>

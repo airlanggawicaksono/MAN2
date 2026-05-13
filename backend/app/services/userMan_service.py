@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,6 +128,7 @@ class StudentUserManagementService:
                     detail=f"Nomor kartu '{request.rfid_number}' sudah dipakai siswa lain.",
                 )
         user = User(
+            user_id=uuid4(),
             user_type=UserType.siswa,
             registration_status=RegistrationStatus.pending,
             is_active=True,
@@ -163,6 +164,7 @@ class StudentUserManagementService:
                         ))
                         continue
                 user = User(
+                    user_id=uuid4(),
                     user_type=UserType.siswa,
                     registration_status=RegistrationStatus.pending,
                     is_active=True,
@@ -301,6 +303,7 @@ class TeacherUserManagementService:
                     detail=f"NIP '{request.nip}' sudah terdaftar.",
                 )
         user = User(
+            user_id=uuid4(),
             user_type=UserType.guru,
             registration_status=RegistrationStatus.pending,
             is_active=True,
@@ -335,6 +338,7 @@ class TeacherUserManagementService:
                         ))
                         continue
                 user = User(
+                    user_id=uuid4(),
                     user_type=UserType.guru,
                     registration_status=RegistrationStatus.pending,
                     is_active=True,
