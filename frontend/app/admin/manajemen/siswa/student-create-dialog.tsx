@@ -54,8 +54,12 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
     }
     const result = await createStudent(payload);
     if ("data" in result) {
+      notifySuccess(`Siswa "${result.data.nama_lengkap}" berhasil ditambahkan.`);
       setForm(EMPTY_FORM);
       onClose();
+    } else {
+      const msg = getApiErrorMessage(result.error) ?? "Gagal menambah siswa.";
+      notifyError(msg);
     }
   };
 
@@ -77,11 +81,13 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label>NISN</Label>
+              <Label>
+                NISN <span className="text-destructive">*</span>
+              </Label>
               <Input
+                required
                 value={form.nisn || ""}
                 onChange={(e) => handleChange("nisn", e.target.value)}
-                placeholder="Opsional"
               />
             </div>
             <div className="grid gap-2">

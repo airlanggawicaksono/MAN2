@@ -24,6 +24,7 @@ import type { CreateGuruRequest } from "@/types/teachers";
 import type { JenisKelamin, StatusGuru } from "@/types/enums";
 import { formatIsoToApiDmy } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { notifySuccess, notifyError } from "@/lib/app-notify";
 
 interface TeacherCreateDialogProps {
   open: boolean;
@@ -48,10 +49,17 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
     reset();
     const payload: CreateGuruRequest = { ...form };
     if (payload.dob) payload.dob = formatIsoToApiDmy(payload.dob) ?? payload.dob;
+    if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
+      delete payload.tahun_masuk;
+    }
     const result = await createTeacher(payload);
     if ("data" in result) {
+      notifySuccess(`Civitas "${result.data.nama_lengkap}" berhasil ditambahkan.`);
       setForm(EMPTY_FORM);
       onClose();
+    } else {
+      const msg = getApiErrorMessage(result.error) ?? "Gagal menambah civitas.";
+      notifyError(msg);
     }
   };
 
@@ -73,11 +81,13 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label>NIP</Label>
+              <Label>
+                NIP <span className="text-destructive">*</span>
+              </Label>
               <Input
+                required
                 value={form.nip || ""}
                 onChange={(e) => handleChange("nip", e.target.value)}
-                placeholder="Opsional"
               />
             </div>
             <div className="grid gap-2">
@@ -116,8 +126,11 @@ export function TeacherCreateDialog({ open, onClose }: TeacherCreateDialogProps)
               <Label>Tahun Masuk</Label>
               <Input
                 type="number"
-                value={form.tahun_masuk || ""}
-                onChange={(e) => handleChange("tahun_masuk", parseInt(e.target.value))}
+                value={form.tahun_masuk ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  handleChange("tahun_masuk", v === "" ? (undefined as unknown as number) : parseInt(v));
+                }}
                 placeholder={new Date().getFullYear().toString()}
               />
             </div>
