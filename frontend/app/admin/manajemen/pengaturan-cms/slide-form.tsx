@@ -84,6 +84,29 @@ function imagePreviewMaxWidth(): string {
   return "max-w-full";
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function preloadImage(url: string, retries = 6, delayMs = 180): Promise<void> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("failed"));
+        img.src = `${url}${url.includes("?") ? "&" : "?"}preload=${Date.now()}-${attempt}`;
+      });
+      return;
+    } catch {
+      if (attempt >= retries - 1) {
+        throw new Error("preview_unavailable");
+      }
+      await wait(delayMs);
+    }
+  }
+}
+
 export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: Props) {
   const [title, setTitle] = useState(defaultValues?.title ?? "");
   const [description, setDescription] = useState(defaultValues?.description ?? "");
@@ -101,6 +124,9 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [isDragOverPicker, setIsDragOverPicker] = useState(false);
   const [isDraggingFocus, setIsDraggingFocus] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewNonce, setPreviewNonce] = useState<number>(() => Date.now());
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const sessionUploadUrlsRef = useRef<Set<string>>(new Set());
@@ -137,6 +163,13 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   }, [imageUrl]);
 
   useEffect(() => {
+    if (!imageUrl) return;
+    setPreviewNonce(Date.now());
+    setPreviewError(null);
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [imageUrl]);
+
+  useEffect(() => {
     return () => {
       if (isPersistedRef.current) return;
       const tempUrls = Array.from(sessionUploadUrlsRef.current);
@@ -155,6 +188,8 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       return;
     }
     setSelectedFileName(file.name);
+    setIsPreviewLoading(true);
+    setPreviewError(null);
     const fd = new FormData();
     fd.append("file", file);
     const result = await uploadImage(fd).unwrap();
@@ -170,7 +205,13 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       void deleteUploadedFile(previousUrl);
     }
     sessionUploadUrlsRef.current.add(nextUrl);
+    try {
+      await preloadImage(nextUrl);
+    } catch {
+      setPreviewError("File tersimpan, tetapi preview belum siap. Coba lagi sebentar.");
+    }
     setImageUrl(nextUrl);
+    setIsPreviewLoading(false);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -185,7 +226,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   }
 
   function handlePreviewPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!imageUrl) return;
+    if (!imageUrl || isPreviewLoading) return;
     const el = previewRef.current;
     if (!el) return;
     setIsDraggingFocus(true);
@@ -222,32 +263,47 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
 
   function renderInteractivePreview(previewAlt: string) {
     if (!imageUrl || !isImageType) return null;
+    const previewSrc = `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}v=${previewNonce}`;
     return (
       <div className="space-y-2">
         <div
           ref={previewRef}
-          className={`relative mx-auto w-full overflow-hidden rounded-md border bg-muted/25 ${imagePreviewAspect(contentType)} ${imagePreviewMaxWidth()} ${isDraggingFocus ? "cursor-grabbing" : "cursor-grab"}`}
+          className={`relative mx-auto w-full overflow-hidden rounded-md border bg-muted/25 ${imagePreviewAspect(contentType)} ${imagePreviewMaxWidth()} ${contentType === "carousel" ? "min-h-[120px]" : ""} ${isDraggingFocus ? "cursor-grabbing" : "cursor-grab"}`}
           onPointerDown={handlePreviewPointerDown}
           onPointerMove={handlePreviewPointerMove}
           onPointerUp={handlePreviewPointerUp}
           onPointerCancel={handlePreviewPointerUp}
         >
           <img
-            src={imageUrl}
+            src={previewSrc}
             alt={previewAlt}
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
-            className={`h-full w-full ${fitModeToClass(imageFit)}`}
+            onLoad={() => {
+              setPreviewError(null);
+              setIsPreviewLoading(false);
+            }}
+            onError={() => {
+              setIsPreviewLoading(false);
+              setPreviewError("Preview gagal dimuat. Coba upload ulang atau klik Simpan lalu buka lagi.");
+            }}
+            className={`h-full w-full transition-opacity duration-200 ${fitModeToClass(imageFit)} ${isPreviewLoading ? "opacity-0" : "opacity-100"}`}
             style={{
               objectPosition: `${imagePositionX}% ${imagePositionY}%`,
               transform: `scale(${imageZoom / 100})`,
               transformOrigin: `${imagePositionX}% ${imagePositionY}%`,
             }}
           />
+          {isPreviewLoading && (
+            <div className="absolute inset-0 animate-pulse bg-muted/60" />
+          )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-background/70 px-2 py-1 text-[11px] text-foreground/85 backdrop-blur-[1px]">
-            Drag untuk atur fokus gambar.
+            {isPreviewLoading ? "Menyiapkan preview..." : "Drag untuk atur fokus gambar."}
           </div>
         </div>
+        {previewError && (
+          <p className="text-xs text-destructive">{previewError}</p>
+        )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Posisi fokus: X {Math.round(imagePositionX)}% - Y {Math.round(imagePositionY)}%</span>
           <Button
