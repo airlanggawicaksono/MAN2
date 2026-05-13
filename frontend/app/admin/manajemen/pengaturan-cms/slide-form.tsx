@@ -16,6 +16,7 @@ import type { CarouselSlide, CreateSlideRequest, ContentType, ImageFitMode } fro
 import { useUploadImageMutation } from "@/api/admin/setContentManagement";
 import { validateWithAlert } from "@/lib/io-guards";
 import { imageUploadValidationRules, slideLinkValidationRules } from "@/lib/form-validators";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   CMS_DEFAULT_IMAGE_FIT_BY_TYPE,
   CMS_IMAGE_FRAME_CLASS_BY_TYPE,
@@ -190,28 +191,37 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     setSelectedFileName(file.name);
     setIsPreviewLoading(true);
     setPreviewError(null);
-    const fd = new FormData();
-    fd.append("file", file);
-    const result = await uploadImage(fd).unwrap();
-    const nextUrl = result.url;
-    const previousUrl = activeImageUrlRef.current;
-    if (
-      previousUrl &&
-      previousUrl !== nextUrl &&
-      isManagedUploadUrl(previousUrl) &&
-      sessionUploadUrlsRef.current.has(previousUrl)
-    ) {
-      sessionUploadUrlsRef.current.delete(previousUrl);
-      void deleteUploadedFile(previousUrl);
-    }
-    sessionUploadUrlsRef.current.add(nextUrl);
     try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const result = await uploadImage(fd);
+      if ("error" in result) {
+        const message = getApiErrorMessage(result.error) || "Upload gambar gagal. Periksa format file lalu coba lagi.";
+        setPreviewError(message);
+        window.alert(message);
+        return;
+      }
+      const nextUrl = result.data.url;
+      const previousUrl = activeImageUrlRef.current;
+      if (
+        previousUrl &&
+        previousUrl !== nextUrl &&
+        isManagedUploadUrl(previousUrl) &&
+        sessionUploadUrlsRef.current.has(previousUrl)
+      ) {
+        sessionUploadUrlsRef.current.delete(previousUrl);
+        void deleteUploadedFile(previousUrl);
+      }
+      sessionUploadUrlsRef.current.add(nextUrl);
       await preloadImage(nextUrl);
+      setImageUrl(nextUrl);
     } catch {
-      setPreviewError("File tersimpan, tetapi preview belum siap. Coba lagi sebentar.");
+      const message = "Upload gambar gagal. Periksa format file lalu coba lagi.";
+      setPreviewError(message);
+      window.alert(message);
+    } finally {
+      setIsPreviewLoading(false);
     }
-    setImageUrl(nextUrl);
-    setIsPreviewLoading(false);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
