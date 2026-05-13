@@ -24,6 +24,7 @@ import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { notifySuccess, notifyError } from "@/lib/app-notify";
 import { normalizeDigits, validateWithAlert } from "@/lib/io-guards";
 import { studentEditValidationRules } from "@/lib/form-validators";
 
@@ -43,13 +44,13 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
       setForm({
         nisn: student.nisn ?? undefined,
         nama_lengkap: student.nama_lengkap,
+        kelas_jurusan: student.kelas_jurusan ?? undefined,
         dob: dobIso || undefined,
         tempat_lahir: student.tempat_lahir ?? undefined,
         jenis_kelamin: student.jenis_kelamin ?? undefined,
         alamat: student.alamat ?? undefined,
         nama_wali: student.nama_wali ?? undefined,
         no_telephone_wali: student.no_telephone_wali ?? undefined,
-        kelas_jurusan: student.kelas_jurusan ?? undefined,
         tahun_masuk: student.tahun_masuk ?? undefined,
         status_siswa: student.status_siswa,
         kontak: student.kontak ?? undefined,
@@ -78,7 +79,12 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
       delete payload.tahun_masuk;
     }
     const result = await updateStudent({ siswaId: student.siswa_id, body: payload });
-    if ("data" in result) onClose();
+    if ("data" in result) {
+      notifySuccess(`Data siswa "${student.nama_lengkap}" berhasil diperbarui.`);
+      onClose();
+    } else if ("error" in result) {
+      notifyError(getApiErrorMessage(result.error) ?? "Gagal menyimpan data siswa.");
+    }
   };
 
   const handleClose = () => {
@@ -111,6 +117,14 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Input
                 value={form.nama_lengkap || ""}
                 onChange={(e) => handleChange("nama_lengkap", e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Kelas/Jurusan</Label>
+              <Input
+                value={form.kelas_jurusan || ""}
+                onChange={(e) => handleChange("kelas_jurusan", e.target.value)}
+                placeholder="Contoh: XII IPA 1"
               />
             </div>
             <div className="grid gap-2">

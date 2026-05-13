@@ -141,7 +141,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   );
 
   const handleImport = async () => {
-    if (!validateWithAlert(teacherImportValidationRules(parsed.length > 0, parseErrors.length > 0, parseWarnings))) return;
+    if (!validateWithAlert(teacherImportValidationRules(parsed.length > 0, parseErrors.length > 0))) return;
     const idempotencyKey = crypto.randomUUID();
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
@@ -162,7 +162,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   };
 
   const isProcessing = isLoading || activeJobId !== null;
-  const canImport = parsed.length > 0 && parseErrors.length === 0 && parseWarnings.length === 0 && !isProcessing;
+  const canImport = parsed.length > 0 && parseErrors.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
 
   return (

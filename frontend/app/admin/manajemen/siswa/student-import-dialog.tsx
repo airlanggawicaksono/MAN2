@@ -137,7 +137,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   );
 
   const handleImport = async () => {
-    if (!validateWithAlert(studentImportValidationRules(parsed.length > 0, parseErrors.length > 0, parseWarnings))) return;
+    if (!validateWithAlert(studentImportValidationRules(parsed.length > 0, parseErrors.length > 0))) return;
     const idempotencyKey = crypto.randomUUID();
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
@@ -158,7 +158,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   };
 
   const isProcessing = isLoading || activeJobId !== null;
-  const canImport = parsed.length > 0 && parseErrors.length === 0 && parseWarnings.length === 0 && !isProcessing;
+  const canImport = parsed.length > 0 && parseErrors.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
 
   return (

@@ -72,34 +72,20 @@ export function teacherEditValidationRules(payload: UpdateGuruRequest): Validati
 export function studentImportValidationRules(
   hasRows: boolean,
   hasBaseErrors: boolean,
-  issueMessages: string[],
 ): ValidationRule[] {
   return [
     { isValid: hasRows, message: "Tidak ada data siswa untuk diimport." },
     { isValid: !hasBaseErrors, message: "Perbaiki error parsing file sebelum import." },
-    {
-      isValid: issueMessages.length === 0,
-      message: issueMessages.length
-        ? `Format kolom salah: ${issueMessages[0]}`
-        : "Format kolom pada file import tidak valid.",
-    },
   ];
 }
 
 export function teacherImportValidationRules(
   hasRows: boolean,
   hasBaseErrors: boolean,
-  issueMessages: string[],
 ): ValidationRule[] {
   return [
     { isValid: hasRows, message: "Tidak ada data civitas untuk diimport." },
     { isValid: !hasBaseErrors, message: "Perbaiki error parsing file sebelum import." },
-    {
-      isValid: issueMessages.length === 0,
-      message: issueMessages.length
-        ? `Format kolom salah: ${issueMessages[0]}`
-        : "Format kolom pada file import tidak valid.",
-    },
   ];
 }
 
