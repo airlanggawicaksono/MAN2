@@ -23,8 +23,10 @@ import { validateWithAlert, isPhoneLike, normalizeJenisKelamin } from "@/lib/io-
 import { normalizeDateToIso } from "@/lib/date-id";
 import { buildTeacherImportIssue, teacherImportValidationRules } from "@/lib/form-validators";
 import { diagLog } from "@/lib/diag-log";
+import { uuidV4 } from "@/lib/uuid";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 import { ImportColumnWarnings } from "@/app/components/admin/import-column-warnings";
+import { ImportSummary } from "@/app/components/admin/import-summary";
 
 interface TeacherImportDialogProps {
   open: boolean;
@@ -39,6 +41,8 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   const [parsed, setParsed] = useState<CreateGuruRequest[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
+  const [totalRows, setTotalRows] = useState<number>(0);
+  const [skippedCount, setSkippedCount] = useState<number>(0);
   const [fileName, setFileName] = useState<string>("");
   const [result, setResult] = useState<BulkImportGuruResult | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -129,10 +133,12 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       }
       setFileName(file.name);
       setResult(null);
-      const { rows, errors, warnings } = await parseFile(file);
+      const { rows, errors, warnings, totalRows: total, skippedCount: skipped } = await parseFile(file);
       setParsed(rows);
       setParseErrors(errors);
       setParseWarnings(warnings);
+      setTotalRows(total);
+      setSkippedCount(skipped);
     },
     [validateFileType, parseFile],
   );
@@ -166,7 +172,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       diagLog("teacher_import.blocked_validation", { parsed: parsed.length, errors: parseErrors.length });
       return;
     }
-    const idempotencyKey = crypto.randomUUID();
+    const idempotencyKey = uuidV4();
     diagLog("teacher_import.mutation_start", { idempotencyKey, rows: parsed.length });
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
@@ -186,6 +192,8 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
     setParsed([]);
     setParseErrors([]);
     setParseWarnings([]);
+    setTotalRows(0);
+    setSkippedCount(0);
     setFileName("");
     setResult(null);
     setActiveJobId(null);
@@ -293,6 +301,15 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
                 <p key={i} className="text-xs text-destructive">{e}</p>
               ))}
             </div>
+          )}
+
+          {totalRows > 0 && !result && (
+            <ImportSummary
+              totalRows={totalRows}
+              validRows={parsed.length}
+              skippedRows={skippedCount}
+              warnings={parseWarnings}
+            />
           )}
 
           <ImportColumnWarnings warnings={parseWarnings} />

@@ -77,7 +77,15 @@ export function useSpreadsheetParser<T, C = undefined>({
   }, []);
 
   const parseFile = useCallback(
-    async (file: File): Promise<{ rows: T[]; errors: string[]; warnings: string[] }> => {
+    async (
+      file: File,
+    ): Promise<{
+      rows: T[];
+      errors: string[];
+      warnings: string[];
+      totalRows: number;
+      skippedCount: number;
+    }> => {
       const workbook = XLSX.read(await file.arrayBuffer(), {
         type: "array",
         cellDates: true,
@@ -85,7 +93,7 @@ export function useSpreadsheetParser<T, C = undefined>({
       const firstSheetName = workbook.SheetNames[0];
 
       if (!firstSheetName) {
-        return { rows: [], errors: ["File tidak memiliki sheet."], warnings: [] };
+        return { rows: [], errors: ["File tidak memiliki sheet."], warnings: [], totalRows: 0, skippedCount: 0 };
       }
 
       const firstSheet = workbook.Sheets[firstSheetName];
@@ -95,7 +103,13 @@ export function useSpreadsheetParser<T, C = undefined>({
       const errors: string[] = [];
 
       if (rawRows.length === 0) {
-        return { rows: [], errors: ["File kosong. Pastikan ada header dan data."], warnings: [] };
+        return {
+          rows: [],
+          errors: ["File kosong. Pastikan ada header dan data."],
+          warnings: [],
+          totalRows: 0,
+          skippedCount: 0,
+        };
       }
 
       const headerLookup = new Map<string, string>();
@@ -109,11 +123,12 @@ export function useSpreadsheetParser<T, C = undefined>({
         }
       }
       if (errors.length > 0) {
-        return { rows: [], errors, warnings: [] };
+        return { rows: [], errors, warnings: [], totalRows: rawRows.length, skippedCount: 0 };
       }
 
       const rows: T[] = [];
       const warnings: string[] = [];
+      let skippedCount = 0;
       const context = createContext ? createContext() : (undefined as C);
 
       rawRows.forEach((rawRow, index) => {
@@ -131,7 +146,10 @@ export function useSpreadsheetParser<T, C = undefined>({
         if (result.warnings?.length) {
           result.warnings.forEach((w) => warnings.push(`Baris ${line}: ${w}`));
         }
-        if (result.skip) return;
+        if (result.skip) {
+          skippedCount += 1;
+          return;
+        }
         if (result.error) {
           errors.push(result.error);
           return;
@@ -141,7 +159,7 @@ export function useSpreadsheetParser<T, C = undefined>({
         }
       });
 
-      return { rows, errors, warnings };
+      return { rows, errors, warnings, totalRows: rawRows.length, skippedCount };
     },
     [createContext, mapRow, requiredHeaders]
   );
