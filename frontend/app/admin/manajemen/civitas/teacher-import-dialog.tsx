@@ -147,6 +147,11 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
     if ("data" in res && res.data) {
       dispatch(trackJob(res.data));
       setActiveJobId(res.data.job_id);
+      return;
+    }
+    if ("error" in res) {
+      const msg = getApiErrorMessage(res.error) ?? "Gagal mengirim data ke server.";
+      notifyError(`Import civitas gagal: ${msg}`);
     }
   };
 

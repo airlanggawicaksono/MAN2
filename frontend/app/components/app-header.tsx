@@ -96,7 +96,10 @@ export default function AppHeader() {
           ? postLoginRedirect
           : roleHomeRoute;
       setPostLoginRedirect(null);
-      router.replace(targetRoute);
+      // Hard nav: forces cookie + middleware + fresh Redux hydration.
+      // Soft nav (router.replace) hits admin layout with mounted=false on server,
+      // requires manual refresh to render.
+      window.location.assign(targetRoute);
     } catch (err: any) {
       const status = err?.status;
       if (status === 401 || status === 403) {
