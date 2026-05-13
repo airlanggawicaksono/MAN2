@@ -5,6 +5,9 @@ const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
   images: {
+    // Avoid sharp runtime requirement in standalone containers.
+    // Images are served unoptimized (original size) by Next.js.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
