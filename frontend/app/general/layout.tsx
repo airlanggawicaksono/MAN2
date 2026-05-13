@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { readSlides } from "@/lib/cms-store";
 import type { CarouselSlide, ContentType } from "@/types/cms";
 
@@ -128,5 +130,9 @@ interface Props {
 }
 
 export default function GeneralLayout({ children }: Props) {
+  const userType = cookies().get("user_type")?.value;
+  if (userType === "Admin") {
+    redirect("/admin");
+  }
   return children;
 }

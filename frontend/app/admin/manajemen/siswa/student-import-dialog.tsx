@@ -29,7 +29,7 @@ interface StudentImportDialogProps {
   onClose: () => void;
 }
 
-const REQUIRED_HEADERS = ["nama_lengkap"] as const;
+const REQUIRED_HEADERS = ["nama_lengkap", "nisn"] as const;
 
 export function StudentImportDialog({ open, onClose }: StudentImportDialogProps) {
   const dispatch = useDispatch();
@@ -65,19 +65,22 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       if (isEmptyRow) return { skip: true };
 
       const nama = helpers.get("nama_lengkap");
-      if (!nama) {
-        return { skip: true, warnings: ['kolom "nama_lengkap" wajib diisi.'] };
-      }
+      const nisnRaw = (helpers.get("nisn") || helpers.get("nis") || "").trim();
+      const requiredWarnings: string[] = [];
+      if (!nama) requiredWarnings.push('kolom "nama_lengkap" wajib diisi.');
+      if (!nisnRaw) requiredWarnings.push('kolom "nisn" wajib diisi.');
+      if (requiredWarnings.length > 0) return { skip: true, warnings: requiredWarnings };
+
+      const nisn = /^\d+$/.test(nisnRaw) ? nisnRaw : undefined;
+      if (!nisn) return { skip: true, warnings: [buildStudentImportIssue(helpers.line, "nisn", nisnRaw)] };
+
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
       const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
       const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
-      const nisnRaw = (helpers.get("nisn") || helpers.get("nis") || "").trim();
       const rfidRaw = (helpers.get("rfid_number") || helpers.get("card_number") || "").trim();
-      const nisn = nisnRaw && /^\d+$/.test(nisnRaw) ? nisnRaw : undefined;
       const rfid = rfidRaw || undefined;
       const warnings: string[] = [];
-      if (nisnRaw && !nisn) warnings.push(buildStudentImportIssue(helpers.line, "nisn", nisnRaw));
       if (tahunRaw && Number.isNaN(tahun)) warnings.push(buildStudentImportIssue(helpers.line, "tahun_masuk", tahunRaw));
       return {
         row: {
@@ -174,7 +177,8 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             <p className="leading-relaxed">
               <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
               <span className="text-destructive font-medium">(wajib)</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">nisn</span>,{" "}
+              <span className="font-mono bg-background border rounded px-1">nisn</span>{" "}
+              <span className="text-destructive font-medium">(wajib, hanya angka)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kelas_jurusan</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tahun_masuk</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">kontak</span>,{" "}

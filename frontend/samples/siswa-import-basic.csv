@@ -1,0 +1,12 @@
+nama_lengkap,nisn,kelas_jurusan,tahun_masuk,kontak,nama_wali,no_telephone_wali,tempat_lahir,alamat,rfid_number,is_alumni
+Ahmad Fauzi Ramadhan,2425101,XII IPA 1,2024,081200000001,Bapak Hasan,628123456701,Yogyakarta,Jl. Mawar No. 1,RFID0001,false
+Siti Nurhaliza,2425102,XII IPA 1,2024,081200000002,Ibu Aminah,628123456702,Sleman,Jl. Melati No. 2,RFID0002,false
+Budi Santoso,2425103,XII IPA 2,2024,081200000003,Bapak Sutrisno,628123456703,Bantul,Jl. Anggrek No. 3,RFID0003,false
+Dewi Rahayu,2425104,XII IPS 1,2024,081200000004,Ibu Yanti,628123456704,Kulon Progo,Jl. Kenanga No. 4,,false
+Rizky Pratama,2425105,XII IPS 1,2024,081200000005,Bapak Anwar,628123456705,Gunung Kidul,Jl. Cempaka No. 5,RFID0005,false
+Putri Aulia,2425106,XI IPA 1,2025,081200000006,Ibu Lina,628123456706,Yogyakarta,Jl. Dahlia No. 6,,false
+Muhammad Ilham,2425107,XI IPA 2,2025,081200000007,Bapak Riza,628123456707,Sleman,Jl. Flamboyan No. 7,RFID0007,false
+Anisa Fitriana,2425108,XI IPS 1,2025,081200000008,Ibu Sari,628123456708,Bantul,Jl. Teratai No. 8,RFID0008,false
+Yoga Aditya,2425109,X IPA 1,2026,081200000009,Bapak Bagus,628123456709,Kulon Progo,Jl. Bougenvil No. 9,,false
+Nadia Kusuma,2425110,X IPS 1,2026,081200000010,Ibu Wulan,628123456710,Gunung Kidul,Jl. Sakura No. 10,RFID0010,false
+Hendra Wijaya,2324099,XII IPA 1,2023,,,,Yogyakarta,,,true

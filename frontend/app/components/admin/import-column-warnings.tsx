@@ -36,7 +36,7 @@ function groupWarningsByColumn(warnings: string[]): WarningGroup[] {
 
 export function ImportColumnWarnings({
   warnings,
-  title = "Nilai berikut diabaikan — format tidak valid (baris tetap diimport):",
+  title = "Peringatan kolom — beberapa baris dilewati atau nilai diabaikan:",
 }: ImportColumnWarningsProps) {
   if (warnings.length === 0) return null;
 

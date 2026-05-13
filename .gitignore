@@ -87,4 +87,3 @@ App+csv template/
 .env.dev
 
 # Local-only sample data (CSV/XLSX you use to test imports — keep private)
-samples/
