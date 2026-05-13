@@ -15,7 +15,7 @@ import { ConfirmDialog } from "@/app/components/confirm-dialog";
 import { EntityExportDialog } from "@/app/components/admin/entity-export-dialog";
 import { ExportActionButtons } from "@/app/components/admin/export-action-buttons";
 import { StudentTabPanel } from "./student-tab-panel";
-import { useSiswaManagementController } from "./use-siswa-management-controller";
+import { useSiswaManagementController } from "@/hooks/admin/manajemen/use-siswa-management-controller";
 
 export default function DataSiswaPage() {
   const {
@@ -177,4 +177,3 @@ export default function DataSiswaPage() {
     </AdminPageShell>
   );
 }
-

@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     bg: body.bg,
     fg: body.fg,
     image_url: body.image_url ?? null,
+    image_version: body.image_url ? Date.now() : null,
     image_fit: body.image_fit ?? DEFAULT_IMAGE_FIT[type],
     image_position_x: body.image_position_x ?? 50,
     image_position_y: body.image_position_y ?? 50,

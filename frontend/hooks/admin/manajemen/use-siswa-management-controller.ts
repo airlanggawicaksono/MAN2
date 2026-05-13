@@ -12,7 +12,7 @@ import { useCrudListPage } from "@/hooks/useCrudListPage";
 import type { StudentProfile } from "@/types/students";
 import { useEntityExport } from "@/hooks/useEntityExport";
 import type { ExportColumn } from "@/lib/exportSheet";
-import type { TabValue } from "./student-tab-panel";
+import type { TabValue } from "@/app/admin/manajemen/siswa/student-tab-panel";
 
 const STUDENT_EXPORT_COLUMNS: ExportColumn<StudentProfile>[] = [
   { header: "nisn", accessor: (r) => r.nisn },

@@ -9,6 +9,7 @@ export interface CarouselSlide {
   bg: string;
   fg: string;
   image_url: string | null;
+  image_version?: number | null;
   image_fit?: ImageFitMode | null;
   image_position_x?: number | null;
   image_position_y?: number | null;
@@ -26,6 +27,7 @@ export interface CreateSlideRequest {
   bg: string;
   fg: string;
   image_url?: string | null;
+  image_version?: number | null;
   image_fit?: ImageFitMode | null;
   image_position_x?: number | null;
   image_position_y?: number | null;

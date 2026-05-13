@@ -21,7 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TableSkeleton } from "@/app/components/admin/table-skeleton";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useCivitasManagementController } from "./use-civitas-management-controller";
+import { useCivitasManagementController } from "@/hooks/admin/manajemen/use-civitas-management-controller";
 
 export default function CivitasAkademikPage() {
   const {

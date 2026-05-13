@@ -34,7 +34,15 @@ export async function PUT(
   }
 
   const previousImageUrl = slides[idx].image_url;
-  slides[idx] = { ...slides[idx], ...body };
+  const nextImageUrl = body.image_url ?? slides[idx].image_url;
+  slides[idx] = {
+    ...slides[idx],
+    ...body,
+    image_version:
+      body.image_url !== undefined && body.image_url !== previousImageUrl
+        ? (nextImageUrl ? Date.now() : null)
+        : slides[idx].image_version ?? (slides[idx].image_url ? 1 : null),
+  };
   writeSlides(slides);
   const currentImageUrl = slides[idx].image_url;
   if (previousImageUrl && previousImageUrl !== currentImageUrl) {

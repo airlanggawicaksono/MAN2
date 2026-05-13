@@ -1,6 +1,6 @@
 "use client";
 
-import { useCmsSettingsController } from "./use-cms-settings-controller";
+import { useCmsSettingsController } from "@/hooks/admin/manajemen/use-cms-settings-controller";
 import {
   Dialog,
   DialogContent,
