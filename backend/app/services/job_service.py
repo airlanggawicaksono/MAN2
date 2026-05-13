@@ -21,6 +21,7 @@ def utc_now() -> datetime:
 
 JobHandler = Callable[["JobRunner", Job, dict[str, Any]], Awaitable[dict[str, Any]]]
 _HANDLERS: dict[JobType, JobHandler] = {}
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
 def register_handler(job_type: JobType):
@@ -136,7 +137,9 @@ class JobService:
             raise
         await self.db.refresh(job)
 
-        asyncio.create_task(_execute_job(job.job_id))
+        task = asyncio.create_task(_execute_job(job.job_id))
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_BACKGROUND_TASKS.discard)
         return job
 
     async def get(self, job_id: UUID, user_id: UUID) -> Job:

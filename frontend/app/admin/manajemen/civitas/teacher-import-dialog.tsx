@@ -196,14 +196,14 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             <p>Civitas tidak menggunakan RFID - kolom rfid akan diabaikan.</p>
             <div className="flex items-center gap-3">
               <a
-                href="/samples/sample_civitas_import.csv"
+                href="/samples/civitas-import-basic.csv"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >
                 Download sample CSV civitas
               </a>
               <a
-                href="/samples/sample_civitas_import.xlsx"
+                href="/samples/civitas-import-new.xlsx"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >

@@ -192,14 +192,14 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="/samples/sample_siswa_import.csv"
+                href="/samples/siswa-import-basic.csv"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >
                 Download sample CSV siswa
               </a>
               <a
-                href="/samples/sample_siswa_import.xlsx"
+                href="/samples/siswa-import-new.xlsx"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >
