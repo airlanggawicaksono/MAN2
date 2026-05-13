@@ -5,6 +5,7 @@ import type { CarouselSlide } from "@/types/cms";
 
 const DATA_PATH = path.join(process.cwd(), "public", "data.json");
 let slidesCache: CarouselSlide[] | null = null;
+let cacheMtimeMs: number | null = null;
 
 const DEFAULT_SLIDES: CarouselSlide[] = [
   {
@@ -61,8 +62,11 @@ const DEFAULT_SLIDES: CarouselSlide[] = [
 ];
 
 export function readSlides(): CarouselSlide[] {
-  if (slidesCache) {
-    return slidesCache.map((s) => ({ ...s }));
+  if (slidesCache && fs.existsSync(DATA_PATH)) {
+    const currentMtimeMs = fs.statSync(DATA_PATH).mtimeMs;
+    if (cacheMtimeMs !== null && currentMtimeMs === cacheMtimeMs) {
+      return slidesCache.map((s) => ({ ...s }));
+    }
   }
 
   // First run: seed defaults so CMS and carousel are in sync
@@ -71,7 +75,7 @@ export function readSlides(): CarouselSlide[] {
     return DEFAULT_SLIDES.map((s) => ({ ...s }));
   }
   try {
-    const raw = fs.readFileSync(DATA_PATH, "utf-8");
+    const raw = fs.readFileSync(DATA_PATH, "utf-8").replace(/^\uFEFF/, "");
     const slides = JSON.parse(raw) as CarouselSlide[];
     // Migration: add type: "carousel" to any item missing the field
     slidesCache = slides.map((s) => ({
@@ -82,6 +86,7 @@ export function readSlides(): CarouselSlide[] {
       image_position_y: s.image_position_y ?? 50,
       image_zoom: s.image_zoom ?? 100,
     })) as CarouselSlide[];
+    cacheMtimeMs = fs.statSync(DATA_PATH).mtimeMs;
     return slidesCache.map((s) => ({ ...s }));
   } catch {
     return [];
@@ -91,4 +96,5 @@ export function readSlides(): CarouselSlide[] {
 export function writeSlides(slides: CarouselSlide[]): void {
   fs.writeFileSync(DATA_PATH, JSON.stringify(slides, null, 2), "utf-8");
   slidesCache = slides.map((s) => ({ ...s }));
+  cacheMtimeMs = fs.statSync(DATA_PATH).mtimeMs;
 }

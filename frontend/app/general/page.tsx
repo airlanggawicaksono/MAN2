@@ -33,6 +33,7 @@ import { useGeneralHomeController } from "./use-general-home-controller";
 import { useAppSelector } from "@/store/hooks";
 import { roleRoutePrefix } from "@/config/navigation";
 import { HeroSkeleton, VideoGridSkeleton } from "@/app/components/skeletons";
+import { CMS_IMAGE_FRAME_CLASS_BY_TYPE } from "@/lib/cms-image-layout";
 
 const layananCards = [
   {
@@ -103,7 +104,7 @@ export default function IndexPage() {
                 <Card className="overflow-hidden border-border/60">
                   <CardContent className="flex flex-col p-0">
                     {slide.image_url && (
-                      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-md border border-border/60 bg-muted/25 aspect-[16/4]">
+                      <div className={`w-full overflow-hidden rounded-md border border-border/60 bg-muted/25 ${CMS_IMAGE_FRAME_CLASS_BY_TYPE.carousel}`}>
                         <img
                           src={slide.image_url}
                           alt={slide.title || ""}
@@ -201,8 +202,9 @@ export default function IndexPage() {
         <HomeImageCarousel
           items={flyerItems}
           itemClassName="basis-full sm:basis-1/2"
-          imageFrameClassName="aspect-[4/5]"
+          imageFrameClassName={CMS_IMAGE_FRAME_CLASS_BY_TYPE.flyer}
           defaultImageFit="cover"
+          showTitle={false}
           loading={loadingCms}
         />
       </section>
@@ -212,9 +214,10 @@ export default function IndexPage() {
         <HomeImageCarousel
           items={mediaItems}
           itemClassName="basis-full sm:basis-1/2"
-          imageFrameClassName="aspect-[4/3]"
+          imageFrameClassName={CMS_IMAGE_FRAME_CLASS_BY_TYPE.media}
           defaultImageFit="cover"
           cardClassName="shadow-none"
+          showTitle={false}
           loading={loadingCms}
         />
       </section>

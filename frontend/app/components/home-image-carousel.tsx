@@ -18,6 +18,7 @@ interface HomeImageCarouselProps {
   imageFrameClassName?: string;
   defaultImageFit?: "cover" | "contain" | "fill";
   loading?: boolean;
+  showTitle?: boolean;
 }
 
 function toObjectFitClass(mode: CarouselSlide["image_fit"], fallback: "cover" | "contain" | "fill") {
@@ -34,6 +35,7 @@ export function HomeImageCarousel({
   imageFrameClassName = "aspect-[4/3]",
   defaultImageFit = "cover",
   loading = false,
+  showTitle = true,
 }: HomeImageCarouselProps) {
   if (loading && items.length === 0) {
     return (
@@ -84,7 +86,7 @@ export function HomeImageCarousel({
                     />
                   </div>
                 )}
-                {item.title && (
+                {showTitle && item.title && (
                   <div className="p-4">
                     <p className="text-sm font-semibold">{item.title}</p>
                   </div>

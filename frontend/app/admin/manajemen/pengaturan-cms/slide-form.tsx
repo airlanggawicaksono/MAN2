@@ -16,6 +16,11 @@ import type { CarouselSlide, CreateSlideRequest, ContentType, ImageFitMode } fro
 import { useUploadImageMutation } from "@/api/admin/setContentManagement";
 import { validateWithAlert } from "@/lib/io-guards";
 import { imageUploadValidationRules, slideLinkValidationRules } from "@/lib/form-validators";
+import {
+  CMS_DEFAULT_IMAGE_FIT_BY_TYPE,
+  CMS_IMAGE_FRAME_CLASS_BY_TYPE,
+  CMS_SIZE_GUIDE,
+} from "@/lib/cms-image-layout";
 
 const BG_OPTIONS = [
   { label: "Primary", value: "bg-primary" },
@@ -39,42 +44,6 @@ const IMAGE_FIT_OPTIONS: { label: string; value: ImageFitMode; note: string }[] 
   { label: "Contain (utuh)", value: "contain", note: "Gambar utuh, bisa ada ruang kosong." },
   { label: "Stretch (tarik)", value: "fill", note: "Gambar ditarik agar pas frame (bisa distorsi)." },
 ];
-
-const DEFAULT_IMAGE_FIT_BY_TYPE: Record<ContentType, ImageFitMode> = {
-  carousel: "contain",
-  flyer: "cover",
-  media: "cover",
-  video: "cover",
-  lokasi: "cover",
-};
-
-const SIZE_GUIDE: Record<ContentType, { ratio: string; recommended: string; note: string }> = {
-  carousel: {
-    ratio: "16:4",
-    recommended: "1920 x 480 px",
-    note: "Tampilan hero horizontal. Gunakan gambar landscape.",
-  },
-  flyer: {
-    ratio: "4:5",
-    recommended: "1200 x 1500 px",
-    note: "Tampilan kotak-vertikal. Di halaman publik tampil 2 item per baris (desktop).",
-  },
-  media: {
-    ratio: "4:3",
-    recommended: "1280 x 960 px",
-    note: "Tampilan box media. Di halaman publik tampil 2 item per baris (desktop).",
-  },
-  video: {
-    ratio: "16:9",
-    recommended: "Gunakan URL YouTube",
-    note: "Embed video selalu rasio 16:9.",
-  },
-  lokasi: {
-    ratio: "16:9",
-    recommended: "Google Maps Embed URL",
-    note: "Peta tampil dalam frame embed tetap.",
-  },
-};
 
 interface Props {
   contentType: ContentType;
@@ -106,15 +75,13 @@ function fitModeToClass(mode: ImageFitMode): string {
 }
 
 function imagePreviewAspect(contentType: ContentType): string {
-  if (contentType === "flyer") return "aspect-[4/5]";
-  if (contentType === "media") return "aspect-[4/3]";
-  return "aspect-[16/4]";
+  if (contentType === "flyer") return CMS_IMAGE_FRAME_CLASS_BY_TYPE.flyer;
+  if (contentType === "media") return CMS_IMAGE_FRAME_CLASS_BY_TYPE.media;
+  return CMS_IMAGE_FRAME_CLASS_BY_TYPE.carousel;
 }
 
-function imagePreviewMaxWidth(contentType: ContentType): string {
-  if (contentType === "flyer") return "max-w-[250px]";
-  if (contentType === "media") return "max-w-[320px]";
-  return "max-w-[360px]";
+function imagePreviewMaxWidth(): string {
+  return "max-w-full";
 }
 
 export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: Props) {
@@ -123,7 +90,9 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
   const [bg, setBg] = useState(defaultValues?.bg ?? "bg-primary");
   const [fg, setFg] = useState(defaultValues?.fg ?? "text-primary-foreground");
   const [imageUrl, setImageUrl] = useState(defaultValues?.image_url ?? "");
-  const [imageFit, setImageFit] = useState<ImageFitMode>(defaultValues?.image_fit ?? DEFAULT_IMAGE_FIT_BY_TYPE[contentType]);
+  const [imageFit, setImageFit] = useState<ImageFitMode>(
+    defaultValues?.image_fit ?? CMS_DEFAULT_IMAGE_FIT_BY_TYPE[contentType],
+  );
   const [linkUrl, setLinkUrl] = useState(defaultValues?.link_url ?? "");
   const [linkLabel, setLinkLabel] = useState(defaultValues?.link_label ?? "");
   const [imagePositionX, setImagePositionX] = useState<number>(defaultValues?.image_position_x ?? 50);
@@ -152,7 +121,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     setBg(defaultValues?.bg ?? "bg-primary");
     setFg(defaultValues?.fg ?? "text-primary-foreground");
     setImageUrl(defaultValues?.image_url ?? "");
-    setImageFit(defaultValues?.image_fit ?? DEFAULT_IMAGE_FIT_BY_TYPE[contentType]);
+    setImageFit(defaultValues?.image_fit ?? CMS_DEFAULT_IMAGE_FIT_BY_TYPE[contentType]);
     setImagePositionX(defaultValues?.image_position_x ?? 50);
     setImagePositionY(defaultValues?.image_position_y ?? 50);
     setImageZoom(defaultValues?.image_zoom ?? 100);
@@ -257,7 +226,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       <div className="space-y-2">
         <div
           ref={previewRef}
-          className={`relative mx-auto w-full overflow-hidden rounded-md border bg-muted/25 ${imagePreviewAspect(contentType)} ${imagePreviewMaxWidth(contentType)} ${isDraggingFocus ? "cursor-grabbing" : "cursor-grab"}`}
+          className={`relative mx-auto w-full overflow-hidden rounded-md border bg-muted/25 ${imagePreviewAspect(contentType)} ${imagePreviewMaxWidth()} ${isDraggingFocus ? "cursor-grabbing" : "cursor-grab"}`}
           onPointerDown={handlePreviewPointerDown}
           onPointerMove={handlePreviewPointerMove}
           onPointerUp={handlePreviewPointerUp}
@@ -409,7 +378,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     }
   }
 
-  const guide = SIZE_GUIDE[contentType];
+  const guide = CMS_SIZE_GUIDE[contentType];
   const isImageType = contentType === "carousel" || contentType === "flyer" || contentType === "media";
 
   const sizeGuidePanel = (
