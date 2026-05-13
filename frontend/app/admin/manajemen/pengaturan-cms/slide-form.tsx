@@ -84,10 +84,6 @@ function imagePreviewMaxWidth(): string {
   return "max-w-full";
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function toRawErrorText(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message || String(error);
@@ -129,25 +125,6 @@ function toRawErrorText(error: unknown): string {
   }
 
   return String(error);
-}
-
-async function preloadImage(url: string, retries = 6, delayMs = 180): Promise<void> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("failed"));
-        img.src = `${url}${url.includes("?") ? "&" : "?"}preload=${Date.now()}-${attempt}`;
-      });
-      return;
-    } catch {
-      if (attempt >= retries - 1) {
-        throw new Error("preview_unavailable");
-      }
-      await wait(delayMs);
-    }
-  }
 }
 
 export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: Props) {
@@ -258,7 +235,6 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
         void deleteUploadedFile(previousUrl);
       }
       sessionUploadUrlsRef.current.add(nextUrl);
-      await preloadImage(nextUrl);
       setImageUrl(nextUrl);
     } catch (error) {
       const message = toRawErrorText(error);
