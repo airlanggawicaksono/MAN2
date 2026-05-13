@@ -1,21 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  openAddDialog,
-  closeAddDialog,
-  openEditDialog,
-  closeEditDialog,
-  openDeleteDialog,
-  closeDeleteDialog,
-} from "@/store/slices/cms";
-import {
-  useListSlidesQuery,
-  useCreateSlideMutation,
-  useUpdateSlideMutation,
-  useDeleteSlideMutation,
-} from "@/api/admin/setContentManagement";
+import { useCmsSettingsController } from "./use-cms-settings-controller";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SlideForm } from "./slide-form";
-import type { CarouselSlide, CreateSlideRequest, ContentType } from "@/types/cms";
+import type { CarouselSlide, ContentType } from "@/types/cms";
 import { AdminPageShell } from "@/app/components/admin/admin-page-shell";
 import { MediaListSkeleton } from "@/app/components/skeletons";
 import {
@@ -267,66 +252,27 @@ function ContentBox({
 }
 
 export default function SettingPage() {
-  const dispatch = useAppDispatch();
-  const { isAddDialogOpen, isEditDialogOpen, isDeleteDialogOpen, selectedSlide } =
-    useAppSelector((state) => state.cms);
-
-  const [activeType, setActiveType] = useState<ContentType>("carousel");
-
-  const { data: allSlides = [], isLoading: loadingSlides } = useListSlidesQuery();
-  const carouselItems = allSlides.filter((s) => s.type === "carousel");
-  const flyerItems = allSlides.filter((s) => s.type === "flyer");
-  const mediaItems = allSlides.filter((s) => s.type === "media");
-  const videoItems = allSlides.filter((s) => s.type === "video");
-  const lokasiItems = allSlides.filter((s) => s.type === "lokasi");
-
-  const [createSlide, { isLoading: creating }] = useCreateSlideMutation();
-  const [updateSlide, { isLoading: updating }] = useUpdateSlideMutation();
-  const [deleteSlide, { isLoading: deleting }] = useDeleteSlideMutation();
-
-  const dataMap: Record<ContentType, { items: CarouselSlide[]; loading: boolean }> = {
-    carousel: { items: carouselItems, loading: loadingSlides },
-    flyer: { items: flyerItems, loading: loadingSlides },
-    media: { items: mediaItems, loading: loadingSlides },
-    video: { items: videoItems, loading: loadingSlides },
-    lokasi: { items: lokasiItems, loading: loadingSlides },
-  };
-
-  async function handleCreate(data: CreateSlideRequest) {
-    await createSlide({ ...data, type: activeType }).unwrap();
-    dispatch(closeAddDialog());
-  }
-
-  async function handleUpdate(data: CreateSlideRequest) {
-    if (!selectedSlide) return;
-    await updateSlide({ id: selectedSlide.id, body: data }).unwrap();
-    dispatch(closeEditDialog());
-  }
-
-  async function handleDelete() {
-    if (!selectedSlide) return;
-    await deleteSlide(selectedSlide.id).unwrap();
-    dispatch(closeDeleteDialog());
-  }
-
-  async function handleToggleActive(id: string, current: boolean) {
-    await updateSlide({ id, body: { is_active: !current } }).unwrap();
-  }
-
-  function openAddFor(type: ContentType) {
-    setActiveType(type);
-    dispatch(openAddDialog());
-  }
-
-  function openEditFor(type: ContentType, slide: CarouselSlide) {
-    setActiveType(type);
-    dispatch(openEditDialog(slide));
-  }
-
-  function openDeleteFor(type: ContentType, slide: CarouselSlide) {
-    setActiveType(type);
-    dispatch(openDeleteDialog(slide));
-  }
+  const {
+    isAddDialogOpen,
+    isEditDialogOpen,
+    isDeleteDialogOpen,
+    selectedSlide,
+    activeType,
+    creating,
+    updating,
+    deleting,
+    dataMap,
+    handleCreate,
+    handleUpdate,
+    handleDelete,
+    handleToggleActive,
+    openAddFor,
+    openEditFor,
+    openDeleteFor,
+    closeAddDialog,
+    closeEditDialog,
+    closeDeleteDialog,
+  } = useCmsSettingsController();
 
   return (
     <AdminPageShell
@@ -353,7 +299,7 @@ export default function SettingPage() {
       {/* Dialog Tambah */}
       <Dialog
         open={isAddDialogOpen}
-        onOpenChange={(open) => !open && dispatch(closeAddDialog())}
+        onOpenChange={(open) => !open && closeAddDialog()}
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -371,7 +317,7 @@ export default function SettingPage() {
       {/* Dialog Ubah */}
       <Dialog
         open={isEditDialogOpen}
-        onOpenChange={(open) => !open && dispatch(closeEditDialog())}
+        onOpenChange={(open) => !open && closeEditDialog()}
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -392,7 +338,7 @@ export default function SettingPage() {
       {/* Dialog Hapus */}
       <Dialog
         open={isDeleteDialogOpen}
-        onOpenChange={(open) => !open && dispatch(closeDeleteDialog())}
+        onOpenChange={(open) => !open && closeDeleteDialog()}
       >
         <DialogContent>
           <DialogHeader>
@@ -403,7 +349,7 @@ export default function SettingPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => dispatch(closeDeleteDialog())}>
+            <Button variant="outline" onClick={closeDeleteDialog}>
               Batal
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
