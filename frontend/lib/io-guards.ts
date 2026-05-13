@@ -66,3 +66,16 @@ export function isGoogleMapsEmbedUrl(value: string): boolean {
   const host = url.hostname.toLowerCase();
   return host.includes("google.") && url.pathname.includes("/maps/embed");
 }
+
+export function isPhoneLike(value: string): boolean {
+  if (!value) return true;
+  return /^\+?\d{6,20}$/.test(value);
+}
+
+export function normalizeJenisKelamin(value: string): "Laki-Laki" | "Perempuan" | undefined {
+  const v = value.trim().toLowerCase().replace(/[-_\s]/g, "");
+  if (!v) return undefined;
+  if (v === "lakilaki" || v === "l" || v === "pria" || v === "male" || v === "m") return "Laki-Laki";
+  if (v === "perempuan" || v === "p" || v === "wanita" || v === "female" || v === "f") return "Perempuan";
+  return undefined;
+}

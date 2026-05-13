@@ -16,16 +16,36 @@ const YEAR_RANGE_MESSAGE = `Tahun masuk harus angka valid antara 1900-${YEAR_MAX
 
 export type StudentImportIssue = {
   row: number;
-  column: "nisn" | "tahun_masuk";
+  column:
+    | "nisn"
+    | "tahun_masuk"
+    | "no_telephone_wali"
+    | "kontak"
+    | "jenis_kelamin"
+    | "dob";
   value: string;
   message: string;
 };
 
 export type TeacherImportIssue = {
   row: number;
-  column: "nip" | "nik" | "tahun_masuk";
+  column:
+    | "nip"
+    | "nik"
+    | "tahun_masuk"
+    | "kontak"
+    | "jenis_kelamin"
+    | "dob";
   value: string;
   message: string;
+};
+
+const COLUMN_EXPECTED: Record<string, string> = {
+  tahun_masuk: "tahun (angka)",
+  no_telephone_wali: "nomor telepon (angka, boleh diawali +)",
+  kontak: "nomor telepon (angka, boleh diawali +)",
+  jenis_kelamin: "Laki-Laki atau Perempuan",
+  dob: "tanggal (YYYY-MM-DD atau DD/MM/YYYY)",
 };
 
 export function getYearRangeMessage(): string {
@@ -130,7 +150,7 @@ export function buildStudentImportIssue(
   column: StudentImportIssue["column"],
   value: string,
 ): string {
-  const expected = column === "tahun_masuk" ? "tahun (angka)" : "angka";
+  const expected = COLUMN_EXPECTED[column] ?? "angka";
   return `baris ${row}, kolom "${column}" bernilai "${value}" (harus ${expected}).`;
 }
 
@@ -139,6 +159,6 @@ export function buildTeacherImportIssue(
   column: TeacherImportIssue["column"],
   value: string,
 ): string {
-  const expected = column === "tahun_masuk" ? "tahun (angka)" : "angka";
+  const expected = COLUMN_EXPECTED[column] ?? "angka";
   return `baris ${row}, kolom "${column}" bernilai "${value}" (harus ${expected}).`;
 }

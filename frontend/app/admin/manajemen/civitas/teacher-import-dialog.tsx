@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, DragEvent } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +19,10 @@ import { notifySuccess, notifyError } from "@/lib/app-notify";
 import type { CreateGuruRequest, BulkImportGuruResult } from "@/types/teachers";
 import { useSpreadsheetParser } from "@/hooks/useSpreadsheetParser";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { validateWithAlert } from "@/lib/io-guards";
+import { validateWithAlert, isPhoneLike, normalizeJenisKelamin } from "@/lib/io-guards";
+import { normalizeDateToIso } from "@/lib/date-id";
 import { buildTeacherImportIssue, teacherImportValidationRules } from "@/lib/form-validators";
+import { diagLog } from "@/lib/diag-log";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 import { ImportColumnWarnings } from "@/app/components/admin/import-column-warnings";
 
@@ -69,19 +71,30 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
       const requiredWarnings: string[] = [];
       if (!nama) requiredWarnings.push('kolom "nama_lengkap" wajib diisi.');
       if (!nipRaw) requiredWarnings.push('kolom "nip" wajib diisi.');
-      if (requiredWarnings.length > 0) {
-        return { skip: true, warnings: requiredWarnings };
-      }
+      if (requiredWarnings.length > 0) return { skip: true, warnings: requiredWarnings };
+
+      const nip = /^\d+$/.test(nipRaw) ? nipRaw : undefined;
+      if (!nip) return { skip: true, warnings: [buildTeacherImportIssue(helpers.line, "nip", nipRaw)] };
 
       const tahunRaw = helpers.get("tahun_masuk");
       const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
       const nikRaw = (helpers.get("nik") || "").trim();
-      const nip = nipRaw && /^\d+$/.test(nipRaw) ? nipRaw : undefined;
       const nik = nikRaw && /^\d+$/.test(nikRaw) ? nikRaw : undefined;
+
+      const kontakRaw = helpers.get("kontak").trim();
+      const jkRaw = helpers.get("jenis_kelamin").trim();
+      const dobRaw = helpers.get("dob").trim();
+      const kontak = isPhoneLike(kontakRaw) ? kontakRaw || undefined : undefined;
+      const jenisKelamin = jkRaw ? normalizeJenisKelamin(jkRaw) : undefined;
+      const dobIso = dobRaw ? normalizeDateToIso(dobRaw) : "";
+      const dob = dobIso || undefined;
+
       const warnings: string[] = [];
-      if (nipRaw && !nip) warnings.push(buildTeacherImportIssue(helpers.line, "nip", nipRaw));
       if (nikRaw && !nik) warnings.push(buildTeacherImportIssue(helpers.line, "nik", nikRaw));
       if (tahunRaw && Number.isNaN(tahun)) warnings.push(buildTeacherImportIssue(helpers.line, "tahun_masuk", tahunRaw));
+      if (kontakRaw && !kontak) warnings.push(buildTeacherImportIssue(helpers.line, "kontak", kontakRaw));
+      if (jkRaw && !jenisKelamin) warnings.push(buildTeacherImportIssue(helpers.line, "jenis_kelamin", jkRaw));
+      if (dobRaw && !dob) warnings.push(buildTeacherImportIssue(helpers.line, "dob", dobRaw));
       return {
         row: {
           nama_lengkap: nama,
@@ -94,7 +107,9 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             undefined,
           pendidikan_terakhir: helpers.get("pendidikan_terakhir") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
-          kontak: helpers.get("kontak") || undefined,
+          kontak,
+          jenis_kelamin: jenisKelamin,
+          dob,
           alamat: helpers.get("alamat") || undefined,
           tahun_masuk: !Number.isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
@@ -141,16 +156,28 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   );
 
   const handleImport = async () => {
-    if (!validateWithAlert(teacherImportValidationRules(parsed.length > 0, parseErrors.length > 0))) return;
+    diagLog("teacher_import.click", {
+      parsed: parsed.length,
+      errors: parseErrors.length,
+      warnings: parseWarnings.length,
+      file: fileName,
+    });
+    if (!validateWithAlert(teacherImportValidationRules(parsed.length > 0, parseErrors.length > 0))) {
+      diagLog("teacher_import.blocked_validation", { parsed: parsed.length, errors: parseErrors.length });
+      return;
+    }
     const idempotencyKey = crypto.randomUUID();
+    diagLog("teacher_import.mutation_start", { idempotencyKey, rows: parsed.length });
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
+      diagLog("teacher_import.mutation_success", { job_id: res.data.job_id });
       dispatch(trackJob(res.data));
       setActiveJobId(res.data.job_id);
       return;
     }
     if ("error" in res) {
       const msg = getApiErrorMessage(res.error) ?? "Gagal mengirim data ke server.";
+      diagLog("teacher_import.mutation_error", { error: JSON.stringify(res.error).slice(0, 500) });
       notifyError(`Import civitas gagal: ${msg}`);
     }
   };
@@ -170,6 +197,19 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
   const canImport = parsed.length > 0 && parseErrors.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
 
+  useEffect(() => {
+    if (!open) return;
+    diagLog("teacher_import.state", {
+      canImport,
+      parsed: parsed.length,
+      errors: parseErrors.length,
+      warnings: parseWarnings.length,
+      isLoading,
+      activeJobId,
+      apiError,
+    });
+  }, [open, canImport, parsed.length, parseErrors.length, parseWarnings.length, isLoading, activeJobId, apiError]);
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -184,7 +224,7 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
               <span className="font-mono bg-background border rounded px-1">nama_lengkap</span>{" "}
               <span className="text-destructive font-medium">(wajib)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">nip</span>{" "}
-              <span className="text-destructive font-medium">(wajib)</span>,{" "}
+              <span className="text-destructive font-medium">(wajib, hanya angka)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">jabatan_fungsional</span>{" "}
               <span className="text-muted-foreground/80">(= mata_pelajaran)</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">nik</span>,{" "}

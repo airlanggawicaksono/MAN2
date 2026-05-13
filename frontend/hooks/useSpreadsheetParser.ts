@@ -29,8 +29,38 @@ function normalizeHeader(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+function dateToIso(dt: Date): string {
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+}
+
+function excelSerialToIso(serial: number): string | null {
+  // Excel epoch: 1899-12-30 (handles 1900 leap year bug).
+  if (!Number.isFinite(serial) || serial <= 0 || serial > 2958465) return null;
+  const ms = Math.round(serial * 86400000);
+  const dt = new Date(Date.UTC(1899, 11, 30) + ms);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dateToIso(dt);
+}
+
 function normalizeCell(value: unknown): string {
-  return String(value ?? "").trim();
+  if (value == null) return "";
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "";
+    return dateToIso(value);
+  }
+  if (typeof value === "number") {
+    // Fallback: decimal serial in plausible date range when cellDates didn't catch it.
+    if (!Number.isInteger(value) && value > 3650 && value < 73050) {
+      const iso = excelSerialToIso(value);
+      if (iso) return iso;
+    }
+    return String(value);
+  }
+  return String(value).trim();
 }
 
 export function useSpreadsheetParser<T, C = undefined>({
@@ -48,7 +78,10 @@ export function useSpreadsheetParser<T, C = undefined>({
 
   const parseFile = useCallback(
     async (file: File): Promise<{ rows: T[]; errors: string[]; warnings: string[] }> => {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const workbook = XLSX.read(await file.arrayBuffer(), {
+        type: "array",
+        cellDates: true,
+      });
       const firstSheetName = workbook.SheetNames[0];
 
       if (!firstSheetName) {

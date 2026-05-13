@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, DragEvent } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +19,10 @@ import { notifySuccess, notifyError } from "@/lib/app-notify";
 import type { CreateStudentRequest, BulkImportResult } from "@/types/students";
 import { useSpreadsheetParser } from "@/hooks/useSpreadsheetParser";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { validateWithAlert } from "@/lib/io-guards";
+import { validateWithAlert, isPhoneLike, normalizeJenisKelamin } from "@/lib/io-guards";
+import { normalizeDateToIso } from "@/lib/date-id";
 import { buildStudentImportIssue, studentImportValidationRules } from "@/lib/form-validators";
+import { diagLog } from "@/lib/diag-log";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, SkipForward, Loader2 } from "lucide-react";
 import { ImportColumnWarnings } from "@/app/components/admin/import-column-warnings";
 
@@ -80,23 +82,42 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
       const rfidRaw = (helpers.get("rfid_number") || helpers.get("card_number") || "").trim();
       const rfid = rfidRaw || undefined;
+
+      const teleponWaliRaw = (
+        helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || ""
+      ).trim();
+      const kontakRaw = helpers.get("kontak").trim();
+      const jkRaw = helpers.get("jenis_kelamin").trim();
+      const dobRaw = helpers.get("dob").trim();
+
+      const teleponWali = isPhoneLike(teleponWaliRaw) ? teleponWaliRaw || undefined : undefined;
+      const kontak = isPhoneLike(kontakRaw) ? kontakRaw || undefined : undefined;
+      const jenisKelamin = jkRaw ? normalizeJenisKelamin(jkRaw) : undefined;
+      const dobIso = dobRaw ? normalizeDateToIso(dobRaw) : "";
+      const dob = dobIso || undefined;
+
       const warnings: string[] = [];
       if (tahunRaw && Number.isNaN(tahun)) warnings.push(buildStudentImportIssue(helpers.line, "tahun_masuk", tahunRaw));
+      if (teleponWaliRaw && !teleponWali) warnings.push(buildStudentImportIssue(helpers.line, "no_telephone_wali", teleponWaliRaw));
+      if (kontakRaw && !kontak) warnings.push(buildStudentImportIssue(helpers.line, "kontak", kontakRaw));
+      if (jkRaw && !jenisKelamin) warnings.push(buildStudentImportIssue(helpers.line, "jenis_kelamin", jkRaw));
+      if (dobRaw && !dob) warnings.push(buildStudentImportIssue(helpers.line, "dob", dobRaw));
       return {
         row: {
           nama_lengkap: nama,
           nisn,
           kelas_jurusan: helpers.get("kelas_jurusan") || undefined,
           tempat_lahir: helpers.get("tempat_lahir") || undefined,
-          kontak: helpers.get("kontak") || undefined,
+          kontak,
           nama_wali: helpers.get("nama_wali") || undefined,
-          no_telephone_wali:
-            helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || undefined,
+          no_telephone_wali: teleponWali,
           alamat: helpers.get("alamat") || undefined,
           tahun_masuk: !Number.isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
           rfid_number: rfid,
           status_siswa: isAlumni ? "Lulus" : undefined,
+          jenis_kelamin: jenisKelamin,
+          dob,
         },
         warnings,
       };
@@ -140,16 +161,28 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   );
 
   const handleImport = async () => {
-    if (!validateWithAlert(studentImportValidationRules(parsed.length > 0, parseErrors.length > 0))) return;
+    diagLog("student_import.click", {
+      parsed: parsed.length,
+      errors: parseErrors.length,
+      warnings: parseWarnings.length,
+      file: fileName,
+    });
+    if (!validateWithAlert(studentImportValidationRules(parsed.length > 0, parseErrors.length > 0))) {
+      diagLog("student_import.blocked_validation", { parsed: parsed.length, errors: parseErrors.length });
+      return;
+    }
     const idempotencyKey = crypto.randomUUID();
+    diagLog("student_import.mutation_start", { idempotencyKey, rows: parsed.length });
     const res = await queueImport({ idempotencyKey, rows: parsed });
     if ("data" in res && res.data) {
+      diagLog("student_import.mutation_success", { job_id: res.data.job_id });
       dispatch(trackJob(res.data));
       setActiveJobId(res.data.job_id);
       return;
     }
     if ("error" in res) {
       const msg = getApiErrorMessage(res.error) ?? "Gagal mengirim data ke server.";
+      diagLog("student_import.mutation_error", { error: JSON.stringify(res.error).slice(0, 500) });
       notifyError(`Import siswa gagal: ${msg}`);
     }
   };
@@ -168,6 +201,19 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
   const isProcessing = isLoading || activeJobId !== null;
   const canImport = parsed.length > 0 && parseErrors.length === 0 && !isProcessing;
   const apiError = getApiErrorMessage(error);
+
+  useEffect(() => {
+    if (!open) return;
+    diagLog("student_import.state", {
+      canImport,
+      parsed: parsed.length,
+      errors: parseErrors.length,
+      warnings: parseWarnings.length,
+      isLoading,
+      activeJobId,
+      apiError,
+    });
+  }, [open, canImport, parsed.length, parseErrors.length, parseWarnings.length, isLoading, activeJobId, apiError]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
