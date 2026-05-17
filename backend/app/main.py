@@ -66,9 +66,15 @@ register_desktop_pubsub(app)
 app.add_middleware(RequestLogMiddleware)
 
 # Configure CORS
+cors_origins = settings.cors_origins
+if not cors_origins:
+    # Desktop websocket clients often send an Origin header. With an empty
+    # allowlist Starlette may reject the WS handshake with HTTP 403.
+    cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

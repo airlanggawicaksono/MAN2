@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from dataclasses import dataclass, field
 from datetime import date as date_cls
 from typing import Any, Iterable
 from uuid import UUID
 
-from fastapi import FastAPI
-try:
-    from fastapi_websocket_pubsub import PubSubEndpoint
-except ModuleNotFoundError:  # pragma: no cover - runtime fallback when package missing
-    PubSubEndpoint = None  # type: ignore[assignment]
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+from app.config.logging import get_logger
+from app.config.settings import settings
 
 
 DESKTOP_ATTENDANCE_TOPIC = "desktop.attendance.synced"
@@ -18,16 +19,54 @@ DESKTOP_ABSENSI_CHANGED_TOPIC = "desktop.absensi.changed"
 DESKTOP_SETTINGS_CHANGED_TOPIC = "desktop.settings.changed"
 DESKTOP_STUDENT_DELETED_TOPIC = "desktop.student.deleted"
 
-desktop_pubsub_endpoint = PubSubEndpoint() if PubSubEndpoint is not None else None
+log = get_logger("simandaya.desktop_pubsub")
+
+
+@dataclass
+class _DesktopWsClient:
+    websocket: WebSocket
+    topics: set[str] = field(default_factory=set)
+    send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+_clients: dict[int, _DesktopWsClient] = {}
+_clients_lock = asyncio.Lock()
+_server_call_id = 0
 
 
 def register_desktop_pubsub(app: FastAPI) -> None:
-    if desktop_pubsub_endpoint is None:
-        return
-
     @app.websocket("/api/desktop/pubsub")
-    async def desktop_pubsub_ws(websocket):
-        await desktop_pubsub_endpoint.main_loop(websocket)
+    async def desktop_pubsub_ws(websocket: WebSocket):
+        await websocket.accept()
+
+        api_key = (
+            websocket.headers.get("x-api-key")
+            or websocket.query_params.get("api_key")
+            or ""
+        ).strip()
+        if api_key != settings.DESKTOP_API_KEY:
+            await websocket.close(code=1008, reason="invalid api key")
+            return
+
+        client = _DesktopWsClient(websocket=websocket)
+        client_key = id(websocket)
+        async with _clients_lock:
+            _clients[client_key] = client
+
+        log.info("desktop_pubsub connected")
+
+        try:
+            while True:
+                raw = await websocket.receive_text()
+                await _handle_incoming_frame(client, raw)
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            log.exception("desktop_pubsub session failed")
+        finally:
+            async with _clients_lock:
+                _clients.pop(client_key, None)
+            log.info("desktop_pubsub disconnected")
 
 
 def publish_attendance_synced(payload: dict[str, Any]) -> None:
@@ -98,10 +137,67 @@ def publish_student_deleted(user_id: UUID, rfid_number: str | None) -> None:
 
 
 def _publish_async(topic: str, payload: Any) -> None:
-    if desktop_pubsub_endpoint is None:
-        return
-
     async def _run() -> None:
-        await desktop_pubsub_endpoint.publish([topic], payload)
+        await _publish_to_subscribers(topic, payload)
 
     asyncio.create_task(_run())
+
+
+async def _handle_incoming_frame(client: _DesktopWsClient, raw: str) -> None:
+    try:
+        frame = json.loads(raw)
+    except json.JSONDecodeError:
+        return
+
+    if not isinstance(frame, dict):
+        return
+
+    request = frame.get("request")
+    if not isinstance(request, dict):
+        return
+
+    method = request.get("method")
+    if method != "subscribe":
+        return
+
+    args = request.get("arguments")
+    topics = []
+    if isinstance(args, dict):
+        maybe_topics = args.get("topics")
+        if isinstance(maybe_topics, list):
+            topics = [t for t in maybe_topics if isinstance(t, str) and t.strip()]
+
+    client.topics = set(topics)
+
+    call_id = request.get("call_id")
+    if call_id is not None:
+        await _safe_send_json(
+            client,
+            {"response": {"call_id": call_id, "result": None}},
+        )
+
+
+async def _publish_to_subscribers(topic: str, payload: Any) -> None:
+    global _server_call_id
+
+    async with _clients_lock:
+        recipients = [client for client in _clients.values() if topic in client.topics]
+
+    if not recipients:
+        return
+
+    _server_call_id += 1
+    frame = {
+        "request": {
+            "call_id": f"srv-{_server_call_id}",
+            "method": "notify",
+            "arguments": {"topic": topic, "data": payload},
+        }
+    }
+
+    await asyncio.gather(*[_safe_send_json(client, frame) for client in recipients])
+
+
+async def _safe_send_json(client: _DesktopWsClient, data: dict[str, Any]) -> None:
+    async with client.send_lock:
+        await client.websocket.send_json(data)
