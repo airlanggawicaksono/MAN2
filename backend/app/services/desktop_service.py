@@ -18,10 +18,7 @@ from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.policy.desktop_policy import DesktopPolicy
 from app.repositoriy.desktop_repository import DesktopRepository
-from app.pubsub.desktop_pubsub import (
-    publish_absensi_changed,
-    publish_attendance_synced,
-)
+from app.pubsub.desktop_pubsub import publish_attendance_synced
 
 
 class DesktopService:
@@ -176,29 +173,12 @@ class DesktopService:
                 "published_at": datetime.now(timezone.utc).isoformat(),
             }
         )
-        self._publish_absensi_invalidations(ok_events)
+        # NOTE: do NOT publish desktop.absensi.changed here. Sijinak is the
+        # source of these events (it just pushed them up), so invalidating its
+        # own local TapRecords would wipe the truth the operator just produced.
+        # Admin-driven edits in absensi_service.py still publish the event —
+        # that's the legitimate §6.2 use case.
         return BulkAttendanceResponseDTO(results=results)
-
-    def _publish_absensi_invalidations(self, ok_events: list[AttendanceEventDTO]) -> None:
-        """
-        Group successful events by (date, user_id) and fan out a single
-        invalidation per group so sijinak can drop stale local locks.
-
-        Same-process sijinak that originated these events will receive its
-        own broadcast — harmless because the invalidation is idempotent
-        (deletes local cache rows that match the BE truth anyway).
-        """
-        by_date: dict[date, set[UUID]] = {}
-        for event in ok_events:
-            day = event.device_time.date()
-            by_date.setdefault(day, set()).add(event.user_id)
-
-        for day, user_ids in by_date.items():
-            publish_absensi_changed(
-                user_ids=user_ids,
-                affected_date=day,
-                kind="upsert",
-            )
 
     def _normalize_event_time(self, event: AttendanceEventDTO) -> AttendanceEventDTO:
         if event.device_time.tzinfo is None:
