@@ -55,7 +55,9 @@ export interface UpdateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
-  rfid_number?: string;
+  // rfid_number is intentionally NOT editable here. Card mutations must go
+  // through the dedicated card endpoint so the BE can enqueue a Hikvision
+  // sync job for the desktop worker.
 }
 
 export interface PaginatedStudentsResponse {
@@ -86,7 +88,6 @@ export interface CreateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
-  rfid_number?: string;
 }
 
 export interface BulkImportResultItem {

@@ -16,6 +16,7 @@ from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.models.user import User
 from app.policy.absensi_policy import AbsensiPolicy
+from app.pubsub.desktop_pubsub import publish_absensi_changed, publish_settings_changed
 from app.repositoriy.absensi_repository import AbsensiRepository
 from app.repositoriy.desktop_repository import DesktopRepository
 
@@ -91,6 +92,11 @@ class AbsensiService:
             record.marked_by = current_user.user_id
 
             await self.repo.commit()
+            publish_absensi_changed(
+                user_ids=[record.user_id],
+                affected_date=record.tanggal,
+                kind="upsert",
+            )
             return self._to_absensi_dto(record)
         except HTTPException:
             raise
@@ -105,8 +111,15 @@ class AbsensiService:
         try:
             record = await self.repo.find_absensi_by_id(absensi_id)
             self.policy.ensure_absensi_exists(record)
+            user_id_snapshot = record.user_id
+            tanggal_snapshot = record.tanggal
             await self.repo.delete_absensi(record)
             await self.repo.commit()
+            publish_absensi_changed(
+                user_ids=[user_id_snapshot],
+                affected_date=tanggal_snapshot,
+                kind="delete",
+            )
         except HTTPException:
             raise
         except Exception as e:
@@ -190,7 +203,9 @@ class AbsensiService:
             settings.late_cutoff_time = request.late_cutoff_time
             settings.updated_by = current_user.user_id
             await self.desktop_repo.commit()
-            return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+            response = AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
+            publish_settings_changed(response.model_dump(mode="json"))
+            return response
         except Exception as e:
             await self.desktop_repo.rollback()
             raise HTTPException(

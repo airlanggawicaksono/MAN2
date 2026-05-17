@@ -158,3 +158,24 @@ class JobType(Enum):
     import_teachers = "import_teachers"
     export_students = "export_students"
     export_teachers = "export_teachers"
+
+
+# ── Device Job Enums ─────────────────────────────────────────────────────────
+
+
+class DeviceJobStatus(Enum):
+    pending = "pending"
+    claimed = "claimed"
+    done = "done"
+    failed = "failed"
+
+
+class DeviceJobType(str, Enum):
+    """
+    String-valued so payload routing is by raw string and new types
+    can be added on sijinak side without BE enum change.
+    """
+    hik_card_sync = "hik.card.sync"
+    hik_person_sync = "hik.person.sync"
+    hik_person_delete = "hik.person.delete"
+    hik_cleanup = "hik.cleanup"

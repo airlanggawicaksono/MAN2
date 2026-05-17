@@ -5,13 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_db
 from app.dependencies import verify_desktop_api_key
 from app.services.desktop_service import DesktopService
-from app.dto.desktop.desktop_request import BulkAttendanceSyncDTO, CardAssignRequestDTO, CardReplaceRequestDTO
+from app.dto.absensi.attendance_settings_dto import AttendanceSettingsResponseDTO
+from app.dto.desktop.desktop_request import BulkAttendanceSyncDTO, CardSetRequestDTO
 from app.dto.desktop.desktop_response import (
     BulkAttendanceResponseDTO,
-    CardReplaceResponseDTO,
+    CardSetResponseDTO,
     PingResponseDTO,
     StudentSyncDTO,
 )
+from app.repositoriy.desktop_repository import DesktopRepository
 
 router = APIRouter(
     prefix="/api/desktop",
@@ -34,50 +36,24 @@ async def list_students(
 
 
 @router.post(
-    "/students/{user_id}/card-assign",
-    status_code=204,
-    summary="Assign RFID Card (Desktop)",
-    description="Assign a rfid_number to a student from desktop. Only allowed when student has no card.",
-    dependencies=[Depends(verify_desktop_api_key)],
-)
-async def assign_student_card(
-    user_id: UUID,
-    body: CardAssignRequestDTO,
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    service = DesktopService(db)
-    await service.assign_student_card(user_id, body.rfid_number)
-
-
-@router.delete(
     "/students/{user_id}/card",
-    response_model=CardReplaceResponseDTO,
-    summary="Remove RFID Card (Desktop)",
-    description="Remove a student's card from desktop. Returns old rfid_number for Hikvision revocation.",
+    response_model=CardSetResponseDTO,
+    summary="Set RFID Card",
+    description=(
+        "Single canonical endpoint to assign, replace, or remove a student's "
+        "RFID card. BE writes the canonical value and enqueues a hik.card.sync "
+        "DeviceJob; the sijinak worker reconciles Hikvision asynchronously. "
+        "Send `rfid_number: null` to remove."
+    ),
     dependencies=[Depends(verify_desktop_api_key)],
 )
-async def remove_student_card(
+async def set_student_card(
     user_id: UUID,
+    body: CardSetRequestDTO,
     db: AsyncSession = Depends(get_db),
-) -> CardReplaceResponseDTO:
+) -> CardSetResponseDTO:
     service = DesktopService(db)
-    return await service.remove_student_card(user_id)
-
-
-@router.post(
-    "/students/{user_id}/card-replace",
-    response_model=CardReplaceResponseDTO,
-    summary="Replace RFID Card (Desktop)",
-    description="Replace a student's card from desktop. Returns the old rfid_number for Hikvision revocation.",
-    dependencies=[Depends(verify_desktop_api_key)],
-)
-async def replace_student_card(
-    user_id: UUID,
-    body: CardReplaceRequestDTO,
-    db: AsyncSession = Depends(get_db),
-) -> CardReplaceResponseDTO:
-    service = DesktopService(db)
-    return await service.replace_student_card(user_id, body.rfid_number)
+    return await service.set_student_card(user_id, body.rfid_number)
 
 
 @router.post(
@@ -107,5 +83,26 @@ async def ping(
 ) -> PingResponseDTO:
     service = DesktopService(db)
     return await service.ping()
+
+
+@router.get(
+    "/settings",
+    response_model=AttendanceSettingsResponseDTO,
+    summary="Desktop Settings (read)",
+    description=(
+        "Returns the live attendance settings (e.g. late cutoff time) that "
+        "the sijinak app caches and surfaces in its tap UI. Edits still go "
+        "through PATCH /api/v1/absensi/settings (admin only); changes are "
+        "pushed to sijinak via the 'desktop.settings.changed' pubsub topic."
+    ),
+    dependencies=[Depends(verify_desktop_api_key)],
+)
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+) -> AttendanceSettingsResponseDTO:
+    repo = DesktopRepository(db)
+    settings = await repo.get_or_create_desktop_settings()
+    await repo.commit()
+    return AttendanceSettingsResponseDTO(late_cutoff_time=settings.late_cutoff_time)
 
 

@@ -25,9 +25,12 @@ class BulkAttendanceSyncDTO(BaseModel):
     events: list[AttendanceEventDTO] = Field(..., description="List of events to sync")
 
 
-class CardAssignRequestDTO(BaseModel):
-    rfid_number: str = Field(..., min_length=1, max_length=50)
-
-
-class CardReplaceRequestDTO(BaseModel):
-    rfid_number: str = Field(..., min_length=1, max_length=50)
+class CardSetRequestDTO(BaseModel):
+    """
+    Unified card mutation. rfid_number=null means remove.
+    Replaces the old assign/replace/remove split.
+    """
+    rfid_number: Optional[str] = Field(
+        None, min_length=1, max_length=50,
+        description="New RFID number for the student. null clears the card.",
+    )

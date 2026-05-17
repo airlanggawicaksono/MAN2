@@ -31,11 +31,16 @@ class CreateStudentRequestDTO(BaseModel):
     status_siswa: StatusSiswa = Field(default=StatusSiswa.aktif)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: str = Field(default="Indonesia", max_length=50)
-    rfid_number: Optional[str] = Field(default=None, min_length=1, max_length=50)
 
 
 class UpdateStudentRequestDTO(BaseModel):
-    """Request DTO for partial update of a student profile (Admin only)"""
+    """
+    Request DTO for partial update of a student profile (Admin only).
+
+    Note: `rfid_number` is intentionally absent. Card assignments must go
+    through POST /api/desktop/students/{user_id}/card so the Hikvision sync
+    is enqueued in the same transaction as the BE state change.
+    """
 
     nisn: Optional[str] = Field(
         default=None,
@@ -55,7 +60,6 @@ class UpdateStudentRequestDTO(BaseModel):
     status_siswa: Optional[StatusSiswa] = None
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: Optional[str] = Field(default=None, max_length=50)
-    rfid_number: Optional[str] = Field(default=None, min_length=1, max_length=50)
 
 
 # ── Guru ─────────────────────────────────────────────────────────────────────

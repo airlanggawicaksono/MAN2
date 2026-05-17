@@ -34,5 +34,15 @@ class PingResponseDTO(BaseModel):
     server_time: datetime = Field(..., description="Server UTC timestamp")
 
 
-class CardReplaceResponseDTO(BaseModel):
-    old_rfid_number: str | None = Field(None, description="Previous card number, for Hikvision revocation")
+class CardSetResponseDTO(BaseModel):
+    """
+    Unified card mutation response.
+
+    BE has already committed the canonical change to siswa_profile.rfid_number
+    and enqueued a hik.card.sync DeviceJob. The sijinak worker will pick that
+    job up (via WS notification or next poll) and reconcile Hikvision.
+    """
+    user_id: UUID
+    old_rfid_number: str | None = Field(None, description="Previous card number on the student, if any")
+    new_rfid_number: str | None = Field(None, description="New card number (null if removed)")
+    job_id: UUID = Field(..., description="ID of the enqueued hik.card.sync DeviceJob")

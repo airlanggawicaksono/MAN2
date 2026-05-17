@@ -208,15 +208,6 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>Nomor Kartu (RFID)</Label>
-              <Input
-                value={form.rfid_number || ""}
-                onChange={(e) => handleChange("rfid_number", e.target.value)}
-                placeholder="Opsional — nomor dari kartu fisik"
-                className="font-mono"
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>

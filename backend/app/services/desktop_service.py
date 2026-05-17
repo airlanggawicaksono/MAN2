@@ -6,22 +6,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.dto.desktop.desktop_request import AttendanceEventDTO, BulkAttendanceSyncDTO
-from app.dto.desktop.desktop_response import CardReplaceResponseDTO
 from app.dto.desktop.desktop_response import (
     AttendanceAckDTO,
     BulkAttendanceResponseDTO,
+    CardSetResponseDTO,
     PingResponseDTO,
     StudentSyncDTO,
 )
-from app.enums import StatusAbsensi
+from app.enums import DeviceJobType, StatusAbsensi
 from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.policy.desktop_policy import DesktopPolicy
 from app.repositoriy.desktop_repository import DesktopRepository
 from app.pubsub.desktop_pubsub import (
+    publish_absensi_changed,
     publish_attendance_synced,
-    publish_students_snapshot,
+    publish_job_created,
 )
+from app.services.device_job_service import DeviceJobService
 
 
 class DesktopService:
@@ -33,9 +35,12 @@ class DesktopService:
         db: AsyncSession,
         repo: DesktopRepository | None = None,
         policy: type[DesktopPolicy] = DesktopPolicy,
+        job_service: DeviceJobService | None = None,
     ):
+        self.db = db
         self.repo = repo or DesktopRepository(db)
         self.policy = policy
+        self.job_service = job_service or DeviceJobService(db)
 
     async def ping(self) -> PingResponseDTO:
         return PingResponseDTO(status="ok", server_time=datetime.now(timezone.utc))
@@ -69,69 +74,119 @@ class DesktopService:
                 for row in admin_rows
             ]
 
-            payload = [*students, *administrators]
-            publish_students_snapshot([item.model_dump(mode="json") for item in payload])
-            return payload
+            return [*students, *administrators]
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list students: {str(e)}",
             )
 
-    async def assign_student_card(self, user_id: UUID, rfid_number: str) -> None:
-        profile = await self.repo.find_student_profile_by_user_id(user_id)
-        if profile is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+    async def set_student_card(
+        self,
+        user_id: UUID,
+        new_rfid_number: str | None,
+    ) -> CardSetResponseDTO:
+        """
+        Single canonical entry point for assigning, replacing, or removing
+        a student's RFID card.
 
-        if profile.rfid_number is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Student already has a card. Remove it via web admin first.",
-            )
+        Writes BE state and enqueues a hik.card.sync DeviceJob in the same
+        transaction, then publishes a WS notification for fast worker pickup.
+        """
+        profile = await self._load_profile_or_404(user_id)
+        old_rfid = profile.rfid_number
 
-        existing = await self.repo.find_student_profile_by_rfid_number(rfid_number)
-        if existing is not None and existing.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Card {rfid_number} is already assigned to another student.",
-            )
+        if old_rfid == new_rfid_number:
+            return await self._build_noop_response(user_id, old_rfid)
 
-        profile.rfid_number = rfid_number
-        await self.repo.commit()
+        await self._guard_card_not_owned_elsewhere(new_rfid_number, user_id)
 
-    async def remove_student_card(self, user_id: UUID) -> CardReplaceResponseDTO:
-        profile = await self.repo.find_student_profile_by_user_id(user_id)
-        if profile is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
-        old_rfid_number = profile.rfid_number
-        profile.rfid_number = None
-        await self.repo.commit()
-        return CardReplaceResponseDTO(old_rfid_number=old_rfid_number)
-
-    async def replace_student_card(self, user_id: UUID, new_rfid_number: str) -> CardReplaceResponseDTO:
-        profile = await self.repo.find_student_profile_by_user_id(user_id)
-        if profile is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
-
-        existing = await self.repo.find_student_profile_by_rfid_number(new_rfid_number)
-        if existing is not None and existing.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Card {new_rfid_number} is already assigned to another student.",
-            )
-
-        old_rfid_number = profile.rfid_number
         profile.rfid_number = new_rfid_number
+        job = await self._enqueue_card_sync_job(user_id, profile.nama_lengkap, old_rfid, new_rfid_number)
         await self.repo.commit()
-        return CardReplaceResponseDTO(old_rfid_number=old_rfid_number)
+
+        publish_job_created(job.id, job.job_type)
+        return CardSetResponseDTO(
+            user_id=user_id,
+            old_rfid_number=old_rfid,
+            new_rfid_number=new_rfid_number,
+            job_id=job.id,
+        )
+
+    async def _load_profile_or_404(self, user_id: UUID):
+        profile = await self.repo.find_student_profile_by_user_id(user_id)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        return profile
+
+    async def _guard_card_not_owned_elsewhere(
+        self,
+        new_rfid_number: str | None,
+        user_id: UUID,
+    ) -> None:
+        if new_rfid_number is None:
+            return
+        existing = await self.repo.find_student_profile_by_rfid_number(new_rfid_number)
+        if existing is None:
+            return
+        if existing.user_id == user_id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Card {new_rfid_number} is already assigned to another student.",
+        )
+
+    async def _enqueue_card_sync_job(
+        self,
+        user_id: UUID,
+        name: str,
+        old_rfid: str | None,
+        new_rfid: str | None,
+    ):
+        payload = {
+            "user_id": str(user_id),
+            # Hikvision `employeeNo` is 32-char hex (no separators); see
+            # `hikvisionEmployeeNoFor` on sijinak for the canonical adapter.
+            "employee_no": user_id.hex,
+            "name": name,
+            "old_rfid": old_rfid,
+            "new_rfid": new_rfid,
+        }
+        return await self.job_service.enqueue(
+            job_type=DeviceJobType.hik_card_sync.value,
+            payload=payload,
+            related_user_id=user_id,
+        )
+
+    async def _build_noop_response(
+        self,
+        user_id: UUID,
+        rfid: str | None,
+    ) -> CardSetResponseDTO:
+        """
+        No-op writes still enqueue a re-sync job so the worker can repair
+        Hikvision drift if the device was missing the binding.
+        """
+        job = await self._enqueue_card_sync_job(user_id, name="", old_rfid=rfid, new_rfid=rfid)
+        await self.repo.commit()
+        publish_job_created(job.id, job.job_type)
+        return CardSetResponseDTO(
+            user_id=user_id,
+            old_rfid_number=rfid,
+            new_rfid_number=rfid,
+            job_id=job.id,
+        )
 
     async def sync_attendance(self, request: BulkAttendanceSyncDTO) -> BulkAttendanceResponseDTO:
         results: list[AttendanceAckDTO] = []
+        ok_events: list[AttendanceEventDTO] = []
         for event in request.events:
             try:
                 normalized_event = self._normalize_event_time(event)
                 ack = await self._process_event(normalized_event)
                 results.append(ack)
+                if ack.status == "ok":
+                    ok_events.append(normalized_event)
             except Exception as e:
                 results.append(
                     AttendanceAckDTO(
@@ -150,7 +205,29 @@ class DesktopService:
                 "published_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+        self._publish_absensi_invalidations(ok_events)
         return BulkAttendanceResponseDTO(results=results)
+
+    def _publish_absensi_invalidations(self, ok_events: list[AttendanceEventDTO]) -> None:
+        """
+        Group successful events by (date, user_id) and fan out a single
+        invalidation per group so sijinak can drop stale local locks.
+
+        Same-process sijinak that originated these events will receive its
+        own broadcast — harmless because the invalidation is idempotent
+        (deletes local cache rows that match the BE truth anyway).
+        """
+        by_date: dict[date, set[UUID]] = {}
+        for event in ok_events:
+            day = event.device_time.date()
+            by_date.setdefault(day, set()).add(event.user_id)
+
+        for day, user_ids in by_date.items():
+            publish_absensi_changed(
+                user_ids=user_ids,
+                affected_date=day,
+                kind="upsert",
+            )
 
     def _normalize_event_time(self, event: AttendanceEventDTO) -> AttendanceEventDTO:
         if event.device_time.tzinfo is None:

@@ -35,9 +35,11 @@ from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
-from app.enums import RegistrationStatus, StatusSiswa, StructuralRole, UserType
+from app.enums import DeviceJobType, RegistrationStatus, StatusSiswa, StructuralRole, UserType
 from app.policy.user_management_policy import UserManagementPolicy
+from app.pubsub.desktop_pubsub import publish_job_created, publish_student_deleted
 from app.repositoriy.user_management_repository import UserManagementRepository
+from app.services.device_job_service import DeviceJobService
 
 NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
     # Team-level positions are currently display-only in struktur organisasi.
@@ -79,9 +81,15 @@ NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
 
 
 class StudentUserManagementService:
-    def __init__(self, repo: UserManagementRepository, policy: type[UserManagementPolicy]):
+    def __init__(
+        self,
+        repo: UserManagementRepository,
+        policy: type[UserManagementPolicy],
+        db: AsyncSession,
+    ):
         self.repo = repo
         self.policy = policy
+        self.db = db
 
     async def list_students(
         self,
@@ -120,13 +128,7 @@ class StudentUserManagementService:
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"NISN '{request.nisn}' sudah terdaftar.",
                 )
-        if request.rfid_number:
-            existing = await self.repo.find_student_by_rfid_number(request.rfid_number)
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Nomor kartu '{request.rfid_number}' sudah dipakai siswa lain.",
-                )
+        # rfid_number is no longer settable on create — use dedicated card endpoint.
         user = User(
             user_id=uuid4(),
             user_type=UserType.siswa,
@@ -195,18 +197,19 @@ class StudentUserManagementService:
         self.policy.ensure_student_exists(profile, detail="Student not found")
 
         update_data = request.model_dump(exclude_unset=True)
+        # RFID card mutations must go through POST /api/desktop/students/{uid}/card
+        # so that the BE write is paired with a hik.card.sync DeviceJob in the
+        # same transaction. Block sneaky updates via the generic profile PATCH.
+        if "rfid_number" in update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="rfid_number cannot be edited here. Use the dedicated card endpoint.",
+            )
         self.policy.ensure_update_payload(update_data)
 
         if "nisn" in update_data and update_data["nisn"] != profile.nis:
             nisn_check = await self.repo.find_student_by_nisn(update_data["nisn"])
             self.policy.ensure_nisn_available(nisn_check is not None, update_data["nisn"])
-        if "rfid_number" in update_data and update_data["rfid_number"] != profile.rfid_number:
-            card_check = await self.repo.find_student_by_rfid_number(update_data["rfid_number"])
-            if card_check is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Nomor kartu '{update_data['rfid_number']}' sudah dipakai siswa lain.",
-                )
 
         update_data = self._map_student_payload_keys(update_data)
         for field, value in update_data.items():
@@ -223,14 +226,37 @@ class StudentUserManagementService:
         profile = await self.repo.find_student_by_id(siswa_id)
         self.policy.ensure_student_exists(profile, detail="Student not found")
 
+        # Snapshot what sijinak / Hikvision need before the row is gone.
+        user_id = profile.user_id
+        rfid_snapshot = profile.rfid_number
+
         # Delete profile first to avoid ORM nulling FK on parent delete.
         await self.repo.delete_student_profile(profile)
 
-        user = await self.repo.find_user_by_id(profile.user_id)
+        user = await self.repo.find_user_by_id(user_id)
         if user:
             await self.repo.delete_user(user)
 
+        # Outbox: ask sijinak's DeviceJob worker to delete the person + card
+        # from Hikvision. Same transaction as the BE delete.
+        job_service = DeviceJobService(self.db)
+        job = await job_service.enqueue(
+            job_type=DeviceJobType.hik_person_delete.value,
+            payload={
+                "user_id": str(user_id),
+                "employee_no": user_id.hex,
+                "rfid_number": rfid_snapshot,
+            },
+            related_user_id=user_id,
+        )
+
         await self.repo.commit()
+
+        # Pubsub: instant invalidation so sijinak drops local Drift row and
+        # unpublished TapRecords without waiting for the next snapshot poll.
+        publish_student_deleted(user_id, rfid_snapshot)
+        publish_job_created(job.id, job.job_type)
+
         return MessageResponseDTO(message="Student deleted successfully")
 
     async def _to_student_dto(self, profile: SiswaProfile) -> StudentProfileResponseDTO:
@@ -649,7 +675,7 @@ class UserManagementService:
     ):
         self.repo = repo or UserManagementRepository(db)
         self.policy = policy
-        self.students = StudentUserManagementService(self.repo, self.policy)
+        self.students = StudentUserManagementService(self.repo, self.policy, db)
         self.teachers = TeacherUserManagementService(self.repo, self.policy)
 
     async def list_students(

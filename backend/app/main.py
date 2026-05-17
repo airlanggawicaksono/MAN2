@@ -7,7 +7,7 @@ from app.pubsub.desktop_pubsub import register_desktop_pubsub
 from app.seeds import seed_admin
 from app.routers import (
     auth, users, absensi,
-    desktop, jobs,
+    desktop, jobs, device_jobs,
 )
 from app.config.settings import settings
 from app.middleware.request_log import RequestLogMiddleware
@@ -79,6 +79,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(absensi.router)
 app.include_router(desktop.router)
+app.include_router(device_jobs.router)
 app.include_router(jobs.router)
 
 

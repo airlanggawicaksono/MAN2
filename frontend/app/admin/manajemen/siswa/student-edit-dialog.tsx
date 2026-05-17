@@ -55,7 +55,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
         status_siswa: student.status_siswa,
         kontak: student.kontak ?? undefined,
         kewarganegaraan: student.kewarganegaraan,
-        rfid_number: student.rfid_number ?? undefined,
       });
     }
   }, [student]);
@@ -217,15 +216,6 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
               <Input
                 value={form.kewarganegaraan || ""}
                 onChange={(e) => handleChange("kewarganegaraan", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2 md:col-span-2">
-              <Label>Nomor Kartu (RFID)</Label>
-              <Input
-                value={form.rfid_number || ""}
-                onChange={(e) => handleChange("rfid_number", e.target.value)}
-                placeholder="Nomor dari kartu fisik siswa"
-                className="font-mono"
               />
             </div>
           </div>

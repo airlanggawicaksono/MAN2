@@ -78,6 +78,7 @@ async def init_db(drop_existing: bool = False):
     from app.models.structural_role_ref import StructuralRoleRef  # noqa: F401
     from app.models.guru_structural_assignment import GuruStructuralAssignment  # noqa: F401
     from app.models.job import Job  # noqa: F401
+    from app.models.device_job import DeviceJob  # noqa: F401
 
     async with engine.begin() as conn:
         # Serialize schema init across workers — prevents duplicate CREATE TYPE

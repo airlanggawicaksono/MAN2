@@ -84,8 +84,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
       const tahun = tahunRaw ? parseInt(tahunRaw, 10) : undefined;
       const isAlumniRaw = (helpers.get("is_alumni") ?? "").toLowerCase().trim();
       const isAlumni = isAlumniRaw === "true" || isAlumniRaw === "1" || isAlumniRaw === "ya";
-      const rfidRaw = (helpers.get("rfid_number") || helpers.get("card_number") || "").trim();
-      const rfid = rfidRaw || undefined;
 
       const teleponWaliRaw = (
         helpers.get("no_telephone_wali") || helpers.get("no_telp_wali") || helpers.get("telp_wali") || ""
@@ -118,7 +116,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
           alamat: helpers.get("alamat") || undefined,
           tahun_masuk: !Number.isNaN(tahun!) ? tahun : undefined,
           kewarganegaraan: helpers.get("kewarganegaraan") || "Indonesia",
-          rfid_number: rfid,
           status_siswa: isAlumni ? "Lulus" : undefined,
           jenis_kelamin: jenisKelamin,
           dob,
@@ -245,7 +242,6 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
               <span className="font-mono bg-background border rounded px-1">no_telephone_wali</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">tempat_lahir</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">alamat</span>,{" "}
-              <span className="font-mono bg-background border rounded px-1">rfid_number</span>,{" "}
               <span className="font-mono bg-background border rounded px-1">is_alumni</span>
             </p>
             <p>
@@ -328,7 +324,7 @@ export function StudentImportDialog({ open, onClose }: StudentImportDialogProps)
                   <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="font-medium">{s.nama_lengkap}</span>
                     <span className="text-muted-foreground/70 text-xs">
-                      {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan, s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`, s.rfid_number && `RFID: ${s.rfid_number}`, s.status_siswa === "Lulus" && "Alumni"]
+                      {[s.nisn && `NISN: ${s.nisn}`, s.kelas_jurusan, s.no_telephone_wali && `Wali: ${s.no_telephone_wali}`, s.status_siswa === "Lulus" && "Alumni"]
                         .filter(Boolean)
                         .join(" - ")}
                     </span>
