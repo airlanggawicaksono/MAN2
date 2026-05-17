@@ -11,6 +11,8 @@ from app.services.userMan_service import (
     TeacherUserManagementService,
     UserManagementService,
 )
+from app.dto.desktop.desktop_request import CardSetRequestDTO
+from app.dto.desktop.desktop_response import CardSetResponseDTO
 from app.dto.userMan.userman_request import (
     CreateGuruRequestDTO,
     CreateStudentRequestDTO,
@@ -152,6 +154,25 @@ async def update_student(
     service: StudentUserManagementService = Depends(get_student_user_service),
 ) -> StudentProfileResponseDTO:
     return await service.update_student(siswa_id, request)
+
+
+@student_router.post(
+    "/{siswa_id}/card",
+    response_model=CardSetResponseDTO,
+    summary="Set Student RFID Card (Admin)",
+    description=(
+        "Admin-side variant of the desktop card endpoint. Writes the canonical "
+        "rfid_number on siswa_profile and enqueues a hik.card.sync DeviceJob so "
+        "the sijinak worker reconciles Hikvision. Send `rfid_number: null` to remove."
+    ),
+    dependencies=[Depends(require_role(UserType.admin))],
+)
+async def set_student_card(
+    siswa_id: UUID,
+    body: CardSetRequestDTO,
+    service: StudentUserManagementService = Depends(get_student_user_service),
+) -> CardSetResponseDTO:
+    return await service.set_card_by_siswa_id(siswa_id, body.rfid_number)
 
 
 @student_router.delete(

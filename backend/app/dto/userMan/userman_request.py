@@ -31,6 +31,10 @@ class CreateStudentRequestDTO(BaseModel):
     status_siswa: StatusSiswa = Field(default=StatusSiswa.aktif)
     kontak: Optional[str] = Field(default=None, max_length=100)
     kewarganegaraan: str = Field(default="Indonesia", max_length=50)
+    # Optional RFID assignment at creation time. If provided, the service
+    # fans out to the canonical set_student_card path (BE write + hik.card.sync
+    # DeviceJob) AFTER the profile row is committed.
+    rfid_number: Optional[str] = Field(default=None, min_length=1, max_length=50)
 
 
 class UpdateStudentRequestDTO(BaseModel):

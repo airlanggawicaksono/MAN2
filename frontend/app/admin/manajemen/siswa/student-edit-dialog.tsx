@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useUpdateStudentMutation } from "@/api/admin/students";
+import { useSetStudentCardMutation, useUpdateStudentMutation } from "@/api/admin/students";
 import type { StudentProfile, UpdateStudentRequest } from "@/types/students";
 import type { JenisKelamin, StatusSiswa } from "@/types/enums";
 import { formatIsoToApiDmy, normalizeDateToIso } from "@/lib/date-id";
@@ -36,7 +36,13 @@ interface StudentEditDialogProps {
 
 export function StudentEditDialog({ student, open, onClose }: StudentEditDialogProps) {
   const [form, setForm] = useState<UpdateStudentRequest>({});
+  // RFID lives outside UpdateStudentRequest because BE rejects it on PATCH —
+  // card mutations must go through the dedicated set_student_card endpoint
+  // so a hik.card.sync DeviceJob is enqueued.
+  const [rfid, setRfid] = useState<string>("");
+  const [initialRfid, setInitialRfid] = useState<string>("");
   const [updateStudent, { isLoading, error, reset }] = useUpdateStudentMutation();
+  const [setStudentCard, { isLoading: isCardSaving }] = useSetStudentCardMutation();
 
   useEffect(() => {
     if (student) {
@@ -56,6 +62,9 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
         kontak: student.kontak ?? undefined,
         kewarganegaraan: student.kewarganegaraan,
       });
+      const currentRfid = student.rfid_number ?? "";
+      setRfid(currentRfid);
+      setInitialRfid(currentRfid);
     }
   }, [student]);
 
@@ -78,12 +87,26 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
       delete payload.tahun_masuk;
     }
     const result = await updateStudent({ siswaId: student.siswa_id, body: payload });
-    if ("data" in result) {
-      notifySuccess(`Data siswa "${student.nama_lengkap}" berhasil diperbarui.`);
-      onClose();
-    } else if ("error" in result) {
+    if ("error" in result) {
       notifyError(getApiErrorMessage(result.error) ?? "Gagal menyimpan data siswa.");
+      return;
     }
+    const cardOk = await syncCardIfChanged(student.siswa_id);
+    if (!cardOk) return;
+    notifySuccess(`Data siswa "${student.nama_lengkap}" berhasil diperbarui.`);
+    onClose();
+  };
+
+  const syncCardIfChanged = async (siswaId: string): Promise<boolean> => {
+    const desired = rfid.trim();
+    if (desired === initialRfid.trim()) return true;
+    const body = { rfid_number: desired.length > 0 ? desired : null };
+    const cardResult = await setStudentCard({ siswaId, body });
+    if ("error" in cardResult) {
+      notifyError(getApiErrorMessage(cardResult.error) ?? "Gagal menyimpan kartu RFID.");
+      return false;
+    }
+    return true;
   };
 
   const handleClose = () => {
@@ -218,13 +241,25 @@ export function StudentEditDialog({ student, open, onClose }: StudentEditDialogP
                 onChange={(e) => handleChange("kewarganegaraan", e.target.value)}
               />
             </div>
+            <div className="grid gap-2 md:col-span-2">
+              <Label>Nomor Kartu (RFID)</Label>
+              <Input
+                value={rfid}
+                onChange={(e) => setRfid(e.target.value)}
+                placeholder="Kosongkan untuk menghapus kartu"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground/80">
+                Perubahan kartu akan otomatis didorong ke Hikvision via sijinak (background job).
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
               Batal
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
+            <Button type="submit" disabled={isLoading || isCardSaving}>
+              {isLoading || isCardSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </DialogFooter>
         </form>

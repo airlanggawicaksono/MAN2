@@ -7,6 +7,8 @@ import type {
   BulkImportResult,
   PaginatedStudentsResponse,
   ListStudentsParams,
+  CardSetRequest,
+  CardSetResponse,
 } from "@/types/students";
 import type { MessageResponse } from "@/types/common";
 
@@ -74,6 +76,21 @@ export const studentsApi = createApi({
         { type: "Student", id: "LIST" },
       ],
     }),
+
+    setStudentCard: builder.mutation<
+      CardSetResponse,
+      { siswaId: string; body: CardSetRequest }
+    >({
+      query: ({ siswaId, body }) => ({
+        url: `/${siswaId}/card`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _err, { siswaId }) => [
+        { type: "Student", id: siswaId },
+        { type: "Student", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -85,4 +102,5 @@ export const {
   useGetStudentQuery,
   useUpdateStudentMutation,
   useDeleteStudentMutation,
+  useSetStudentCardMutation,
 } = studentsApi;

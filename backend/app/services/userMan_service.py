@@ -37,8 +37,10 @@ from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
 from app.enums import DeviceJobType, RegistrationStatus, StatusSiswa, StructuralRole, UserType
 from app.policy.user_management_policy import UserManagementPolicy
+from app.dto.desktop.desktop_response import CardSetResponseDTO
 from app.pubsub.desktop_pubsub import publish_job_created, publish_student_deleted
 from app.repositoriy.user_management_repository import UserManagementRepository
+from app.services.desktop_service import DesktopService
 from app.services.device_job_service import DeviceJobService
 
 NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
@@ -128,22 +130,62 @@ class StudentUserManagementService:
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"NISN '{request.nisn}' sudah terdaftar.",
                 )
-        # rfid_number is no longer settable on create — use dedicated card endpoint.
+
+        # Strip rfid out of the profile payload — it goes through the
+        # canonical set_student_card path AFTER the profile is committed,
+        # so a hik.card.sync DeviceJob is enqueued and the card duplicate
+        # check runs through the single owner.
+        rfid_to_assign = request.rfid_number
+        raw = request.model_dump()
+        raw.pop("rfid_number", None)
+
         user = User(
             user_id=uuid4(),
             user_type=UserType.siswa,
             registration_status=RegistrationStatus.pending,
             is_active=True,
         )
-        data = self._map_student_payload_keys(request.model_dump())
+        data = self._map_student_payload_keys(raw)
         profile = SiswaProfile(user_id=user.user_id, **data)
         await self.repo.add_user(user)
         await self.repo.add_student_profile(profile)
         await self.repo.commit()
         await self.repo.refresh(profile)
+
+        if rfid_to_assign:
+            await self._assign_card_after_create(profile.user_id, rfid_to_assign)
+
         profile_with_user = await self.repo.find_student_by_id_with_user(profile.siswa_id)
         self.policy.ensure_student_exists(profile_with_user, detail="Student not found after create")
         return await self._to_student_dto(profile_with_user)
+
+    async def _assign_card_after_create(self, user_id: UUID, rfid: str) -> None:
+        desktop = DesktopService(self.db)
+        await desktop.set_student_card(user_id, rfid)
+
+    async def _safe_assign_card(self, user_id: UUID, rfid: Optional[str]) -> Optional[str]:
+        """
+        Best-effort card assignment used during bulk import. Returns a warning
+        string on failure so the row can be marked created-with-warning rather
+        than rolling back the whole profile insert.
+        """
+        if not rfid:
+            return None
+        try:
+            await self._assign_card_after_create(user_id, rfid)
+            return None
+        except HTTPException as e:
+            return f"Card not assigned: {e.detail}"
+        except Exception as e:
+            return f"Card not assigned: {e}"
+
+    async def set_card_by_siswa_id(
+        self, siswa_id: UUID, new_rfid_number: str | None
+    ) -> CardSetResponseDTO:
+        profile = await self.repo.find_student_by_id(siswa_id)
+        self.policy.ensure_student_exists(profile, detail="Student not found")
+        desktop = DesktopService(self.db)
+        return await desktop.set_student_card(profile.user_id, new_rfid_number)
 
     async def bulk_create_students(
         self, requests: list[CreateStudentRequestDTO]
@@ -165,20 +207,30 @@ class StudentUserManagementService:
                             status="skipped", detail=f"NISN '{req.nisn}' sudah ada",
                         ))
                         continue
+                rfid_to_assign = req.rfid_number
+                raw = req.model_dump()
+                raw.pop("rfid_number", None)
+
                 user = User(
                     user_id=uuid4(),
                     user_type=UserType.siswa,
                     registration_status=RegistrationStatus.pending,
                     is_active=True,
                 )
-                data = self._map_student_payload_keys(req.model_dump())
+                data = self._map_student_payload_keys(raw)
                 profile = SiswaProfile(user_id=user.user_id, **data)
                 await self.repo.add_user(user)
                 await self.repo.add_student_profile(profile)
                 await self.repo.commit()
+
+                # Card assignment is best-effort per row: a duplicate-card or
+                # other error doesn't roll back the profile creation, just
+                # gets reported on the same row's detail.
+                card_warning = await self._safe_assign_card(profile.user_id, rfid_to_assign)
                 created += 1
                 items.append(BulkImportStudentResultItem(
-                    row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn, status="created",
+                    row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
+                    status="created", detail=card_warning,
                 ))
             except Exception as e:
                 await self.repo.rollback()

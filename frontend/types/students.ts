@@ -88,6 +88,20 @@ export interface CreateStudentRequest {
   status_siswa?: StatusSiswa;
   kontak?: string;
   kewarganegaraan?: string;
+  // Optional. BE fans out to the canonical set_student_card path post-insert,
+  // which enqueues a hik.card.sync DeviceJob.
+  rfid_number?: string;
+}
+
+export interface CardSetRequest {
+  rfid_number: string | null;
+}
+
+export interface CardSetResponse {
+  user_id: string;
+  old_rfid_number: string | null;
+  new_rfid_number: string | null;
+  job_id: string;
 }
 
 export interface BulkImportResultItem {

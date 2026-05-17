@@ -57,6 +57,12 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
     if (typeof payload.tahun_masuk === "number" && Number.isNaN(payload.tahun_masuk)) {
       delete payload.tahun_masuk;
     }
+    const rfidTrimmed = payload.rfid_number?.trim();
+    if (!rfidTrimmed) {
+      delete payload.rfid_number;
+    } else {
+      payload.rfid_number = rfidTrimmed;
+    }
     const result = await createStudent(payload);
     if ("data" in result && result.data) {
       notifySuccess(`Siswa "${result.data.nama_lengkap}" berhasil ditambahkan.`);
@@ -207,6 +213,15 @@ export function StudentCreateDialog({ open, onClose }: StudentCreateDialogProps)
                   <SelectItem value="Lulus">Lulus (Alumni)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2 md:col-span-2">
+              <Label>Nomor Kartu (RFID)</Label>
+              <Input
+                value={form.rfid_number || ""}
+                onChange={(e) => handleChange("rfid_number", e.target.value)}
+                placeholder="Opsional — kartu langsung di-enqueue ke Hikvision via sijinak"
+                className="font-mono"
+              />
             </div>
           </div>
           <DialogFooter>
