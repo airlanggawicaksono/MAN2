@@ -13,7 +13,7 @@ from app.dto.desktop.desktop_response import (
     PingResponseDTO,
     StudentSyncDTO,
 )
-from app.enums import DeviceJobType, StatusAbsensi
+from app.enums import StatusAbsensi
 from app.models.absensi import Absensi
 from app.models.izin_keluar import IzinKeluar
 from app.policy.desktop_policy import DesktopPolicy
@@ -21,9 +21,7 @@ from app.repositoriy.desktop_repository import DesktopRepository
 from app.pubsub.desktop_pubsub import (
     publish_absensi_changed,
     publish_attendance_synced,
-    publish_job_created,
 )
-from app.services.device_job_service import DeviceJobService
 
 
 class DesktopService:
@@ -35,12 +33,10 @@ class DesktopService:
         db: AsyncSession,
         repo: DesktopRepository | None = None,
         policy: type[DesktopPolicy] = DesktopPolicy,
-        job_service: DeviceJobService | None = None,
     ):
         self.db = db
         self.repo = repo or DesktopRepository(db)
         self.policy = policy
-        self.job_service = job_service or DeviceJobService(db)
 
     async def ping(self) -> PingResponseDTO:
         return PingResponseDTO(status="ok", server_time=datetime.now(timezone.utc))
@@ -90,8 +86,9 @@ class DesktopService:
         Single canonical entry point for assigning, replacing, or removing
         a student's RFID card.
 
-        Writes BE state and enqueues a hik.card.sync DeviceJob in the same
-        transaction, then publishes a WS notification for fast worker pickup.
+        BE writes the canonical value and returns. Hikvision side-effects are
+        sijinak's responsibility (HikOutbox + HikSyncWorker, triggered locally
+        on each successful BE write). BE has zero coupling to the device.
         """
         profile = await self._load_profile_or_404(user_id)
         old_rfid = profile.rfid_number
@@ -102,15 +99,13 @@ class DesktopService:
         await self._guard_card_not_owned_elsewhere(new_rfid_number, user_id)
 
         profile.rfid_number = new_rfid_number
-        job = await self._enqueue_card_sync_job(user_id, profile.nama_lengkap, old_rfid, new_rfid_number)
         await self.repo.commit()
 
-        publish_job_created(job.id, job.job_type)
         return CardSetResponseDTO(
             user_id=user_id,
             old_rfid_number=old_rfid,
             new_rfid_number=new_rfid_number,
-            job_id=job.id,
+            job_id=None,
         )
 
     async def _load_profile_or_404(self, user_id: UUID):
@@ -136,27 +131,6 @@ class DesktopService:
             detail=f"Card {new_rfid_number} is already assigned to another student.",
         )
 
-    async def _enqueue_card_sync_job(
-        self,
-        user_id: UUID,
-        name: str,
-        old_rfid: str | None,
-        new_rfid: str | None,
-    ):
-        payload = {
-            "user_id": str(user_id),
-            # Hikvision `employeeNo` is 32-char hex (no separators); see
-            # `hikvisionEmployeeNoFor` on sijinak for the canonical adapter.
-            "employee_no": user_id.hex,
-            "name": name,
-            "old_rfid": old_rfid,
-            "new_rfid": new_rfid,
-        }
-        return await self.job_service.enqueue(
-            job_type=DeviceJobType.hik_card_sync.value,
-            payload=payload,
-            related_user_id=user_id,
-        )
 
     async def _build_noop_response(
         self,
@@ -164,17 +138,14 @@ class DesktopService:
         rfid: str | None,
     ) -> CardSetResponseDTO:
         """
-        No-op writes still enqueue a re-sync job so the worker can repair
-        Hikvision drift if the device was missing the binding.
+        BE state already matches the requested value. Sijinak owns Hik drift
+        recovery via its own snapshot-diff path, so BE just returns.
         """
-        job = await self._enqueue_card_sync_job(user_id, name="", old_rfid=rfid, new_rfid=rfid)
-        await self.repo.commit()
-        publish_job_created(job.id, job.job_type)
         return CardSetResponseDTO(
             user_id=user_id,
             old_rfid_number=rfid,
             new_rfid_number=rfid,
-            job_id=job.id,
+            job_id=None,
         )
 
     async def sync_attendance(self, request: BulkAttendanceSyncDTO) -> BulkAttendanceResponseDTO:

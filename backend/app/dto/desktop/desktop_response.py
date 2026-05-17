@@ -38,11 +38,12 @@ class CardSetResponseDTO(BaseModel):
     """
     Unified card mutation response.
 
-    BE has already committed the canonical change to siswa_profile.rfid_number
-    and enqueued a hik.card.sync DeviceJob. The sijinak worker will pick that
-    job up (via WS notification or next poll) and reconcile Hikvision.
+    BE has committed the canonical change to siswa_profile.rfid_number.
+    Hikvision reconciliation is sijinak-local (HikOutbox); BE no longer
+    enqueues a DeviceJob for it. `job_id` is retained for backwards-compat
+    with older clients and is always null in the current flow.
     """
     user_id: UUID
     old_rfid_number: str | None = Field(None, description="Previous card number on the student, if any")
     new_rfid_number: str | None = Field(None, description="New card number (null if removed)")
-    job_id: UUID = Field(..., description="ID of the enqueued hik.card.sync DeviceJob")
+    job_id: UUID | None = Field(None, description="Deprecated; always null. Hik sync is sijinak-local.")

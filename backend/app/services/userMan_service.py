@@ -35,13 +35,12 @@ from app.models.guru_structural_assignment import GuruStructuralAssignment
 from app.models.siswa_profile import SiswaProfile
 from app.models.structural_role_ref import StructuralRoleRef
 from app.models.user import User
-from app.enums import DeviceJobType, RegistrationStatus, StatusSiswa, StructuralRole, UserType
+from app.enums import RegistrationStatus, StatusSiswa, StructuralRole, UserType
 from app.policy.user_management_policy import UserManagementPolicy
 from app.dto.desktop.desktop_response import CardSetResponseDTO
-from app.pubsub.desktop_pubsub import publish_job_created, publish_student_deleted
+from app.pubsub.desktop_pubsub import publish_student_deleted
 from app.repositoriy.user_management_repository import UserManagementRepository
 from app.services.desktop_service import DesktopService
-from app.services.device_job_service import DeviceJobService
 
 NON_ASSIGNABLE_STRUCTURAL_ROLE_CODES = {
     # Team-level positions are currently display-only in struktur organisasi.
@@ -278,7 +277,7 @@ class StudentUserManagementService:
         profile = await self.repo.find_student_by_id(siswa_id)
         self.policy.ensure_student_exists(profile, detail="Student not found")
 
-        # Snapshot what sijinak / Hikvision need before the row is gone.
+        # Snapshot what sijinak needs before the row is gone.
         user_id = profile.user_id
         rfid_snapshot = profile.rfid_number
 
@@ -289,25 +288,13 @@ class StudentUserManagementService:
         if user:
             await self.repo.delete_user(user)
 
-        # Outbox: ask sijinak's DeviceJob worker to delete the person + card
-        # from Hikvision. Same transaction as the BE delete.
-        job_service = DeviceJobService(self.db)
-        job = await job_service.enqueue(
-            job_type=DeviceJobType.hik_person_delete.value,
-            payload={
-                "user_id": str(user_id),
-                "employee_no": user_id.hex,
-                "rfid_number": rfid_snapshot,
-            },
-            related_user_id=user_id,
-        )
-
         await self.repo.commit()
 
         # Pubsub: instant invalidation so sijinak drops local Drift row and
         # unpublished TapRecords without waiting for the next snapshot poll.
+        # Hik deletion is sijinak's responsibility — its StudentDeletedSubscriber
+        # (and the next snapshot diff) enqueues a HikOutbox deletePerson row.
         publish_student_deleted(user_id, rfid_snapshot)
-        publish_job_created(job.id, job.job_type)
 
         return MessageResponseDTO(message="Student deleted successfully")
 
