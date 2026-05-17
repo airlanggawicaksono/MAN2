@@ -21,7 +21,7 @@ async def import_students(runner: JobRunner, job: Job, payload: dict[str, Any]) 
     await runner.update_progress(0, total=len(raw_rows))
     async with async_session_maker() as session:
         repo = UserManagementRepository(session)
-        service = StudentUserManagementService(repo, UserManagementPolicy)
+        service = StudentUserManagementService(repo, UserManagementPolicy, session)
         requests = [CreateStudentRequestDTO.model_validate(row) for row in raw_rows]
         result = await service.bulk_create_students(requests)
     await runner.update_progress(len(raw_rows), total=len(raw_rows))
@@ -48,7 +48,7 @@ async def export_students(runner: JobRunner, job: Job, payload: dict[str, Any]) 
     search = payload.get("search")
     async with async_session_maker() as session:
         repo = UserManagementRepository(session)
-        service = StudentUserManagementService(repo, UserManagementPolicy)
+        service = StudentUserManagementService(repo, UserManagementPolicy, session)
         page = await service.list_students(
             skip=0, limit=10000, search=search, status_siswa=status_siswa
         )
