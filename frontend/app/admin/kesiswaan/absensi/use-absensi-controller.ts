@@ -70,7 +70,7 @@ export function useAbsensiController() {
 
   useEffect(() => {
     if (!attendanceSettings?.late_cutoff_time) return;
-    setLateCutoffInput(attendanceSettings.late_cutoff_time.slice(0, 5));
+    setLateCutoffInput(attendanceSettings.late_cutoff_time);
   }, [attendanceSettings]);
 
   const stats = useMemo(() => {
@@ -142,14 +142,14 @@ export function useAbsensiController() {
     }
 
     const result = await updateAttendanceSettings({
-      late_cutoff_time: `${lateCutoffInput}:00`,
+      late_cutoff_time: lateCutoffInput,
     });
     if ("error" in result) {
       setSettingsMessage("Gagal simpan pengaturan keterlambatan.");
       return;
     }
     setSettingsMessage(
-      `Cutoff keterlambatan disimpan: ${result.data.late_cutoff_time.slice(0, 5)}`,
+      `Cutoff keterlambatan disimpan: ${result.data.late_cutoff_time}`,
     );
     await refetchAttendanceSettings();
   };

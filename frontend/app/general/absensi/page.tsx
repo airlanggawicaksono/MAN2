@@ -42,10 +42,7 @@ const STATUS_VARIANT: Record<
 
 function formatTime(dtStr: string | null) {
   if (!dtStr) return "-";
-  return new Date(dtStr).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return dtStr.slice(11, 16);
 }
 
 function DateNav({

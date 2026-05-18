@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, time, timezone, timedelta
 from typing import Annotated, Optional
 from pydantic import AfterValidator, PlainSerializer
 
@@ -33,3 +33,17 @@ WibDatetime = Annotated[
 ]
 
 WibInputDatetime = Annotated[datetime, AfterValidator(_assume_wib_if_naive)]
+
+
+def _time_to_hhmm(t: Optional[time]) -> Optional[str]:
+    """Strip seconds — wire format is `HH:MM` so frontend can render verbatim
+    and POST back the same shape without slice/append gymnastics."""
+    if t is None:
+        return None
+    return t.strftime("%H:%M")
+
+
+HhmmTime = Annotated[
+    time,
+    PlainSerializer(_time_to_hhmm, return_type=str, when_used="json"),
+]
