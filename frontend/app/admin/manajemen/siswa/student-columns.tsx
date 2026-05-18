@@ -49,7 +49,8 @@ export const studentColumns: ColumnDef<StudentProfile>[] = [
     },
   },
   {
-    accessorKey: "kontak",
-    header: "Kontak",
+    accessorKey: "no_telephone_wali",
+    header: "Kontak Wali",
+    cell: ({ row }) => row.original.no_telephone_wali || "-",
   },
 ];

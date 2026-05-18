@@ -79,10 +79,7 @@ export default function AdminIzinKesiswaanPage() {
                     <TableCell className="font-mono text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Clock className="h-3.5 w-3.5" />
-                        {new Date(izin.created_at).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {izin.created_at.slice(11, 16)}
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">{izin.nama_siswa}</TableCell>
@@ -93,10 +90,7 @@ export default function AdminIzinKesiswaanPage() {
                     <TableCell className="text-center">
                       {izin.perkiraan_kembali ? (
                         <Badge variant="secondary">
-                          {new Date(izin.perkiraan_kembali).toLocaleTimeString("id-ID", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {izin.perkiraan_kembali.slice(11, 16)}
                         </Badge>
                       ) : (
                         "-"
