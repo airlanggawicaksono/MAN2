@@ -190,6 +190,7 @@ class StudentUserManagementService:
         self, requests: list[CreateStudentRequestDTO]
     ) -> BulkImportStudentResultDTO:
         created = 0
+        filled = 0
         skipped = 0
         errors = 0
         items: list[BulkImportStudentResultItem] = []
@@ -197,40 +198,18 @@ class StudentUserManagementService:
         for i, req in enumerate(requests):
             row = i + 2
             try:
-                if req.nisn:
-                    existing = await self.repo.find_student_by_nisn(req.nisn)
-                    if existing:
+                existing = await self.repo.find_student_by_nisn(req.nisn) if req.nisn else None
+                if existing:
+                    item, was_filled = await self._merge_existing_student(row, req, existing)
+                    items.append(item)
+                    if was_filled:
+                        filled += 1
+                    else:
                         skipped += 1
-                        items.append(BulkImportStudentResultItem(
-                            row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
-                            status="skipped", detail=f"NISN '{req.nisn}' sudah ada",
-                        ))
-                        continue
-                rfid_to_assign = req.rfid_number
-                raw = req.model_dump()
-                raw.pop("rfid_number", None)
-
-                user = User(
-                    user_id=uuid4(),
-                    user_type=UserType.siswa,
-                    registration_status=RegistrationStatus.pending,
-                    is_active=True,
-                )
-                data = self._map_student_payload_keys(raw)
-                profile = SiswaProfile(user_id=user.user_id, **data)
-                await self.repo.add_user(user)
-                await self.repo.add_student_profile(profile)
-                await self.repo.commit()
-
-                # Card assignment is best-effort per row: a duplicate-card or
-                # other error doesn't roll back the profile creation, just
-                # gets reported on the same row's detail.
-                card_warning = await self._safe_assign_card(profile.user_id, rfid_to_assign)
+                    continue
+                item = await self._create_new_student(row, req)
+                items.append(item)
                 created += 1
-                items.append(BulkImportStudentResultItem(
-                    row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
-                    status="created", detail=card_warning,
-                ))
             except Exception as e:
                 await self.repo.rollback()
                 errors += 1
@@ -239,7 +218,73 @@ class StudentUserManagementService:
                     status="error", detail=str(e),
                 ))
 
-        return BulkImportStudentResultDTO(created=created, skipped=skipped, errors=errors, items=items)
+        return BulkImportStudentResultDTO(
+            created=created, filled=filled, skipped=skipped, errors=errors, items=items,
+        )
+
+    async def _create_new_student(
+        self, row: int, req: CreateStudentRequestDTO
+    ) -> BulkImportStudentResultItem:
+        rfid_to_assign = req.rfid_number
+        raw = req.model_dump()
+        raw.pop("rfid_number", None)
+
+        user = User(
+            user_id=uuid4(),
+            user_type=UserType.siswa,
+            registration_status=RegistrationStatus.pending,
+            is_active=True,
+        )
+        data = self._map_student_payload_keys(raw)
+        profile = SiswaProfile(user_id=user.user_id, **data)
+        await self.repo.add_user(user)
+        await self.repo.add_student_profile(profile)
+        await self.repo.commit()
+
+        # Card assignment is best-effort per row: a duplicate-card or
+        # other error doesn't roll back the profile creation, just
+        # gets reported on the same row's detail.
+        card_warning = await self._safe_assign_card(profile.user_id, rfid_to_assign)
+        return BulkImportStudentResultItem(
+            row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
+            status="created", detail=card_warning,
+        )
+
+    async def _merge_existing_student(
+        self, row: int, req: CreateStudentRequestDTO, existing: SiswaProfile,
+    ) -> tuple[BulkImportStudentResultItem, bool]:
+        """Re-importing the same NISN fills NULL fields on the existing row.
+        Existing non-null values are never overwritten."""
+        raw = req.model_dump()
+        rfid = raw.pop("rfid_number", None)
+        raw.pop("nisn", None)  # key column — never touch
+        data = self._map_student_payload_keys(raw)
+
+        filled_fields = _fill_blanks_on_model(existing, data)
+        if filled_fields:
+            await self.repo.commit()
+
+        card_warning: Optional[str] = None
+        if rfid and not existing.rfid_number:
+            card_warning = await self._safe_assign_card(existing.user_id, rfid)
+            if card_warning is None:
+                filled_fields.append("rfid_number")
+
+        if not filled_fields:
+            return BulkImportStudentResultItem(
+                row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
+                status="skipped",
+                detail=f"NISN '{req.nisn}' sudah ada, tidak ada field kosong yang bisa diisi",
+            ), False
+
+        joined = ", ".join(filled_fields)
+        detail = f"NISN '{req.nisn}' sudah ada, {len(filled_fields)} field ditambahkan: {joined}"
+        if card_warning:
+            detail += f"; {card_warning}"
+        return BulkImportStudentResultItem(
+            row=row, nama_lengkap=req.nama_lengkap, nisn=req.nisn,
+            status="filled", detail=detail,
+        ), True
 
     async def update_student(
         self, siswa_id: UUID, request: UpdateStudentRequestDTO
@@ -387,6 +432,7 @@ class TeacherUserManagementService:
         self, requests: list[CreateGuruRequestDTO]
     ) -> BulkImportGuruResultDTO:
         created = 0
+        filled = 0
         skipped = 0
         errors = 0
         items: list[BulkImportGuruResultItem] = []
@@ -394,15 +440,15 @@ class TeacherUserManagementService:
         for i, req in enumerate(requests):
             row = i + 2
             try:
-                if req.nip:
-                    existing = await self.repo.find_teacher_by_nip(req.nip)
-                    if existing:
+                existing = await self.repo.find_teacher_by_nip(req.nip) if req.nip else None
+                if existing:
+                    item, was_filled = await self._merge_existing_teacher(row, req, existing)
+                    items.append(item)
+                    if was_filled:
+                        filled += 1
+                    else:
                         skipped += 1
-                        items.append(BulkImportGuruResultItem(
-                            row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
-                            status="skipped", detail=f"NIP '{req.nip}' sudah ada",
-                        ))
-                        continue
+                    continue
                 user = User(
                     user_id=uuid4(),
                     user_type=UserType.guru,
@@ -425,7 +471,34 @@ class TeacherUserManagementService:
                     status="error", detail=str(e),
                 ))
 
-        return BulkImportGuruResultDTO(created=created, skipped=skipped, errors=errors, items=items)
+        return BulkImportGuruResultDTO(
+            created=created, filled=filled, skipped=skipped, errors=errors, items=items,
+        )
+
+    async def _merge_existing_teacher(
+        self, row: int, req: CreateGuruRequestDTO, existing: GuruProfile,
+    ) -> tuple[BulkImportGuruResultItem, bool]:
+        """Re-importing the same NIP fills NULL fields on the existing row."""
+        raw = req.model_dump()
+        raw.pop("nip", None)  # key column — never touch
+
+        filled_fields = _fill_blanks_on_model(existing, raw)
+        if filled_fields:
+            await self.repo.commit()
+
+        if not filled_fields:
+            return BulkImportGuruResultItem(
+                row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
+                status="skipped",
+                detail=f"NIP '{req.nip}' sudah ada, tidak ada field kosong yang bisa diisi",
+            ), False
+
+        joined = ", ".join(filled_fields)
+        return BulkImportGuruResultItem(
+            row=row, nama_lengkap=req.nama_lengkap, nip=req.nip,
+            status="filled",
+            detail=f"NIP '{req.nip}' sudah ada, {len(filled_fields)} field ditambahkan: {joined}",
+        ), True
 
     async def update_teacher(
         self, guru_id: UUID, request: UpdateGuruRequestDTO
@@ -771,3 +844,20 @@ class UserManagementService:
         self, skip: int = 0, limit: int = 100, search: Optional[str] = None
     ) -> PaginatedPublicCivitasResponse:
         return await self.teachers.list_public_civitas(skip=skip, limit=limit, search=search)
+
+
+def _fill_blanks_on_model(existing, payload: dict) -> list[str]:
+    """Set attrs on [existing] from [payload] only when existing's value is None/empty.
+    Used by bulk import to merge "additional data" rows into already-imported rows
+    without overwriting any non-null fields. Returns names of filled attrs."""
+    filled: list[str] = []
+    for key, new_value in payload.items():
+        if new_value is None or new_value == "":
+            continue
+        if not hasattr(existing, key):
+            continue
+        current = getattr(existing, key, None)
+        if current is None or current == "":
+            setattr(existing, key, new_value)
+            filled.append(key)
+    return filled

@@ -4,6 +4,7 @@ import type { CreateGuruRequest, UpdateGuruRequest } from "@/types/teachers";
 import {
   isDigitsOnly,
   isGoogleMapsEmbedUrl,
+  isBareDomain,
   isHttpUrlOrPath,
   isOptionalDigits,
   isValidYear,
@@ -129,8 +130,8 @@ export function slideLinkValidationRules(contentType: ContentType, linkUrl: stri
   }
   return [
     {
-      isValid: !trimmedLink || isHttpUrlOrPath(trimmedLink),
-      message: "Link CTA harus URL http(s) yang valid atau path yang diawali '/'.",
+      isValid: !trimmedLink || isHttpUrlOrPath(trimmedLink) || isBareDomain(trimmedLink),
+      message: "Link CTA harus URL, path '/', atau domain (contoh: 'xxx.com').",
     },
   ];
 }

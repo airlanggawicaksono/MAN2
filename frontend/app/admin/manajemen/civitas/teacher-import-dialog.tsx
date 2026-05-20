@@ -247,22 +247,40 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
             </p>
             <p>Nama boleh termasuk gelar (contoh: "Ahmad Fauzi, S.Pd.").</p>
             <p>Civitas tidak menggunakan RFID - kolom rfid akan diabaikan.</p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <a
                 href="/samples/civitas-import-basic.csv"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >
-                Download sample CSV civitas
+                Sample CSV civitas
               </a>
               <a
                 href="/samples/civitas-import-new.xlsx"
                 download
                 className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
               >
-                Download sample XLSX civitas
+                Sample XLSX civitas
+              </a>
+              <a
+                href="/samples/civitas-import-partial-1.csv"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Partial 1 (data minimal)
+              </a>
+              <a
+                href="/samples/civitas-import-partial-2.csv"
+                download
+                className="inline-flex text-primary underline underline-offset-2 hover:opacity-90"
+              >
+                Partial 2 (mengisi field kosong)
               </a>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Re-import NIP yang sudah ada akan mengisi field kosong (bukan menimpa).
+              Coba upload partial 1 dulu, lalu partial 2.
+            </p>
           </div>
 
           {!result && (
@@ -297,9 +315,17 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
 
           {parseErrors.length > 0 && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-1">
-              {parseErrors.map((e, i) => (
+              <p className="text-xs font-semibold text-destructive">
+                {parseErrors.length} error parsing — menampilkan {Math.min(parseErrors.length, 10)} pertama.
+              </p>
+              {parseErrors.slice(0, 10).map((e, i) => (
                 <p key={i} className="text-xs text-destructive">{e}</p>
               ))}
+              {parseErrors.length > 10 && (
+                <p className="text-xs italic text-destructive/80">
+                  + {parseErrors.length - 10} error lainnya tidak ditampilkan.
+                </p>
+              )}
             </div>
           )}
 
@@ -337,11 +363,17 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
 
           {result && (
             <div className="space-y-3">
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 <Badge variant="default" className="gap-1">
                   <CheckCircle2 className="h-3 w-3" />
                   {result.created} ditambahkan
                 </Badge>
+                {result.filled > 0 && (
+                  <Badge variant="default" className="gap-1 bg-blue-600 hover:bg-blue-700">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {result.filled} dilengkapi
+                  </Badge>
+                )}
                 {result.skipped > 0 && (
                   <Badge variant="secondary" className="gap-1">
                     <SkipForward className="h-3 w-3" />
@@ -355,17 +387,17 @@ export function TeacherImportDialog({ open, onClose }: TeacherImportDialogProps)
                   </Badge>
                 )}
               </div>
-              {(result.skipped > 0 || result.errors > 0) && (
+              {(result.filled > 0 || result.skipped > 0 || result.errors > 0) && (
                 <div className="max-h-40 overflow-y-auto rounded border border-border/70 divide-y text-xs">
                   {result.items
                     .filter((it) => it.status !== "created")
                     .map((it, i) => (
                       <div key={i} className="flex items-start gap-2 px-3 py-2">
                         <Badge
-                          variant={it.status === "skipped" ? "secondary" : "destructive"}
+                          variant={it.status === "error" ? "destructive" : "secondary"}
                           className="text-[10px] shrink-0"
                         >
-                          {it.status === "skipped" ? "Lewati" : "Error"}
+                          {it.status === "filled" ? "Dilengkapi" : it.status === "skipped" ? "Lewati" : "Error"}
                         </Badge>
                         <span className="text-foreground">
                           Baris {it.row}: {it.nama_lengkap}

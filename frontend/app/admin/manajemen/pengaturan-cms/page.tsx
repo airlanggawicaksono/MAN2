@@ -73,6 +73,12 @@ const sections: {
   },
 ];
 
+function dialogWidthClass(type: ContentType): string {
+  // Carousel utama = wide hero (128:21). Match modal width so preview fills.
+  const width = type === "carousel" ? "max-w-5xl" : "max-w-lg";
+  return `${width} max-h-[90vh] overflow-y-auto`;
+}
+
 function extractYouTubeId(url: string): string | null {
   const match = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
@@ -301,7 +307,7 @@ export default function SettingPage() {
         open={isAddDialogOpen}
         onOpenChange={(open) => !open && closeAddDialog()}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className={dialogWidthClass(activeType)}>
           <DialogHeader>
             <DialogTitle>
               {sections.find((s) => s.key === activeType)?.addLabel} Baru
@@ -319,7 +325,7 @@ export default function SettingPage() {
         open={isEditDialogOpen}
         onOpenChange={(open) => !open && closeEditDialog()}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className={dialogWidthClass(activeType)}>
           <DialogHeader>
             <DialogTitle>Ubah Konten</DialogTitle>
             <DialogDescription>Ubah detail konten.</DialogDescription>

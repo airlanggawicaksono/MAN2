@@ -65,8 +65,8 @@
     "image_position_x": 39.60104399701715,
     "image_position_y": 24.665076160763444,
     "image_zoom": 100,
-    "link_url": null,
-    "link_label": null,
+    "link_url": "https://google.com",
+    "link_label": "twtwtwtwtw",
     "order_index": 3,
     "is_active": true,
     "image_version": 1
@@ -87,6 +87,24 @@
     "link_url": null,
     "link_label": null,
     "order_index": 4,
+    "is_active": true
+  },
+  {
+    "id": "cbe50e5e-8844-4b66-b597-6fd5f886e31c",
+    "type": "carousel",
+    "title": "ssswww32423421423432",
+    "description": "23432423423432",
+    "bg": "bg-primary",
+    "fg": "text-primary-foreground",
+    "image_url": null,
+    "image_version": null,
+    "image_fit": "contain",
+    "image_position_x": 50,
+    "image_position_y": 50,
+    "image_zoom": 100,
+    "link_url": "/general",
+    "link_label": "2342342423423423423423423432",
+    "order_index": 5,
     "is_active": true
   }
 ]

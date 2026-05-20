@@ -16,7 +16,6 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   Users,
@@ -99,11 +98,11 @@ export default function IndexPage() {
       {slides.length > 0 && (
         <Carousel opts={{ loop: true }} className="w-full">
           <CarouselContent>
-            {slides.map((slide) => (
-              <CarouselItem key={slide.id}>
-                <Card className="overflow-hidden border-border/60">
+            {slides.map((slide) => {
+              const card = (
+                <Card className="overflow-hidden border-border/60 transition-colors hover:border-primary/40">
                   <CardContent className="flex flex-col p-0">
-                    {slide.image_url && (
+                    {slide.image_url ? (
                       <div className={`w-full overflow-hidden rounded-md border border-border/60 bg-muted/25 ${CMS_IMAGE_FRAME_CLASS_BY_TYPE.carousel}`}>
                         <img
                           src={slide.image_url}
@@ -117,10 +116,19 @@ export default function IndexPage() {
                           }}
                         />
                       </div>
+                    ) : (
+                      <div className={`flex w-full flex-col items-center justify-center text-center p-8 md:p-12 ${slide.bg ?? "bg-primary"} ${slide.fg ?? "text-primary-foreground"} ${CMS_IMAGE_FRAME_CLASS_BY_TYPE.carousel}`}>
+                        {slide.title && (
+                          <h2 className="text-2xl font-semibold md:text-4xl">{slide.title}</h2>
+                        )}
+                        {slide.description && (
+                          <p className="mt-3 max-w-2xl text-base opacity-90 md:text-lg">
+                            {slide.description}
+                          </p>
+                        )}
+                      </div>
                     )}
-                    {(slide.title ||
-                      slide.description ||
-                      (slide.link_url && slide.link_label)) && (
+                    {slide.image_url && (slide.title || slide.description) && (
                       <div className="flex flex-col items-center p-6 text-center">
                         {slide.title && (
                           <h2 className="text-2xl font-semibold md:text-4xl">{slide.title}</h2>
@@ -130,17 +138,24 @@ export default function IndexPage() {
                             {slide.description}
                           </p>
                         )}
-                        {slide.link_url && slide.link_label && (
-                          <Button asChild variant="secondary" className="mt-6">
-                            <Link href={slide.link_url}>{slide.link_label}</Link>
-                          </Button>
-                        )}
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </CarouselItem>
-            ))}
+              );
+
+              return (
+                <CarouselItem key={slide.id}>
+                  {slide.link_url ? (
+                    <Link href={slide.link_url} className="block">
+                      {card}
+                    </Link>
+                  ) : (
+                    card
+                  )}
+                </CarouselItem>
+              );
+            })}
           </CarouselContent>
           <CarouselPrevious className="left-3 md:left-4" />
           <CarouselNext className="right-3 md:right-4" />

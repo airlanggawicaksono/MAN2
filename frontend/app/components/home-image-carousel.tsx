@@ -68,9 +68,9 @@ export function HomeImageCarousel({
       <CarouselContent>
         {items.map((item) => {
           const content = (
-            <Card className={`overflow-hidden border-border/60 ${cardClassName}`}>
+            <Card className={`overflow-hidden border-border/60 transition-colors hover:border-primary/40 ${cardClassName}`}>
               <CardContent className="flex flex-col p-0">
-                {item.image_url && (
+                {item.image_url ? (
                   <div className={`w-full bg-muted/25 ${imageFrameClassName}`}>
                     <img
                       src={item.image_url}
@@ -85,8 +85,17 @@ export function HomeImageCarousel({
                       }}
                     />
                   </div>
+                ) : (
+                  <div className={`flex w-full flex-col items-center justify-center text-center p-6 ${item.bg ?? "bg-primary"} ${item.fg ?? "text-primary-foreground"} ${imageFrameClassName}`}>
+                    {item.title && (
+                      <p className="text-lg font-semibold md:text-xl">{item.title}</p>
+                    )}
+                    {item.description && (
+                      <p className="mt-2 max-w-md text-sm opacity-90">{item.description}</p>
+                    )}
+                  </div>
                 )}
-                {showTitle && item.title && (
+                {showTitle && item.image_url && item.title && (
                   <div className="p-4">
                     <p className="text-sm font-semibold">{item.title}</p>
                   </div>

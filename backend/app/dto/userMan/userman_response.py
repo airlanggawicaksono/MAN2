@@ -90,12 +90,13 @@ class BulkImportStudentResultItem(BaseModel):
     row: int
     nama_lengkap: str
     nisn: Optional[str] = None
-    status: Literal["created", "skipped", "error"]
+    status: Literal["created", "filled", "skipped", "error"]
     detail: Optional[str] = None
 
 
 class BulkImportStudentResultDTO(BaseModel):
     created: int
+    filled: int = 0
     skipped: int
     errors: int
     items: list[BulkImportStudentResultItem]
@@ -105,12 +106,13 @@ class BulkImportGuruResultItem(BaseModel):
     row: int
     nama_lengkap: str
     nip: Optional[str] = None
-    status: Literal["created", "skipped", "error"]
+    status: Literal["created", "filled", "skipped", "error"]
     detail: Optional[str] = None
 
 
 class BulkImportGuruResultDTO(BaseModel):
     created: int
+    filled: int = 0
     skipped: int
     errors: int
     items: list[BulkImportGuruResultItem]

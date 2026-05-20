@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Minus, Plus, UploadCloud } from "lucide-react";
 import type { CarouselSlide, CreateSlideRequest, ContentType, ImageFitMode } from "@/types/cms";
 import { useUploadImageMutation } from "@/api/admin/setContentManagement";
-import { validateWithAlert } from "@/lib/io-guards";
+import { normalizeCtaLink, validateWithAlert } from "@/lib/io-guards";
 import { slideLinkValidationRules } from "@/lib/form-validators";
 import {
   CMS_DEFAULT_IMAGE_FIT_BY_TYPE,
@@ -84,6 +85,25 @@ function imagePreviewMaxWidth(): string {
   return "max-w-full";
 }
 
+type DisplayMode = "banner" | "image";
+
+function initialDisplayMode(defaults?: Partial<CarouselSlide>): DisplayMode {
+  return defaults?.image_url ? "image" : "banner";
+}
+
+function isVisualContent(type: ContentType): boolean {
+  return type === "carousel" || type === "flyer" || type === "media";
+}
+
+function visualHints(type: ContentType): { titleHint: string; previewLabel: string } {
+  if (type === "carousel") return { titleHint: "Contoh: Selamat Datang di SIMANDAYA", previewLabel: "Preview" };
+  if (type === "flyer") return { titleHint: "Contoh: Flyer PPDB MAN 2 2026", previewLabel: "Preview flyer" };
+  return { titleHint: "Contoh: Dokumentasi Kegiatan Kelas XII", previewLabel: "Preview media" };
+}
+
+const CTA_LINK_PLACEHOLDER = "/informasi, xxx.com, atau https://man2yk.sch.id/ppdb";
+const CTA_LINK_HELP = "Boleh path internal (`/halaman`), domain (`xxx.com`), atau URL lengkap.";
+
 function toRawErrorText(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message || String(error);
@@ -137,10 +157,10 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     defaultValues?.image_fit ?? CMS_DEFAULT_IMAGE_FIT_BY_TYPE[contentType],
   );
   const [linkUrl, setLinkUrl] = useState(defaultValues?.link_url ?? "");
-  const [linkLabel, setLinkLabel] = useState(defaultValues?.link_label ?? "");
   const [imagePositionX, setImagePositionX] = useState<number>(defaultValues?.image_position_x ?? 50);
   const [imagePositionY, setImagePositionY] = useState<number>(defaultValues?.image_position_y ?? 50);
   const [imageZoom, setImageZoom] = useState<number>(defaultValues?.image_zoom ?? 100);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(initialDisplayMode(defaultValues));
   const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [isDragOverPicker, setIsDragOverPicker] = useState(false);
   const [isDraggingFocus, setIsDraggingFocus] = useState(false);
@@ -171,7 +191,7 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     setImagePositionY(defaultValues?.image_position_y ?? 50);
     setImageZoom(defaultValues?.image_zoom ?? 100);
     setLinkUrl(defaultValues?.link_url ?? "");
-    setLinkLabel(defaultValues?.link_label ?? "");
+    setDisplayMode(initialDisplayMode(defaultValues));
     setSelectedFileName("");
     isPersistedRef.current = false;
     activeImageUrlRef.current = defaultValues?.image_url ?? "";
@@ -434,6 +454,11 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     e.preventDefault();
     const trimmedLink = linkUrl.trim();
     if (!validateWithAlert(slideLinkValidationRules(contentType, trimmedLink))) return;
+    const normalizedLink = contentType === "video" || contentType === "lokasi"
+      ? trimmedLink
+      : normalizeCtaLink(trimmedLink);
+
+    const stripImageFields = isVisualContent(contentType) && displayMode === "banner";
 
     const payload: CreateSlideRequest = {
       type: contentType,
@@ -441,13 +466,13 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
       description: description || null,
       bg,
       fg,
-      image_url: imageUrl || null,
-      image_fit: contentType === "video" || contentType === "lokasi" ? null : imageFit,
-      image_position_x: contentType === "video" || contentType === "lokasi" ? null : imagePositionX,
-      image_position_y: contentType === "video" || contentType === "lokasi" ? null : imagePositionY,
-      image_zoom: contentType === "video" || contentType === "lokasi" ? null : imageZoom,
-      link_url: trimmedLink || null,
-      link_label: linkLabel || null,
+      image_url: stripImageFields ? null : imageUrl || null,
+      image_fit: contentType === "video" || contentType === "lokasi" || stripImageFields ? null : imageFit,
+      image_position_x: contentType === "video" || contentType === "lokasi" || stripImageFields ? null : imagePositionX,
+      image_position_y: contentType === "video" || contentType === "lokasi" || stripImageFields ? null : imagePositionY,
+      image_zoom: contentType === "video" || contentType === "lokasi" || stripImageFields ? null : imageZoom,
+      link_url: normalizedLink || null,
+      link_label: null,
     };
 
     try {
@@ -540,186 +565,124 @@ export function SlideForm({ contentType, defaultValues, onSubmit, isLoading }: P
     );
   }
 
-  if (contentType === "media") {
+  const { titleHint, previewLabel } = visualHints(contentType);
+
+  function renderBannerFields() {
     return (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {sizeGuidePanel}
-
-        {renderImagePicker()}
-
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label>Mode Resize Gambar</Label>
-          <Select value={imageFit} onValueChange={(value) => setImageFit(value as ImageFitMode)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {IMAGE_FIT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{IMAGE_FIT_OPTIONS.find((opt) => opt.value === imageFit)?.note}</p>
-        </div>
-
-        {renderInteractivePreview("Preview media")}
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="title">Judul (Opsional)</Label>
-          <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Contoh: Dokumentasi Kegiatan Kelas XII" />
-        </div>
-
-        <Button type="submit" disabled={isLoading || uploading} className="mt-2">
-          {isLoading ? "Menyimpan..." : "Simpan"}
-        </Button>
-      </form>
-    );
-  }
-
-  if (contentType === "flyer") {
-    return (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {sizeGuidePanel}
-
-        {renderImagePicker()}
-
-        <div className="flex flex-col gap-1.5">
-          <Label>Mode Resize Gambar</Label>
-          <Select value={imageFit} onValueChange={(value) => setImageFit(value as ImageFitMode)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {IMAGE_FIT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{IMAGE_FIT_OPTIONS.find((opt) => opt.value === imageFit)?.note}</p>
-        </div>
-
-        {renderInteractivePreview("Preview flyer")}
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="title">Judul (Opsional)</Label>
-          <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Contoh: Flyer PPDB MAN 2 2026" />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="link_url">Link CTA (Opsional)</Label>
+          <Label htmlFor="title">Judul</Label>
           <Input
-            id="link_url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="Contoh: https://man2yk.sch.id/ppdb"
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={titleHint}
           />
         </div>
-
-        <Button type="submit" disabled={isLoading || uploading} className="mt-2">
-          {isLoading ? "Menyimpan..." : "Simpan"}
-        </Button>
-      </form>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="description">Deskripsi</Label>
+          <Input
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Contoh: Informasi layanan, agenda, atau pengumuman utama."
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label>Background</Label>
+            <Select value={bg} onValueChange={setBg}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BG_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Warna Teks</Label>
+            <Select value={fg} onValueChange={setFg}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {FG_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className={`${bg} ${fg} rounded-md p-6 text-center`}>
+          <p className="font-semibold text-base">{title || "Judul Slide"}</p>
+          <p className="text-sm opacity-80 mt-1">{description || "Deskripsi slide"}</p>
+        </div>
+      </div>
     );
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {sizeGuidePanel}
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Judul</Label>
-        <Input
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Contoh: Selamat Datang di SIMANDAYA"
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="description">Deskripsi</Label>
-        <Input
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Contoh: Informasi layanan, agenda, atau pengumuman utama."
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+  function renderImageFields() {
+    return (
+      <div className="flex flex-col gap-4">
+        {renderImagePicker()}
         <div className="flex flex-col gap-1.5">
-          <Label>Background</Label>
-          <Select value={bg} onValueChange={setBg}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
+          <Label>Mode Resize Gambar</Label>
+          <Select value={imageFit} onValueChange={(value) => setImageFit(value as ImageFitMode)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {BG_OPTIONS.map((opt) => (
+              {IMAGE_FIT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            {IMAGE_FIT_OPTIONS.find((opt) => opt.value === imageFit)?.note}
+          </p>
         </div>
-
+        {renderInteractivePreview(previewLabel)}
         <div className="flex flex-col gap-1.5">
-          <Label>Warna Teks</Label>
-          <Select value={fg} onValueChange={setFg}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FG_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="title">Judul (Opsional)</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={titleHint}
+          />
         </div>
       </div>
+    );
+  }
 
-      <div className={`${bg} ${fg} rounded-md p-4 text-center`}>
-        <p className="font-semibold text-sm">{title || "Judul Slide"}</p>
-        <p className="text-xs opacity-80 mt-1">{description || "Deskripsi slide"}</p>
-      </div>
-
-      {renderImagePicker()}
-
-      <div className="flex flex-col gap-1.5">
-        <Label>Mode Resize Gambar</Label>
-        <Select value={imageFit} onValueChange={(value) => setImageFit(value as ImageFitMode)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {IMAGE_FIT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">{IMAGE_FIT_OPTIONS.find((opt) => opt.value === imageFit)?.note}</p>
-      </div>
-
-      {renderInteractivePreview("Preview")}
-
+  function renderLinkCtaFields() {
+    return (
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="link_url">Link CTA (Opsional)</Label>
         <Input
           id="link_url"
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
-          placeholder="Contoh: https://man2yk.sch.id atau /informasi"
+          placeholder={CTA_LINK_PLACEHOLDER}
         />
+        <p className="text-xs text-muted-foreground">{CTA_LINK_HELP}</p>
       </div>
+    );
+  }
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="link_label">Label Tombol (Opsional)</Label>
-        <Input
-          id="link_label"
-          value={linkLabel}
-          onChange={(e) => setLinkLabel(e.target.value)}
-          placeholder="Contoh: Lihat Selengkapnya"
-        />
-      </div>
-
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {sizeGuidePanel}
+      <Tabs value={displayMode} onValueChange={(v) => setDisplayMode(v as DisplayMode)}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="banner">Panji Umum</TabsTrigger>
+          <TabsTrigger value="image">Gambar</TabsTrigger>
+        </TabsList>
+        <TabsContent value="banner" className="mt-4">
+          {renderBannerFields()}
+        </TabsContent>
+        <TabsContent value="image" className="mt-4">
+          {renderImageFields()}
+        </TabsContent>
+      </Tabs>
+      {renderLinkCtaFields()}
       <Button type="submit" disabled={isLoading || uploading} className="mt-2">
         {isLoading ? "Menyimpan..." : "Simpan"}
       </Button>

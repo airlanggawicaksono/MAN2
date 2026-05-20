@@ -108,12 +108,13 @@ export interface BulkImportResultItem {
   row: number;
   nama_lengkap: string;
   nisn?: string;
-  status: "created" | "skipped" | "error";
+  status: "created" | "filled" | "skipped" | "error";
   detail?: string;
 }
 
 export interface BulkImportResult {
   created: number;
+  filled: number;
   skipped: number;
   errors: number;
   items: BulkImportResultItem[];

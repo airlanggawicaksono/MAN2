@@ -92,12 +92,13 @@ export interface BulkImportGuruResultItem {
   row: number;
   nama_lengkap: string;
   nip?: string;
-  status: "created" | "skipped" | "error";
+  status: "created" | "filled" | "skipped" | "error";
   detail?: string;
 }
 
 export interface BulkImportGuruResult {
   created: number;
+  filled: number;
   skipped: number;
   errors: number;
   items: BulkImportGuruResultItem[];

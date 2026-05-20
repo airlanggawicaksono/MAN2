@@ -48,6 +48,32 @@ export function isHttpUrlOrPath(value: string): boolean {
   return isHttpUrl(value);
 }
 
+/// True iff [value] looks like a bare domain (no scheme), e.g. `xxx.com`,
+/// `man2yk.sch.id`, or `site.co.id/path`. Used for lenient CTA link entry —
+/// admins can type bare domains and the form normalizes by prepending https.
+export function isBareDomain(value: string): boolean {
+  if (!value || value.includes(" ")) return false;
+  if (value.startsWith("/")) return false;
+  if (/^https?:/i.test(value)) return false;
+  if (!value.includes(".")) return false;
+  try {
+    const url = new URL(`https://${value}`);
+    return url.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
+
+/// Normalize user-entered CTA link into something Next.js Link/anchor can use.
+/// Bare domains get `https://` prepended. Paths and full URLs pass through.
+export function normalizeCtaLink(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("/") || /^https?:/i.test(trimmed)) return trimmed;
+  if (isBareDomain(trimmed)) return `https://${trimmed}`;
+  return trimmed;
+}
+
 export function isYouTubeUrl(value: string): boolean {
   if (!isHttpUrl(value)) return false;
   const url = new URL(value);
