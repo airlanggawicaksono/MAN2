@@ -22,18 +22,18 @@ export const roleRoutePrefix: Partial<Record<UserType, string>> = {
 };
 
 export const generalNav: NavItem[] = [
-  { label: "Beranda", href: "/general" },
-  { label: "Struktur Organisasi", href: "/general/struktur-organisasi" },
+  { label: "Beranda", href: "/" },
+  { label: "Struktur Organisasi", href: "/struktur-organisasi" },
   {
     label: "Layanan",
     width: "w-[240px]",
     children: [
-      { label: "Layanan Akademik", href: "/general/layanan-akademik" },
-      { label: "Layanan Publik", href: "/general/layanan-publik" },
-      { label: "Layanan PTK", href: "/general/layanan-ptk" },
+      { label: "Layanan Akademik", href: "/layanan-akademik" },
+      { label: "Layanan Publik", href: "/layanan-publik" },
+      { label: "Layanan PTK", href: "/layanan-ptk" },
     ],
   },
-  { label: "SIJINAK", href: "/general/absensi" },
+  { label: "SIJINAK", href: "/absensi" },
 ];
 
 export const adminNav: NavItem[] = [

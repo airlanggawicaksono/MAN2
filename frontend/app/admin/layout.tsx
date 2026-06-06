@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!mounted) return;
     if (!isAdmin) {
-      router.replace("/general");
+      router.replace("/");
     }
   }, [mounted, isAdmin, router]);
 

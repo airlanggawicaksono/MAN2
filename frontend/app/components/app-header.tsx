@@ -47,7 +47,9 @@ export default function AppHeader() {
   const [logoutApi] = useLogoutMutation();
   const [login, { isLoading: loginLoading }] = useLoginMutation();
   const isRouteAllowedForRole = (target: string, roleRoute: string) =>
-    target === roleRoute || target.startsWith(`${roleRoute}/`);
+    roleRoute === "/"
+      ? !target.startsWith("/admin")
+      : target === roleRoute || target.startsWith(`${roleRoute}/`);
 
   useEffect(() => {
     const onOpenLogin = (event: Event) => {
@@ -72,7 +74,7 @@ export default function AppHeader() {
       resetAllApiState(dispatch);
       dispatch(logout());
       setShowLogoutDialog(false);
-      router.push("/general");
+      router.push("/");
     }
   };
 
@@ -90,7 +92,7 @@ export default function AppHeader() {
       setShowLoginDialog(false);
       setLoginUsername("");
       setLoginPassword("");
-      const roleHomeRoute = roleRoutePrefix[result.user.user_type] ?? "/general";
+      const roleHomeRoute = roleRoutePrefix[result.user.user_type] ?? "/";
       const targetRoute =
         postLoginRedirect && isRouteAllowedForRole(postLoginRedirect, roleHomeRoute)
           ? postLoginRedirect

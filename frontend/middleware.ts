@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
 
   if (path.startsWith("/admin")) {
     if (!userType || userType !== "Admin") {
-      return NextResponse.redirect(new URL("/general", request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
 

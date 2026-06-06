@@ -40,20 +40,20 @@ const layananCards = [
     description:
       "Informasi kurikulum, jadwal pelajaran, nilai, dan rapor siswa MAN 2 Yogyakarta.",
     icon: BookOpen,
-    href: "/general/layanan-akademik",
+    href: "/layanan-akademik",
   },
   {
     title: "Layanan Publik",
     description:
       "Informasi umum, pengumuman, dan layanan publik bagi masyarakat dan orang tua.",
     icon: Users,
-    href: "/general/layanan-publik",
+    href: "/layanan-publik",
   },
   {
     title: "Layanan PTK",
     description: "Layanan bagi Pendidik dan Tenaga Kependidikan.",
     icon: Briefcase,
-    href: "/general/layanan-ptk",
+    href: "/layanan-ptk",
   },
 ];
 
@@ -86,8 +86,8 @@ export default function IndexPage() {
 
   useEffect(() => {
     if (!isAuthenticated || !user?.user_type) return;
-    const targetRoute = roleRoutePrefix[user.user_type] ?? "/general";
-    if (targetRoute !== "/general") {
+    const targetRoute = roleRoutePrefix[user.user_type] ?? "/";
+    if (targetRoute !== "/") {
       router.replace(targetRoute);
     }
   }, [isAuthenticated, user?.user_type, router]);

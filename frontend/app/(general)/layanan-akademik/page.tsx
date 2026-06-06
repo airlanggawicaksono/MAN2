@@ -9,7 +9,7 @@ const LAYANAN_AKADEMIK = [
     title: "SIJINAK",
     description:
       "Sistem Izin dan Absensi Kesiswaan (SIJINAK) untuk monitoring kehadiran siswa.",
-    link: "/general/absensi",
+    link: "/absensi",
     image: "/images/layanan/jadwal.jpg",
     icon: Calendar,
   },

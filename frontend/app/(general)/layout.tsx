@@ -90,7 +90,7 @@ export async function generateMetadata(): Promise<Metadata> {
   );
 
   const metadataBase = getMetadataBase();
-  const canonicalPath = "/general";
+  const canonicalPath = "/";
   const firstImage = slides.find((s) => s.is_active && !!s.image_url)?.image_url ?? null;
 
   return {
