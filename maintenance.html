@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="60" />
+  <title>Sedang Pemeliharaan — SIM MAN 2 Yogyakarta</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(ellipse at top, #1e293b 0%, #0f172a 100%);
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+      animation: fadeIn 0.6s ease-out;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+      color: #38bdf8;
+      animation: spin 6s linear infinite;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem;
+      color: #f1f5f9;
+      letter-spacing: -0.02em;
+    }
+    p {
+      font-size: 1rem;
+      color: #94a3b8;
+      margin: 0 0 1rem;
+    }
+    .meta {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #334155;
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+    .meta strong { color: #cbd5e1; }
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #fbbf24;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: pulse 1.5s ease-in-out infinite;
+      vertical-align: middle;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.85); }
+    }
+    @media (max-width: 480px) {
+      h1 { font-size: 1.375rem; }
+      .icon { width: 64px; height: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+
+    <h1><span class="dot"></span>Sedang Pemeliharaan</h1>
+    <p>Sistem Informasi Manajemen MAN 2 Yogyakarta sedang dalam pemeliharaan terjadwal.</p>
+    <p>Mohon dicoba kembali beberapa saat lagi.</p>
+
+    <div class="meta">
+      Untuk bantuan mendesak, hubungi <strong>Tim IT MAN 2 Yogyakarta</strong>.<br />
+      Halaman ini akan otomatis dimuat ulang setiap 60 detik.
+    </div>
+  </main>
+</body>
+</html>

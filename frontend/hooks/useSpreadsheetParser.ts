@@ -63,6 +63,54 @@ function normalizeCell(value: unknown): string {
   return String(value).trim();
 }
 
+function rowHasContent(row: unknown[]): boolean {
+  return row.some((cell) => normalizeCell(cell) !== "");
+}
+
+// Skip leading blank rows (Google Sheets pads exports with empty rows/columns).
+// Returns index of first row containing any non-empty cell, or -1 if none.
+function findHeaderRow(grid: unknown[][]): number {
+  for (let i = 0; i < grid.length; i += 1) {
+    if (rowHasContent(grid[i])) return i;
+  }
+  return -1;
+}
+
+type HeaderMap = {
+  headerByCol: Map<number, string>;
+  lookup: Map<string, string>;
+};
+
+// Build column-index → label map from header row, dropping blank cells.
+// Filters out Google-export artifacts: empty headers, whitespace-only headers.
+function buildHeaderMap(headerRow: unknown[]): HeaderMap {
+  const headerByCol = new Map<number, string>();
+  const lookup = new Map<string, string>();
+  headerRow.forEach((rawHeader, colIdx) => {
+    const label = normalizeCell(rawHeader);
+    if (label === "") return;
+    headerByCol.set(colIdx, label);
+    lookup.set(normalizeHeader(label), label);
+  });
+  return { headerByCol, lookup };
+}
+
+// Reconstruct a row object using only known (non-blank) header columns.
+// Returns null if every named column is empty for this row.
+function buildRowObject(
+  row: unknown[],
+  headerByCol: Map<number, string>,
+): Record<string, unknown> | null {
+  const obj: Record<string, unknown> = {};
+  let hasAny = false;
+  headerByCol.forEach((label, colIdx) => {
+    const value = row[colIdx] ?? "";
+    obj[label] = value;
+    if (normalizeCell(value) !== "") hasAny = true;
+  });
+  return hasAny ? obj : null;
+}
+
 export function useSpreadsheetParser<T, C = undefined>({
   requiredHeaders,
   createContext,
@@ -97,12 +145,16 @@ export function useSpreadsheetParser<T, C = undefined>({
       }
 
       const firstSheet = workbook.Sheets[firstSheetName];
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+      // Read as 2D grid so we can detect/skip Google Sheets export artifacts
+      // (leading blank rows, blank columns) before trusting any header row.
+      // Keep blank rows in grid (no blankrows:false) so file line numbers stay accurate.
+      const grid = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
+        header: 1,
         defval: "",
       });
       const errors: string[] = [];
 
-      if (rawRows.length === 0) {
+      if (grid.length === 0) {
         return {
           rows: [],
           errors: ["File kosong. Pastikan ada header dan data."],
@@ -112,18 +164,37 @@ export function useSpreadsheetParser<T, C = undefined>({
         };
       }
 
-      const headerLookup = new Map<string, string>();
-      Object.keys(rawRows[0]).forEach((header) => {
-        headerLookup.set(normalizeHeader(header), header);
-      });
+      const headerRowIdx = findHeaderRow(grid);
+      if (headerRowIdx === -1) {
+        return {
+          rows: [],
+          errors: ["Tidak menemukan baris header. Pastikan ada baris berisi nama kolom."],
+          warnings: [],
+          totalRows: 0,
+          skippedCount: 0,
+        };
+      }
+
+      const { headerByCol, lookup: headerLookup } = buildHeaderMap(grid[headerRowIdx]);
 
       for (const requiredHeader of requiredHeaders) {
         if (!headerLookup.has(requiredHeader)) {
           errors.push(`Header wajib '${requiredHeader}' tidak ditemukan.`);
         }
       }
+
+      // Pair each data row with its real file line (1-indexed) so error messages
+      // point at the actual row the user sees in Excel/Sheets even after we
+      // skipped leading blanks.
+      const dataGrid = grid.slice(headerRowIdx + 1);
+      const indexedRows: { obj: Record<string, unknown>; line: number }[] = [];
+      dataGrid.forEach((row, dataIdx) => {
+        const obj = buildRowObject(row, headerByCol);
+        if (obj) indexedRows.push({ obj, line: headerRowIdx + 2 + dataIdx });
+      });
+
       if (errors.length > 0) {
-        return { rows: [], errors, warnings: [], totalRows: rawRows.length, skippedCount: 0 };
+        return { rows: [], errors, warnings: [], totalRows: indexedRows.length, skippedCount: 0 };
       }
 
       const rows: T[] = [];
@@ -131,8 +202,7 @@ export function useSpreadsheetParser<T, C = undefined>({
       let skippedCount = 0;
       const context = createContext ? createContext() : (undefined as C);
 
-      rawRows.forEach((rawRow, index) => {
-        const line = index + 2;
+      indexedRows.forEach(({ obj: rawRow, line }) => {
         const result = mapRow(
           rawRow,
           {
@@ -159,7 +229,7 @@ export function useSpreadsheetParser<T, C = undefined>({
         }
       });
 
-      return { rows, errors, warnings, totalRows: rawRows.length, skippedCount };
+      return { rows, errors, warnings, totalRows: indexedRows.length, skippedCount };
     },
     [createContext, mapRow, requiredHeaders]
   );
